@@ -27,7 +27,8 @@ import { CheckIcon, UploadIcon } from "../icons";
 import { useSave } from "../use-save";
 
 type Props = { accounts: ImportAccount[]; currency: string; locale: string };
-type LoadedFile = { name: string; rows: string[][] };
+/** A chosen file: its text, which is what gets sent, and its rows, for the preview. */
+type LoadedFile = { name: string; text: string; rows: string[][] };
 type Done = { imported: number; duplicates: number; batch: string; account: string };
 
 const PREVIEW_ROWS = 8;
@@ -63,6 +64,9 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
 
   async function load(chosen: File | undefined) {
     if (!chosen) return;
+    // Emptied so that choosing the same file again, after it was refused and
+    // exported anew, is noticed by the browser.
+    if (input.current) input.current.value = "";
     setError(null);
     if (chosen.size > MAX_FILE_BYTES) {
       return setError("This file is too large. Export a shorter period from your bank.");
@@ -82,7 +86,7 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
     if (oversized) {
       return setError("This does not look like a bank export: its rows are too wide or too long.");
     }
-    setFile({ name: chosen.name, rows });
+    setFile({ name: chosen.name, text, rows });
     chooseMapping(rows, account);
   }
 
@@ -131,9 +135,9 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
 
   function runImport() {
     if (!file || !mapping || !result) return;
-    // The server reads the rows itself, with the same mapping as the preview.
+    // The server reads the file itself, with the same mapping as the preview.
     save(
-      () => importTransactionsAction({ accountId, rows: file.rows, mapping }),
+      () => importTransactionsAction({ accountId, text: file.text, mapping }),
       (response) => {
         finished.current = true;
         setDone({ ...response, account: account.name });

@@ -135,3 +135,9 @@ test("a transaction keeps showing its category after the category is archived", 
     "Groceries (archived)",
   );
 });
+
+test("an odd limit in the address does not break the page", async ({ page }) => {
+  await page.goto("/transactions?limit=200.5");
+  await expect(page.getByRole("heading", { name: "Transactions", level: 1 })).toBeVisible();
+  await expect(headerFigure(page)).toHaveText("6");
+});

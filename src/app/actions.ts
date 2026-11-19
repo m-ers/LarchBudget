@@ -9,9 +9,11 @@ import * as transactions from "@/db/transactions";
 import { accountTypes } from "@/lib/account-types";
 import { getConfig } from "@/lib/config";
 import { isMonth, today } from "@/lib/dates";
+import { parseCsv } from "@/lib/import/csv";
 import {
   MAX_CELL_LENGTH,
   MAX_COLUMNS,
+  MAX_FILE_BYTES,
   MAX_NOTE_LENGTH,
   MAX_PAYEE_LENGTH,
   MAX_ROWS,
@@ -183,18 +185,25 @@ export async function createAccountAction(formData: FormData): Promise<ActionRes
 
 const importInput = z.object({
   accountId: id,
-  /** The file's rows exactly as parsed, including a header row if it has one. */
-  rows: z
-    .array(z.array(z.string().max(MAX_CELL_LENGTH)).max(MAX_COLUMNS))
-    .min(1)
-    .max(MAX_ROWS),
+  /**
+   * The file's text, as one string. Its rows are not sent as a list: Next.js
+   * refuses a Server Action whose lists hold more than a million items and
+   * characters together, which a bank file of about 1 MB already does.
+   */
+  text: z.string().max(MAX_FILE_BYTES),
   mapping: z.custom<Mapping>(isMapping),
 });
+
+/** The file's rows, including a header row if it has one. */
+const importRows = z
+  .array(z.array(z.string().max(MAX_CELL_LENGTH)).max(MAX_COLUMNS))
+  .min(1)
+  .max(MAX_ROWS);
 
 type ImportResult = { ok: true; imported: number; duplicates: number; batch: string } | Failure;
 
 /**
- * Imports a bank file into an account. The server reads the rows with the
+ * Imports a bank file into an account. The server reads the file with the
  * same code the import screen used for its preview, so what was shown is
  * what gets imported.
  */
@@ -203,7 +212,10 @@ export async function importTransactionsAction(input: unknown): Promise<ImportRe
   if (!db) return LOGGED_OUT;
   const parsed = importInput.safeParse(input);
   if (!parsed.success) return fail("This file could not be imported.");
-  const { accountId, rows, mapping } = parsed.data;
+  const { accountId, text, mapping } = parsed.data;
+  const parsedRows = importRows.safeParse(parseCsv(text));
+  if (!parsedRows.success) return fail("This file could not be imported.");
+  const rows = parsedRows.data;
 
   const read = applyMapping(rows, mapping, minorUnitDigits(getConfig().currency));
   if (read.rows.length === 0) return fail("No transactions could be read from this file.");

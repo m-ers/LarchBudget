@@ -24,7 +24,8 @@ export default function TransactionsPage({ searchParams }: PageProps<"/transacti
 async function Transactions({ searchParams }: Pick<PageProps<"/transactions">, "searchParams">) {
   const params = await searchParams;
   const showAll = params.show === "all";
-  const limit = Math.min(5000, Math.max(PAGE_SIZE, Number(params.limit) || PAGE_SIZE));
+  // Whole numbers only: the database refuses a limit like 200.5.
+  const limit = Math.min(5000, Math.max(PAGE_SIZE, Math.floor(Number(params.limit)) || PAGE_SIZE));
 
   const [counts, rows, groups] = await Promise.all([
     getTransactionCounts(),

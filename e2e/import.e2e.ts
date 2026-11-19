@@ -1,3 +1,4 @@
+import { statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { Page } from "@playwright/test";
 import { addAccount, alert, headerFigure } from "./budget-page";
@@ -37,6 +38,29 @@ test.describe("with an account", () => {
     await expect(
       alert(page, "This is not a CSV file. Choose CSV when you download from your bank."),
     ).toBeVisible();
+    // The field is emptied, so choosing a file of the same name again is noticed.
+    await expect(page.getByLabel("Bank file")).toHaveValue("");
+  });
+
+  test("a file with as many rows as are allowed is imported", async ({ page }, testInfo) => {
+    // 20,000 rows with the header, about 2.5 MB: far more than Next.js accepts as a list.
+    const count = 19_999;
+    const lines = ['"Datum";"Naam / Omschrijving";"Af Bij";"Bedrag (EUR)";"Mededelingen"'];
+    for (let i = 0; i < count; i++) {
+      const date = new Date(Date.UTC(2020, 0, 1 + (i % 2000))).toISOString().slice(0, 10);
+      lines.push(
+        `"${date.replaceAll("-", "")}";"Shop number ${i}";"Af";"${(i % 90) + 1},${String(i % 100).padStart(2, "0")}";"Card payment ${i} at the shop around the corner, with a longer note to fill the line"`,
+      );
+    }
+    const large = testInfo.outputPath("large.csv");
+    writeFileSync(large, lines.join("\n") + "\n");
+    expect(statSync(large).size).toBeGreaterThan(2_000_000);
+
+    await page.getByLabel("Bank file").setInputFiles(large);
+    await page.getByRole("button", { name: /^Import 19,?999 transactions into Checking$/ }).click();
+    await expect(
+      page.getByRole("heading", { name: /^Imported 19,?999 transactions into Checking\.$/ }),
+    ).toBeVisible({ timeout: 20_000 });
   });
 
   test("a bank file is recognised, previewed and imported", async ({ page }) => {

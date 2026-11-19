@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   cacheComponents: true,
   experimental: {
-    // The import screen sends a bank file's rows to a Server Action in one
+    // The import screen sends a bank file's text to a Server Action in one
     // go. Files are capped at 4 MB (src/lib/import/limits.ts); as JSON they
     // can grow somewhat, and the default limit is only 1 MB.
     serverActions: { bodySizeLimit: "8mb" },
