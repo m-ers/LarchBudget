@@ -1,4 +1,6 @@
 # Generated files
 /.next/
+/drizzle/
+/data/
 next-env.d.ts
 package-lock.json

@@ -24,6 +24,89 @@ export const EnvelopeIcon = (props: SVGProps<SVGSVGElement>) => (
   </Icon>
 );
 
+export const WalletIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <rect x="3" y="6" width="18" height="13" rx="2.5" />
+    <path d="M16 12.5h.01M3 10h18" />
+  </Icon>
+);
+
+export const ChevronLeftIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="m14.5 6-6 6 6 6" />
+  </Icon>
+);
+
+export const ChevronRightIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="m9.5 6 6 6-6 6" />
+  </Icon>
+);
+
+export const PlusIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M12 5v14M5 12h14" />
+  </Icon>
+);
+
+export const ArchiveIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <rect x="3" y="4.5" width="18" height="4.5" rx="1.2" />
+    <path d="M5 9v8.5A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5V9M10 13h4" />
+  </Icon>
+);
+
+export const TrashIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M4 7h16M9.5 7V5h5v2M6.5 7l.8 11.2a1 1 0 0 0 1 .8h7.4a1 1 0 0 0 1-.8L17.5 7" />
+  </Icon>
+);
+
+export const CheckIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="m5 12.5 4.5 4.5L19 7.5" />
+  </Icon>
+);
+
+/** Filled warning triangle. Always paired with text; never the only signal. */
+export const WarningIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">
+    <path d="M12 3.2 22 20.5H2Z" fill="var(--bad)" />
+    <path
+      d="M12 10v4.6M12 17.4h.01"
+      fill="none"
+      stroke="#fff"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+/** The small outlined envelope that starts every category row, in its group's colour. */
+export const EnvelopeToken = ({ color }: { color: string }) => (
+  <svg width="26" height="19" viewBox="0 0 26 19" aria-hidden="true" className="shrink-0">
+    <rect x="1" y="1" width="24" height="17" rx="4" fill="#fff" stroke={color} strokeWidth="2" />
+    <path
+      d="M2.6 3.6 13 11l10.4-7.4"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+/** A dashed placeholder the size of an envelope token, for "add" rows. */
+export const EmptyToken = () => (
+  <span
+    aria-hidden="true"
+    className="flex h-[19px] w-[26px] shrink-0 items-center justify-center rounded-[4px] border-[1.5px] border-dashed border-[#c3c5cb] text-sm leading-none text-muted"
+  >
+    +
+  </span>
+);
+
 /**
  * The LarchBudget mark: four lines that widen downward over a short one for
  * the trunk, a larch and a budget at once, on a tile in the accent colour.

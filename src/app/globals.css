@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
 /*
- * Theme: Pine. To switch to Navy, change these three values:
+ * Theme: Pine. To switch to Navy, change these five values:
  *   --rail: #0e1530; --brand: #1e3a8a; --brand-deep: #1a3379;
+ *   --ok-track: #edf0f7; --ok-fill: #c9d4ee;
  */
 :root {
   --bg: #f1f1ee;
@@ -10,6 +11,7 @@
   --ink: #16181d;
   --muted: #6c7079;
   --line: #ececee;
+  --rule: #f4f4f5;
   --hover: #f5f5f4;
 
   /* Brand: the rail, the header block and its envelope flap. */
@@ -18,8 +20,13 @@
   --brand-deep: #134e41;
   --accent: #f0c75e;
 
-  /* Only for something that needs attention. */
+  /* Gauges: colour only changes when something needs attention. */
+  --ok-track: #ecf3f0;
+  --ok-fill: #c2ddd2;
+  --empty-track: #f3f3f4;
   --bad: #b3261e;
+  --bad-track: #f7e3df;
+  --bad-ink: #7d1a15;
 }
 
 @theme inline {
@@ -32,7 +39,12 @@
   --color-brand: var(--brand);
   --color-brand-deep: var(--brand-deep);
   --color-accent: var(--accent);
+  --color-ok-track: var(--ok-track);
+  --color-ok-fill: var(--ok-fill);
+  --color-empty-track: var(--empty-track);
   --color-bad: var(--bad);
+  --color-bad-track: var(--bad-track);
+  --color-bad-ink: var(--bad-ink);
   --font-sans: var(--font-instrument), system-ui, sans-serif;
 }
 
@@ -46,4 +58,9 @@ body {
 :focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
+}
+
+/* Faint guides between table rows, so the eye can follow a wide row. */
+.data-row + .data-row {
+  border-top: 1px solid var(--rule);
 }
