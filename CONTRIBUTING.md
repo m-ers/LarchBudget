@@ -54,6 +54,9 @@ npm run build
 
 The same checks run automatically on every pull request.
 
+If you changed `src/db/schema.ts`, run `npm run db:generate` and commit the
+migration it creates in `./drizzle`.
+
 For a change you can see, add a screenshot to the pull request.
 
 ## Releases

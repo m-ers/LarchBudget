@@ -2,8 +2,11 @@
 .github
 .next
 node_modules
+data
 .env*
 !.env.example
+*.db
+*.db-*
 Dockerfile
 docker-compose.yml
 README.md

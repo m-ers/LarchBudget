@@ -1,3 +1,5 @@
+import { CheckIcon, WarningIcon } from "./icons";
+
 /**
  * The coloured block at the top of every page. The darker triangle is the
  * flap of an envelope, which is LarchBudget's signature shape.
@@ -28,4 +30,53 @@ export function HeroLead({
   children: React.ReactNode;
 }) {
   return <p className={`mt-2.5 text-[14.5px] text-white/70 ${className}`}>{children}</p>;
+}
+
+/** What a page shows while its data loads: the same two blocks, empty. */
+export function PageSkeleton() {
+  return (
+    <>
+      <div className="h-34 shrink-0 animate-pulse rounded-2xl bg-brand/85" aria-hidden="true" />
+      <div className="flex-1 rounded-2xl border border-line bg-surface" aria-hidden="true" />
+    </>
+  );
+}
+
+/** "quiet" dims the amount; "done" also adds a check mark; "alert" marks a problem. */
+type Tone = "normal" | "quiet" | "done" | "alert";
+
+/** The one headline number of a page, with its label above it. */
+export function HeroFigure({
+  label,
+  amount,
+  tone = "normal",
+}: {
+  label: string;
+  /** The figure and a quieter tail: [whole, cents] from `formatMoneyParts`, or a count and "". */
+  amount: [string, string];
+  tone?: Tone;
+}) {
+  return (
+    <div className="relative text-right">
+      {tone === "alert" ? (
+        <p className="inline-flex items-center gap-1.5 rounded-md bg-bad-track py-0.5 pr-2.5 pl-2 text-sm font-semibold text-bad-ink">
+          <WarningIcon />
+          {label}
+        </p>
+      ) : (
+        <p className="flex items-center justify-end gap-1.5 text-sm font-medium text-white/80">
+          {tone === "done" && <CheckIcon width={16} height={16} strokeWidth={2.4} />}
+          {label}
+        </p>
+      )}
+      <p
+        className={`text-5xl leading-[1.1] font-semibold tracking-[-0.03em] ${
+          tone === "done" || tone === "quiet" ? "opacity-55" : ""
+        }`}
+      >
+        {amount[0]}
+        <span className="opacity-60">{amount[1]}</span>
+      </p>
+    </div>
+  );
 }

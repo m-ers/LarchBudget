@@ -2,7 +2,9 @@
  * Optional single-password login.
  *
  * When APP_PASSWORD is unset the app is open (fine on your own machine).
- * When it is set, `src/proxy.ts` requires a session cookie on every request.
+ * When it is set, a session cookie is required. It is checked in three
+ * places: `src/proxy.ts` for every request, and again in every page read and
+ * Server Action (`src/app/session.ts`), so nothing depends on the proxy alone.
  * The cookie holds an HMAC derived from the password, so changing the
  * password logs out every existing session.
  */

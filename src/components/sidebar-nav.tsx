@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { EnvelopeIcon } from "./icons";
+import { EnvelopeIcon, WalletIcon } from "./icons";
 
-const items = [{ href: "/", label: "Budget", icon: EnvelopeIcon }];
+const items = [
+  { href: "/", label: "Budget", icon: EnvelopeIcon },
+  { href: "/accounts", label: "Accounts", icon: WalletIcon },
+];
 
 export function SidebarNav() {
   const pathname = usePathname();

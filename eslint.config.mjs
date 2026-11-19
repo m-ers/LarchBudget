@@ -14,8 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
   ]),
   {
-    // src/lib holds plain helpers, unit tested without Next.js.
-    files: ["src/lib/**"],
+    // src/lib and src/db hold the rules and are unit tested without Next.js.
+    files: ["src/lib/**", "src/db/**"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -24,7 +24,26 @@ const eslintConfig = defineConfig([
             {
               group: ["next", "next/*", "react", "react-dom", "@/app/*", "@/components/*"],
               message:
-                "src/lib stays free of the framework so it can be unit tested. Next.js code belongs in src/app.",
+                "src/lib and src/db stay free of the framework so they can be unit tested. Next.js code belongs in src/app.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Components read through src/app/queries and change through src/app/actions.
+    files: ["src/components/**"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/db", "@/db/*"],
+              allowTypeImports: true,
+              message:
+                "Components may import types from src/db, but not its code: read through src/app/queries and change through src/app/actions.",
             },
           ],
         },
