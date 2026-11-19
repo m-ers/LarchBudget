@@ -135,7 +135,8 @@ export async function deleteGroupAction(groupId: number): Promise<ActionResult> 
   if (!db) return LOGGED_OUT;
   if (!id.safeParse(groupId).success) return UNEXPECTED;
 
-  return budget.deleteGroup(db, groupId) ? done() : fail("Archive its categories first.");
+  budget.deleteGroup(db, groupId);
+  return done();
 }
 
 // ---- Accounts --------------------------------------------------------------

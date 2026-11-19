@@ -13,16 +13,27 @@ type Props = {
   name: string;
   /** What the group's categories hold together, formatted as money. */
   total: string;
-  isEmpty: boolean;
+  /** How many visible categories the group has. */
+  categoryCount: number;
   /** The category rows, rendered on the server. */
   children: React.ReactNode;
 };
 
+/** What deleting a group does, asked before it happens. */
+function deleteQuestion(name: string, categoryCount: number): string {
+  const question = `Delete the group "${name}"?`;
+  if (categoryCount === 0) return question;
+  return categoryCount === 1
+    ? `${question} Its category will be archived, and the money in it goes back to Ready to assign.`
+    : `${question} Its ${categoryCount} categories will be archived, and the money in them goes back to Ready to assign.`;
+}
+
 /**
- * One group in the budget table: its heading (rename, add category, delete
- * when empty), its category rows and the inline "new category" field.
+ * One group in the budget table: its heading (rename, add category,
+ * delete), its category rows and the inline "new category" field.
  */
-export function GroupBody({ id, name, total, isEmpty, children }: Props) {
+export function GroupBody({ id, name, total, categoryCount, children }: Props) {
+  const isEmpty = categoryCount === 0;
   // True while the "new category" field is in use.
   const [adding, setAdding] = useState(false);
   const adder = useAddByName(async (categoryName) =>
@@ -34,8 +45,10 @@ export function GroupBody({ id, name, total, isEmpty, children }: Props) {
   const showField = (isEmpty && id !== null) || adding || adder.pending || adder.error;
 
   function remove(groupId: number) {
-    // A refusal is reported next to the "new category" field.
-    if (window.confirm(`Delete the group "${name}"?`)) adder.save(() => deleteGroupAction(groupId));
+    // A failure is reported next to the "new category" field.
+    if (window.confirm(deleteQuestion(name, categoryCount))) {
+      adder.save(() => deleteGroupAction(groupId));
+    }
   }
 
   return (
@@ -61,17 +74,15 @@ export function GroupBody({ id, name, total, isEmpty, children }: Props) {
                 >
                   <PlusIcon width={15} height={15} />
                 </RowAction>
-                {isEmpty && (
-                  <RowAction
-                    label={`Delete the group ${name}`}
-                    title="Delete group"
-                    onClick={() => remove(id)}
-                    revealOn="head"
-                    keepFocus
-                  >
-                    <TrashIcon width={15} height={15} />
-                  </RowAction>
-                )}
+                <RowAction
+                  label={`Delete the group ${name}`}
+                  title="Delete group"
+                  onClick={() => remove(id)}
+                  revealOn="head"
+                  keepFocus
+                >
+                  <TrashIcon width={15} height={15} />
+                </RowAction>
               </>
             )}
           </div>

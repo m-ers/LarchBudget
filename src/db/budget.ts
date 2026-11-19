@@ -259,22 +259,18 @@ export function renameGroup(db: Db, id: number, name: string): boolean {
 }
 
 /**
- * Deletes a group that has no visible categories left. Returns false, and
- * changes nothing, when it still has some.
+ * Deletes a group. Its categories are archived in the same step, exactly as
+ * when each is archived by hand: their money goes back to Ready to assign
+ * and their history stays.
  */
-export function deleteGroup(db: Db, id: number): boolean {
-  return db.transaction((tx) => {
-    const visible = tx
-      .select({ id: categories.id })
-      .from(categories)
-      .where(and(eq(categories.groupId, id), eq(categories.archived, false)))
-      .all();
-    if (visible.length > 0) return false;
-
+export function deleteGroup(db: Db, id: number): void {
+  db.transaction((tx) => {
     // Archived categories keep their history but lose the group.
-    tx.update(categories).set({ groupId: null }).where(eq(categories.groupId, id)).run();
+    tx.update(categories)
+      .set({ archived: true, groupId: null })
+      .where(eq(categories.groupId, id))
+      .run();
     tx.delete(categoryGroups).where(eq(categoryGroups.id, id)).run();
-    return true;
   });
 }
 

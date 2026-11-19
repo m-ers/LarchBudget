@@ -256,7 +256,7 @@ describe("groups", () => {
       Object.fromEntries(getBudgetMonth(db, "2026-10").groups.map((g) => [g.name, g.colorSlot]));
     expect(slots()).toEqual({ Everyday: 0, "Fixed costs": 1, Goals: 2 });
 
-    expect(deleteGroup(db, fixed)).toBe(true);
+    deleteGroup(db, fixed);
     expect(slots()).toEqual({ Everyday: 0, Goals: 2 });
 
     // The freed colour is reused by the next new group.
@@ -271,17 +271,32 @@ describe("groups", () => {
     expect(last).toMatchObject({ name: "G", colorSlot: null });
   });
 
-  it("cannot be deleted while they hold visible categories", () => {
+  it("archive their categories when deleted, giving the money back and keeping the history", () => {
     const groceries = createCategory(db, "Groceries");
-    expect(deleteGroup(db, group)).toBe(false);
-    expect(rows("2026-10")).toHaveLength(1);
-
-    // Once the category is archived the group can go; the history stays.
+    const fun = createCategory(db, "Fun");
+    setAssigned(db, groceries, "2026-10", 30_000);
+    setAssigned(db, fun, "2026-11", 5_000);
     spend(groceries, "2026-10-05", -1_000);
-    archiveCategory(db, groceries);
-    expect(deleteGroup(db, group)).toBe(true);
+    expect(getBudgetMonth(db, "2026-11").readyToAssign).toBe(65_000);
+
+    deleteGroup(db, group);
     expect(getBudgetMonth(db, "2026-10").groups).toEqual([]);
+    // All of their balance comes back, including what a later month holds.
+    expect(getBudgetMonth(db, "2026-10").readyToAssign).toBe(99_000);
     expect(getAccounts(db)[0].balance).toBe(99_000);
+    expectEverythingAccountedFor();
+
+    // Their names are free again, like any archived category's.
+    const goals = createGroup(db, "Goals");
+    expect(budget.createCategory(db, "Groceries", goals)).not.toBe("name-taken");
+  });
+
+  it("can be deleted when empty, and earlier archived categories stay archived", () => {
+    const old = createCategory(db, "Old");
+    archiveCategory(db, old);
+    deleteGroup(db, group);
+    expect(getBudgetMonth(db, "2026-10").groups).toEqual([]);
+    expectEverythingAccountedFor();
   });
 
   it("cannot share a name with another group", () => {

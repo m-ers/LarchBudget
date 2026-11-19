@@ -160,7 +160,7 @@ async function Budget({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
               id={group.id}
               name={group.name}
               total={formatMoney(group.available, currency, locale)}
-              isEmpty={group.categories.length === 0}
+              categoryCount={group.categories.length}
             >
               {group.categories.map((category) => (
                 <CategoryTableRow
