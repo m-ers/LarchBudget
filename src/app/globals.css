@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+/*
+ * Theme: Pine. To switch to Navy, change these three values:
+ *   --rail: #0e1530; --brand: #1e3a8a; --brand-deep: #1a3379;
+ */
+:root {
+  --bg: #f1f1ee;
+  --surface: #ffffff;
+  --ink: #16181d;
+  --muted: #6c7079;
+  --line: #ececee;
+  --hover: #f5f5f4;
+
+  /* Brand: the rail, the header block and its envelope flap. */
+  --rail: #0d211c;
+  --brand: #17594b;
+  --brand-deep: #134e41;
+  --accent: #f0c75e;
+
+  /* Only for something that needs attention. */
+  --bad: #b3261e;
+}
+
+@theme inline {
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-hover: var(--hover);
+  --color-rail: var(--rail);
+  --color-brand: var(--brand);
+  --color-brand-deep: var(--brand-deep);
+  --color-accent: var(--accent);
+  --color-bad: var(--bad);
+  --font-sans: var(--font-instrument), system-ui, sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
