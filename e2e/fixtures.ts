@@ -26,25 +26,53 @@ function freePort(): Promise<number> {
   });
 }
 
-async function waitUntilUp(url: string, server: ChildProcess, log: () => string) {
-  const deadline = Date.now() + 20_000;
-  while (Date.now() < deadline) {
-    if (server.exitCode !== null) break;
-    try {
-      await fetch(url);
-      return;
-    } catch {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-  }
-  throw new Error(`The LarchBudget server did not start:\n${log()}`);
-}
+type Server = { url: string; log: () => string; stop: () => Promise<void> };
 
-async function stop(server: ChildProcess) {
-  if (server.exitCode !== null) return;
-  const exited = new Promise((resolve) => server.once("exit", resolve));
-  server.kill();
-  await exited;
+/**
+ * Starts the production server on a free port. It counts as started only
+ * when its own log says so, never because something answers on the port:
+ * another test's server may have taken the port in the meantime, and then
+ * this tries again on a new one.
+ */
+async function startServer(env: NodeJS.ProcessEnv): Promise<Server> {
+  let lastLog = "";
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const port = await freePort();
+    let log = "";
+    const child: ChildProcess = spawn(
+      process.execPath,
+      [path.join(".next", "standalone", "server.js")],
+      { env: { ...env, PORT: String(port) }, stdio: ["ignore", "pipe", "pipe"] },
+    );
+    child.stdout?.on("data", (chunk) => (log += chunk));
+    child.stderr?.on("data", (chunk) => (log += chunk));
+    // Settles on any ending: a normal exit, a signal, or a failure to start.
+    const ended = new Promise<void>((resolve) => {
+      child.once("exit", () => resolve());
+      child.once("error", (error) => {
+        log += String(error);
+        resolve();
+      });
+    });
+    let hasEnded = false;
+    void ended.then(() => (hasEnded = true));
+    const stop = async () => {
+      if (!hasEnded) child.kill();
+      await ended;
+    };
+
+    const deadline = Date.now() + 20_000;
+    while (!hasEnded && Date.now() < deadline && !/Ready in/.test(log)) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    if (!hasEnded && /Ready in/.test(log)) {
+      return { url: `http://127.0.0.1:${port}`, log: () => log, stop };
+    }
+    await stop();
+    lastLog = log;
+    if (!/EADDRINUSE/.test(log)) break;
+  }
+  throw new Error(`The LarchBudget server did not start:\n${lastLog}`);
 }
 
 /**
@@ -59,11 +87,9 @@ export const test = base.extend<{ app: AppOptions }>({
 
   baseURL: async ({ app }, use, testInfo) => {
     const dir = mkdtempSync(path.join(tmpdir(), "larchbudget-e2e-"));
-    const port = await freePort();
     const env: NodeJS.ProcessEnv = {
       ...process.env,
       DATABASE_PATH: path.join(dir, "larchbudget.db"),
-      PORT: String(port),
       HOSTNAME: "127.0.0.1",
       CURRENCY: "EUR",
       LOCALE: "en-US",
@@ -71,27 +97,23 @@ export const test = base.extend<{ app: AppOptions }>({
     };
     delete env.APP_PASSWORD;
     if (app.password) env.APP_PASSWORD = app.password;
-    if (app.seed) {
-      execFileSync(process.execPath, ["--import", "tsx", "scripts/seed.ts"], {
-        env,
-        stdio: "pipe",
-      });
-    }
 
     let log = "";
-    const server = spawn(process.execPath, [path.join(".next", "standalone", "server.js")], {
-      env,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    server.stdout?.on("data", (chunk) => (log += chunk));
-    server.stderr?.on("data", (chunk) => (log += chunk));
-
-    const url = `http://127.0.0.1:${port}`;
     try {
-      await waitUntilUp(url, server, () => log);
-      await use(url);
+      if (app.seed) {
+        execFileSync(process.execPath, ["--import", "tsx", "scripts/seed.ts"], {
+          env,
+          stdio: "pipe",
+        });
+      }
+      const server = await startServer(env);
+      try {
+        await use(server.url);
+      } finally {
+        await server.stop();
+        log = server.log();
+      }
     } finally {
-      await stop(server);
       rmSync(dir, { recursive: true, force: true });
       await testInfo.attach("server.log", { body: log, contentType: "text/plain" });
     }

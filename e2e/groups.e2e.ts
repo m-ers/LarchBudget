@@ -37,9 +37,13 @@ test.describe("deleting a group with categories", () => {
   });
 
   test("archives its categories and gives their money back", async ({ page }) => {
-    // The demo data: €2,865.00 ready to assign, and Everyday holds €262.00.
-    await expect(headerFigure(page)).toHaveText("€2,865.00");
-    await expect(groupHeading(page, "Everyday").locator("xpath=..")).toContainText("€262.00");
+    // Read from the page: what the demo data holds depends on the day of the month.
+    const cents = (money: string) => Math.round(Number(money.replace(/[^0-9.-]/g, "")) * 100);
+    const before = cents(await headerFigure(page).innerText());
+    const held = cents(
+      await groupHeading(page, "Everyday").locator("xpath=..").getByRole("cell").innerText(),
+    );
+    expect(held).not.toBe(0);
 
     const question = answerNextQuestion(page, true);
     await clickDelete(page, "Everyday");
@@ -47,7 +51,7 @@ test.describe("deleting a group with categories", () => {
     await expect(groupHeading(page, "Everyday")).toHaveCount(0);
     await expect(category(page, "Groceries")).toHaveCount(0);
     await expect(category(page, "Eating out")).toHaveCount(0);
-    await expect(headerFigure(page)).toHaveText("€3,127.00");
+    await expect.poll(async () => cents(await headerFigure(page).innerText())).toBe(before + held);
   });
 });
 

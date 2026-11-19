@@ -70,6 +70,7 @@ export function HeroFigure({
         </p>
       )}
       <p
+        data-testid="hero-figure"
         className={`text-5xl leading-[1.1] font-semibold tracking-[-0.03em] ${
           tone === "done" || tone === "quiet" ? "opacity-55" : ""
         }`}

@@ -9,7 +9,8 @@ const exactly = (text: string) =>
   new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
 
 /** The big number in the page header, e.g. "€2,500.00". */
-export const headerFigure = (page: Page) => page.locator("p.text-5xl").filter({ visible: true });
+export const headerFigure = (page: Page) =>
+  page.getByTestId("hero-figure").filter({ visible: true });
 
 export const groupHeading = (page: Page, name: string) =>
   page.getByRole("rowheader").filter({ hasText: exactly(name) });
@@ -42,8 +43,8 @@ export const windowLosesFocus = (page: Page) =>
     document.activeElement?.dispatchEvent(new FocusEvent("focusout", { bubbles: true })),
   );
 
-/** A click on empty space, so the field being edited loses focus. */
-export const clickAway = (page: Page) => page.mouse.click(900, 760);
+/** A click on the page title, which does nothing, so the field being edited loses focus. */
+export const clickAway = (page: Page) => page.getByRole("heading", { level: 1 }).click();
 
 export async function addAccount(page: Page, name: string, balanceToday: string) {
   await page.goto("/accounts");
