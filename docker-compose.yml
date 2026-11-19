@@ -1,0 +1,9 @@
+services:
+  larchbudget:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Set a password before exposing the app beyond your own machine.
+      APP_PASSWORD: ${APP_PASSWORD:-}
