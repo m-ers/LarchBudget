@@ -12,7 +12,19 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Test output, and local files that are not part of the project.
+    "playwright-report/**",
+    "test-results/**",
+    "blob-report/**",
+    ".claude/**",
   ]),
+  {
+    // Playwright fixtures pass a `use` callback, which is not React's `use` hook.
+    files: ["e2e/**"],
+    rules: {
+      "react-hooks/rules-of-hooks": "off",
+    },
+  },
   {
     // src/lib and src/db hold the rules and are unit tested without Next.js.
     files: ["src/lib/**", "src/db/**"],

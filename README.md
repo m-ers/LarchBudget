@@ -153,6 +153,7 @@ The typeface is [Instrument Sans](https://github.com/Instrument/instrument-sans)
 | `npm run lint`        | Lint.                                                |
 | `npm run typecheck`   | Type check.                                          |
 | `npm test`            | Run unit tests.                                      |
+| `npm run test:e2e`    | Run the end-to-end tests (after `npm run build`).    |
 | `npm run format`      | Format every file with Prettier.                     |
 | `npm run build`       | Production build.                                    |
 | `npm run db:generate` | Create a migration after editing `src/db/schema.ts`. |
@@ -172,6 +173,7 @@ the database, so there is no separate migrate step.
 | `src/app/actions.ts`        | The only way data changes.                                                                    |
 | `src/app`, `src/components` | Pages and what they are built from.                                                           |
 | `src/proxy.ts`              | The login check, run for every request.                                                       |
+| `e2e`                       | End-to-end tests: each one starts the production server with its own empty database.          |
 
 `src/lib` and `src/db` never import Next.js or React, which is what lets them
 be unit tested; the linter enforces this. Both the reads and the actions check

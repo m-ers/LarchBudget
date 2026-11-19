@@ -10,3 +10,8 @@ data
 Dockerfile
 docker-compose.yml
 README.md
+.claude
+e2e
+playwright.config.ts
+test-results
+playwright-report
