@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { EnvelopeIcon, WalletIcon } from "./icons";
+import { EnvelopeIcon, ListIcon, UploadIcon, WalletIcon } from "./icons";
 
 const items = [
   { href: "/", label: "Budget", icon: EnvelopeIcon },
+  { href: "/transactions", label: "Transactions", icon: ListIcon },
   { href: "/accounts", label: "Accounts", icon: WalletIcon },
 ];
 
-export function SidebarNav() {
+/** `transactionsBadge` shows how many transactions still need sorting. */
+export function SidebarNav({ transactionsBadge }: { transactionsBadge?: React.ReactNode }) {
   const pathname = usePathname();
 
   return (
@@ -27,9 +29,19 @@ export function SidebarNav() {
           >
             <Icon className={active ? "text-accent" : undefined} />
             {label}
+            {href === "/transactions" && transactionsBadge}
           </Link>
         );
       })}
+
+      <Link
+        href="/import"
+        aria-current={pathname === "/import" ? "page" : undefined}
+        className="mt-auto flex items-center justify-center gap-2 rounded-[9px] bg-white px-3 py-2.5 text-[14.5px] font-semibold text-rail transition-opacity hover:opacity-90"
+      >
+        <UploadIcon width={16} height={16} strokeWidth={2} />
+        Import from bank
+      </Link>
     </nav>
   );
 }

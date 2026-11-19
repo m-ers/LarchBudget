@@ -1,0 +1,5 @@
+"Datum";"Naam / Omschrijving";"Rekening";"Tegenrekening";"Code";"Af Bij";"Bedrag (EUR)";"Mutatiesoort";"Mededelingen";"Saldo na mutatie";"Tag"
+"20261119";"Bakery";"NL01BANK0123456789";"";"BA";"Af";"6,80";"Betaalautomaat";"Pasvolgnr: 001 19-11-2026 09:30";"1.948,10";""
+"20261118";"Fresh Market";"NL01BANK0123456789";"";"BA";"Af";"45,10";"Betaalautomaat";"Pasvolgnr: 001 18-11-2026 12:01";"1.954,90";""
+"20261117";"Coffee Bar";"NL01BANK0123456789";"";"BA";"Af";"3,50";"Betaalautomaat";"Pasvolgnr: 001 17-11-2026 08:12";"2.000,00";""
+"20261117";"Coffee Bar";"NL01BANK0123456789";"";"BA";"Af";"3,50";"Betaalautomaat";"Pasvolgnr: 001 17-11-2026 08:12";"2.003,50";""

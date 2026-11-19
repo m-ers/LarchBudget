@@ -1,14 +1,24 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { getDb, type Db } from "@/db";
 import * as budget from "@/db/budget";
+import * as transactions from "@/db/transactions";
 import { accountTypes } from "@/lib/account-types";
 import { getConfig } from "@/lib/config";
 import { isMonth, today } from "@/lib/dates";
+import {
+  MAX_CELL_LENGTH,
+  MAX_COLUMNS,
+  MAX_NOTE_LENGTH,
+  MAX_PAYEE_LENGTH,
+  MAX_ROWS,
+} from "@/lib/import/limits";
+import { applyMapping, isMapping, serializeMapping, type Mapping } from "@/lib/import/mapping";
 import { MAX_NAME_LENGTH } from "@/lib/limits";
-import { parseMoney } from "@/lib/money";
+import { minorUnitDigits, parseMoney } from "@/lib/money";
 import type { ActionResult, Failure } from "@/lib/result";
 import { isLoggedIn } from "./session";
 
@@ -167,4 +177,91 @@ export async function createAccountAction(formData: FormData): Promise<ActionRes
     date: today(),
   });
   return done();
+}
+
+// ---- Bank import -----------------------------------------------------------
+
+const importInput = z.object({
+  accountId: id,
+  /** The file's rows exactly as parsed, including a header row if it has one. */
+  rows: z
+    .array(z.array(z.string().max(MAX_CELL_LENGTH)).max(MAX_COLUMNS))
+    .min(1)
+    .max(MAX_ROWS),
+  mapping: z.custom<Mapping>(isMapping),
+});
+
+type ImportResult = { ok: true; imported: number; duplicates: number; batch: string } | Failure;
+
+/**
+ * Imports a bank file into an account. The server reads the rows with the
+ * same code the import screen used for its preview, so what was shown is
+ * what gets imported.
+ */
+export async function importTransactionsAction(input: unknown): Promise<ImportResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  const parsed = importInput.safeParse(input);
+  if (!parsed.success) return fail("This file could not be imported.");
+  const { accountId, rows, mapping } = parsed.data;
+
+  const read = applyMapping(rows, mapping, minorUnitDigits(getConfig().currency));
+  if (read.rows.length === 0) return fail("No transactions could be read from this file.");
+  if (read.rows.some((row) => Math.abs(row.amount) > MAX_AMOUNT)) {
+    return fail("This file holds an amount that is too large to be real.");
+  }
+
+  const batch = randomUUID();
+  const result = transactions.importTransactions(
+    db,
+    accountId,
+    read.rows.map((row) => ({
+      ...row,
+      payee: row.payee?.slice(0, MAX_PAYEE_LENGTH) ?? null,
+      note: row.note?.slice(0, MAX_NOTE_LENGTH) ?? null,
+    })),
+    batch,
+  );
+  if (result === null) return fail("That account no longer exists.");
+
+  transactions.saveImportMapping(db, accountId, serializeMapping(rows, mapping));
+  refresh();
+  return { ok: true, ...result, batch };
+}
+
+type UndoResult = { ok: true; removed: number } | Failure;
+
+export async function undoImportAction(batch: string): Promise<UndoResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  if (!z.uuid().safeParse(batch).success) return UNEXPECTED;
+
+  const { removed, sorted } = transactions.undoImport(db, batch);
+  if (sorted > 0) {
+    return fail(
+      sorted === 1
+        ? "One of these transactions has been sorted since, so this import can no longer be undone."
+        : `${sorted} of these transactions have been sorted since, so this import can no longer be undone.`,
+    );
+  }
+  refresh();
+  return { ok: true, removed };
+}
+
+// ---- Transactions ----------------------------------------------------------
+
+const sortTarget = z.union([id, z.literal("ready"), z.literal("unsorted")]);
+
+export async function sortTransactionAction(
+  transactionId: number,
+  target: transactions.SortTarget,
+): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  const parsedTarget = sortTarget.safeParse(target);
+  if (!id.safeParse(transactionId).success || !parsedTarget.success) return UNEXPECTED;
+
+  return transactions.sortTransaction(db, transactionId, parsedTarget.data)
+    ? done()
+    : CATEGORY_GONE;
 }

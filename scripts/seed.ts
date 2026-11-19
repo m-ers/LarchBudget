@@ -7,6 +7,7 @@ import { databasePath, getDb } from "../src/db";
 import { createAccount, createCategory, createGroup, setAssigned } from "../src/db/budget";
 import { accounts, transactions } from "../src/db/schema";
 import { created } from "../src/db/created";
+import { importTransactions } from "../src/db/transactions";
 import { getConfig } from "../src/lib/config";
 import { addMonths, currentMonth, pad, today, type IsoDate, type Month } from "../src/lib/dates";
 import { minorUnitDigits } from "../src/lib/money";
@@ -94,6 +95,25 @@ db.transaction((tx) => {
     }
   }
   tx.insert(transactions).values(rows).run();
+
+  // A few freshly imported transactions that still need sorting.
+  const daysAgo = (n: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() - n);
+    return today(date);
+  };
+  importTransactions(
+    tx,
+    checking,
+    [
+      { date: daysAgo(1), amount: money(-23.4), payee: "Fresh Market", note: "Card payment" },
+      { date: daysAgo(1), amount: money(-4.2), payee: "Coffee Bar", note: null },
+      { date: daysAgo(2), amount: money(-61), payee: "Rail Tickets", note: "Day return" },
+      { date: daysAgo(3), amount: money(120), payee: "J. Jansen", note: "Paid back for dinner" },
+      { date: daysAgo(4), amount: money(-38.75), payee: "Bookshop", note: null },
+    ].map((row) => ({ ...row, raw: Object.values(row).join(";") })),
+    "demo",
+  );
 
   console.log(`Seeded ${rows.length} transactions into ${databasePath()}`);
 });

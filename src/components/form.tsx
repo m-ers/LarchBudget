@@ -3,6 +3,9 @@
 export const primaryButton =
   "rounded-[9px] bg-brand font-semibold text-white transition-opacity hover:opacity-90";
 
+export const quietButton =
+  "rounded-[9px] border border-line px-3.5 py-2 font-medium transition-colors hover:bg-hover";
+
 export const field =
   "w-full rounded-[9px] border border-line bg-surface py-2 font-normal placeholder:text-muted/60 focus:border-brand focus:outline-none";
 

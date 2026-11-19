@@ -4,17 +4,15 @@ A simple, self-hosted budgeting app for one person. You give every bit of
 your money a purpose by dividing it over categories. Your data lives in one
 SQLite file on your own machine or server.
 
-> **Status:** budgeting works. You can add accounts, organise categories in
-> groups and assign money per month. Importing transactions from your bank
-> comes next and completes version 0.1.0; see the roadmap below.
+> **Status:** a first workable version. You can add accounts, organise
+> categories in groups, assign money per month, import transactions from your
+> bank and sort them into categories.
 
 ## What it is, and what it is not
 
 LarchBudget does one thing: budgeting with the money you actually have, often
 called envelope budgeting. You divide your money over categories (Rent,
-Groceries, Holiday), and spending comes out of them. Transactions come in
-through a CSV file you download from your bank's website; there is no direct
-bank connection.
+Groceries, Holiday), and spending comes out of them.
 
 - **Ready to assign** is money in your accounts that is not in a category yet.
 - **Assigned** is what you put into a category this month.
@@ -25,6 +23,23 @@ bank connection.
 
 One rule always holds: the money in your accounts equals Ready to assign plus
 what is available in all categories.
+
+## Importing from your bank
+
+Transactions come in through a CSV file you download from your bank's
+website; there is no direct bank connection.
+
+1. Choose **Import from bank** and pick the account and the file.
+2. LarchBudget recognises the columns (date, amount, payee, note) and shows the
+   transactions as they will be imported. Correct a column if it guessed wrong.
+3. Import. Transactions you imported before are skipped, so files may
+   overlap, and an import can be undone straight away.
+4. Open **Transactions** and sort each one into a category. Income and
+   transfers between your own accounts get "No category".
+
+The column settings are remembered per account, so the next import of the
+same bank's file needs no setting up. The file goes to your own LarchBudget
+server and nowhere else.
 
 To stay simple, LarchBudget deliberately leaves out net worth tracking,
 investments, retirement calculators, multiple currencies, multiple users and
@@ -129,6 +144,11 @@ Three rules keep the numbers trustworthy:
   Income adds to it, spending that is not in a category yet reduces it, and
   a transfer between two accounts cancels out.
 
+Imported transactions carry a fingerprint of their line in the bank file,
+unique per account; that is how duplicates are skipped, whichever columns
+were chosen. The file reading lives in `src/lib/import`, and importing and
+sorting in `src/db/transactions.ts`.
+
 ## Design
 
 The look is defined by a handful of colour variables at the top of
@@ -167,7 +187,7 @@ the database, so there is no separate migrate step.
 
 | Where                       | Holds                                                                                         |
 | --------------------------- | --------------------------------------------------------------------------------------------- |
-| `src/lib`                   | Helpers with no framework or database in them: money, dates.                                  |
+| `src/lib`                   | Helpers with no framework or database in them: money, dates, reading bank files.              |
 | `src/db`                    | The schema and every rule about the data, as functions that take the database as an argument. |
 | `src/app/queries.ts`        | The only way a page reads data.                                                               |
 | `src/app/actions.ts`        | The only way data changes.                                                                    |
