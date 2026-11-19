@@ -26,7 +26,7 @@ function freePort(): Promise<number> {
   });
 }
 
-type Server = { url: string; log: () => string; stop: () => Promise<void> };
+export type Server = { url: string; log: () => string; stop: () => Promise<void> };
 
 /**
  * Starts the production server on a free port. It counts as started only
@@ -78,14 +78,15 @@ async function startServer(env: NodeJS.ProcessEnv): Promise<Server> {
 /**
  * `app` sets how the server starts; use `test.use({ app: { ... } })`.
  * Every test then gets:
- * - its own production server with an empty database, as `baseURL`;
+ * - its own production server with an empty database, as `server` and
+ *   `baseURL` (a test can stop it with `server.stop()`);
  * - a check that the server logged no errors;
  * - a check that the page threw no errors.
  */
-export const test = base.extend<{ app: AppOptions }>({
+export const test = base.extend<{ app: AppOptions; server: Server }>({
   app: [{}, { option: true }],
 
-  baseURL: async ({ app }, use, testInfo) => {
+  server: async ({ app }, use, testInfo) => {
     const dir = mkdtempSync(path.join(tmpdir(), "larchbudget-e2e-"));
     const env: NodeJS.ProcessEnv = {
       ...process.env,
@@ -108,7 +109,7 @@ export const test = base.extend<{ app: AppOptions }>({
       }
       const server = await startServer(env);
       try {
-        await use(server.url);
+        await use(server);
       } finally {
         await server.stop();
         log = server.log();
@@ -119,6 +120,10 @@ export const test = base.extend<{ app: AppOptions }>({
     }
     // Next.js marks server errors with ⨯.
     expect(log, "the server logged an error").not.toMatch(/⨯|\bError\b/);
+  },
+
+  baseURL: async ({ server }, use) => {
+    await use(server.url);
   },
 
   page: async ({ page }, use) => {

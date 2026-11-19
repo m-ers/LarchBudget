@@ -13,6 +13,11 @@ export const accounts = sqliteTable("accounts", {
   name: text("name").notNull(),
   type: text("type", { enum: accountTypes }).notNull().default("checking"),
   archived: integer("archived", { mode: "boolean" }).notNull().default(false),
+  /**
+   * How this account's bank file was read last time (JSON), so the next
+   * import of the same layout needs no setting up.
+   */
+  importMapping: text("import_mapping"),
   createdAt,
 });
 
@@ -80,11 +85,29 @@ export const transactions = sqliteTable(
     amount: integer("amount").notNull(),
     payee: text("payee"),
     note: text("note"),
+    /**
+     * True for an imported transaction nobody has looked at yet. Choosing a
+     * category, or marking it as income or a transfer, clears it.
+     */
+    toSort: integer("to_sort", { mode: "boolean" }).notNull().default(false),
+    /**
+     * Fingerprint of an imported row, unique per account, so importing an
+     * overlapping file never adds the same transaction twice.
+     */
+    importId: text("import_id"),
+    /** Identifies the import that added this row, so one import can be undone. */
+    importBatch: text("import_batch"),
     createdAt,
   },
   (t) => [
     // Both end in `amount`, so balances are summed from the index alone.
     index("transactions_account_date_idx").on(t.accountId, t.date, t.amount),
     index("transactions_category_date_idx").on(t.categoryId, t.date, t.amount),
+    // The transaction lists are newest first; these let them stop after one page.
+    index("transactions_date_idx").on(t.date),
+    index("transactions_to_sort_idx")
+      .on(t.date)
+      .where(sql`${t.toSort} = 1`),
+    uniqueIndex("transactions_account_import_unique").on(t.accountId, t.importId),
   ],
 );

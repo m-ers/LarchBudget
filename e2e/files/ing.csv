@@ -1,0 +1,7 @@
+"Datum";"Naam / Omschrijving";"Rekening";"Tegenrekening";"Code";"Af Bij";"Bedrag (EUR)";"Mutatiesoort";"Mededelingen";"Saldo na mutatie";"Tag"
+"20261118";"Fresh Market";"NL01BANK0123456789";"";"BA";"Af";"45,10";"Betaalautomaat";"Pasvolgnr: 001 18-11-2026 12:01";"1.954,90";""
+"20261117";"Coffee Bar";"NL01BANK0123456789";"";"BA";"Af";"3,50";"Betaalautomaat";"Pasvolgnr: 001 17-11-2026 08:12";"2.000,00";""
+"20261117";"Coffee Bar";"NL01BANK0123456789";"";"BA";"Af";"3,50";"Betaalautomaat";"Pasvolgnr: 001 17-11-2026 08:12";"2.003,50";""
+"20261115";"Power & Water Co";"NL01BANK0123456789";"NL03BANK0111111111";"IC";"Af";"92,00";"Incasso";"Termijn november";"2.007,00";""
+"20261102";"Landlord";"NL01BANK0123456789";"NL04BANK0222222222";"OV";"Af";"1.100,00";"Overschrijving";"Huur november";"2.099,00";""
+"20261101";"Acme Corp";"NL01BANK0123456789";"NL02BANK0987654321";"OV";"Bij";"2.850,00";"Overschrijving";"Salary November";"3.199,00";""

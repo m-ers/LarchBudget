@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { LogoMark } from "@/components/icons";
 import { LogoutButton } from "@/components/logout-button";
 import { SidebarNav } from "@/components/sidebar-nav";
+import { ToSortBadge } from "@/components/to-sort-badge";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -12,7 +13,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           LarchBudget
         </div>
         <Suspense>
-          <SidebarNav />
+          <SidebarNav
+            transactionsBadge={
+              <Suspense>
+                <ToSortBadge />
+              </Suspense>
+            }
+          />
         </Suspense>
         <Suspense>
           <LogoutButton />

@@ -31,6 +31,18 @@ export const WalletIcon = (props: SVGProps<SVGSVGElement>) => (
   </Icon>
 );
 
+export const ListIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M8 7h12M8 12h12M8 17h12M4 7h.01M4 12h.01M4 17h.01" />
+  </Icon>
+);
+
+export const UploadIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M12 16V5m0 0-4 4m4-4 4 4M5 19h14" />
+  </Icon>
+);
+
 export const ChevronLeftIcon = (props: SVGProps<SVGSVGElement>) => (
   <Icon {...props}>
     <path d="m14.5 6-6 6 6 6" />

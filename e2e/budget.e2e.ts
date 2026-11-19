@@ -155,3 +155,34 @@ test("names are unique, ignoring case", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(alert(page, 'You already have a category called "RENT".')).toBeVisible();
 });
+
+test("a rename started again after Escape is saved", async ({ page }) => {
+  await page.goto("/");
+  await addGroup(page, "Everyday");
+  await addCategories(page, "Everyday", ["Groceries"]);
+
+  await category(page, "Groceries").click();
+  await page.keyboard.press("Escape");
+  await category(page, "Groceries").click();
+  await page.keyboard.type("Food");
+  await page.keyboard.press("Enter");
+  await expect(category(page, "Food")).toBeVisible();
+});
+
+test("a save while LarchBudget cannot be reached says so, and keeps what was typed", async ({
+  page,
+  server,
+}) => {
+  await addAccount(page, "Main account", "100");
+  await page.goto("/");
+  await addGroup(page, "Everyday");
+  await addCategories(page, "Everyday", ["Groceries"]);
+
+  await server.stop();
+  await assign(page, "Groceries", "123");
+  await expect(
+    alert(page, "Could not reach LarchBudget. Check your connection and try again."),
+  ).toBeVisible();
+  await expect(assignedField(page, "Groceries")).toHaveValue("123");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+});

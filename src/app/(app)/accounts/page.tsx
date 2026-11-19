@@ -27,7 +27,7 @@ async function Accounts() {
       <Hero>
         <div className="relative">
           <HeroTitle>Accounts</HeroTitle>
-          <HeroLead>Where your money is.</HeroLead>
+          <HeroLead>Where your money is. Transactions come in through bank imports.</HeroLead>
         </div>
         <HeroFigure label="In all accounts" amount={formatMoneyParts(total, currency, locale)} />
       </Hero>
