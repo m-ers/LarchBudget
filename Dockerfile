@@ -2,7 +2,7 @@
 
 # One base for every stage, so the Node version that builds the native SQLite
 # module is always the one that runs it.
-FROM node:22-slim AS base
+FROM node:26-slim AS base
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
 

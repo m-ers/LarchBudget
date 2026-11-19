@@ -55,7 +55,7 @@ automatic bank connections. The interface is designed for desktop first.
 
 ## Run it locally
 
-Requires Node.js 22 or newer.
+Requires Node.js 26 or newer.
 
 ```bash
 npm install

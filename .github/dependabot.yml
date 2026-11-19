@@ -9,6 +9,12 @@ updates:
       # Major updates, which can break things, each get their own.
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # typescript-eslint, which the linter needs, does not support TypeScript
+      # 7 yet: https://github.com/typescript-eslint/typescript-eslint/issues/10940
+      # Remove this once it does.
+      - dependency-name: typescript
+        versions: [">=7"]
 
   - package-ecosystem: github-actions
     directory: /
