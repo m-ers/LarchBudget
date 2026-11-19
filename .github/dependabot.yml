@@ -5,10 +5,13 @@ updates:
     schedule:
       interval: monthly
     groups:
-      # One pull request a month for all minor and patch updates together.
-      # Major updates, which can break things, each get their own.
+      # One pull request a month for all minor and patch updates together,
+      # and one for all major updates. When a major update breaks the build,
+      # add it to `ignore` below until it can be done, so the rest goes ahead.
       minor-and-patch:
         update-types: [minor, patch]
+      major:
+        update-types: [major]
     ignore:
       # typescript-eslint, which the linter needs, does not support TypeScript
       # 7 yet: https://github.com/typescript-eslint/typescript-eslint/issues/10940
