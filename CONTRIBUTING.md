@@ -22,11 +22,11 @@ If you are unsure whether an idea fits, open an issue before writing code.
 - **One change per branch and pull request.** Name the branch after the
   change: `feature/bank-import`, `fix/rounding`, `chore/update-deps`.
 - **Pull requests are squash-merged.** The pull request title becomes the one
-  commit on `main`, and its description becomes the commit body, so the
-  history of `main` reads as a list of changes.
+  commit on `main`, so the history of `main` reads as a list of changes. The
+  description stays on the pull request, which the commit links to.
 - **Write the title as a short instruction:** "Add bank CSV import",
   "Fix rollover across years". Use the description to say what changed and
-  why.
+  why, and how you checked it.
 - **Keep pull requests small.** A small pull request gets reviewed quickly; a
   large one waits.
 
@@ -52,7 +52,22 @@ npm test
 npm run build
 ```
 
-The same checks run automatically on every pull request.
+```bash
+npm run test:e2e
+```
+
+The end-to-end tests click through the production build in a browser, so
+run them after `npm run build`. The first time, install the browser they use:
+
+```bash
+npx playwright install chromium
+```
+
+The same checks run automatically on every pull request, together with a
+check that the Docker image builds and serves the budget.
+
+When you change what the app does, add or update a test in `e2e/` that shows
+it, and a unit test when you change the rules in `src/lib` or `src/db`.
 
 If you changed `src/db/schema.ts`, run `npm run db:generate` and commit the
 migration it creates in `./drizzle`.

@@ -20,3 +20,44 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  # Clicks through the production build in a real browser.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
+  # Builds the Docker image and checks that it serves the budget from its volume.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t larchbudget .
+      - name: Start the image
+        run: docker run -d --name larchbudget -p 3000:3000 -v larchbudget-data:/data larchbudget
+      - name: The budget page is served
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/ > page.html && break
+            sleep 1
+          done
+          grep -q "Ready to assign" page.html
+      - name: The database is in the volume
+        run: docker exec larchbudget test -f /data/larchbudget.db
+      - name: Server log
+        if: always()
+        run: docker logs larchbudget
