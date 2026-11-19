@@ -1,15 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { MAX_NAME_LENGTH } from "@/lib/limits";
 import type { ActionResult } from "@/lib/result";
 import { ErrorText } from "../form";
 import { useSave } from "../use-save";
 
-/** The state behind a "type a name, press Enter to add" field. */
+/**
+ * The state behind a "type a name to add" field. Enter or clicking away
+ * adds what was typed, the same as renaming; Escape drops it.
+ */
 export function useAddByName(add: (name: string) => Promise<ActionResult>) {
   const [draft, setDraft] = useState("");
   const { error, setError, pending, save } = useSave();
+  const cancelled = useRef(false);
+
+  function addDraft() {
+    if (draft.trim() === "" || pending) return;
+    save(
+      () => add(draft),
+      () => setDraft(""),
+    );
+  }
 
   return {
     draft,
@@ -23,19 +35,30 @@ export function useAddByName(add: (name: string) => Promise<ActionResult>) {
       setError(null);
     },
 
-    clear() {
-      setDraft("");
-      setError(null);
-    },
-
     /** For the surrounding form's `onSubmit`. The field stays focused, ready for the next name. */
     submit(e: React.FormEvent) {
       e.preventDefault();
-      if (draft.trim() === "" || pending) return;
-      save(
-        () => add(draft),
-        () => setDraft(""),
-      );
+      addDraft();
+    },
+
+    /** For the field's `onBlur`: clicking away adds what was typed, like Enter. */
+    commit() {
+      if (cancelled.current) {
+        cancelled.current = false;
+      } else {
+        addDraft();
+      }
+    },
+
+    /**
+     * For the Escape key: drops what was typed and any error. Blurring the
+     * field here makes `commit` run now and see the cancel.
+     */
+    cancel(field: HTMLElement) {
+      cancelled.current = true;
+      setDraft("");
+      setError(null);
+      field.blur();
     },
   };
 }
@@ -46,7 +69,7 @@ export function AddByNameField({
   label,
   placeholder,
   autoFocus,
-  onEscape,
+  onLeave,
   className = "",
 }: {
   state: ReturnType<typeof useAddByName>;
@@ -54,7 +77,9 @@ export function AddByNameField({
   label: string;
   placeholder: string;
   autoFocus?: boolean;
-  onEscape?: () => void;
+  /** Runs when the field loses focus, after what was typed was added or dropped. */
+  onLeave?: () => void;
+  /** Size, weight and spacing of the text. */
   className?: string;
 }) {
   return (
@@ -67,10 +92,14 @@ export function AddByNameField({
         maxLength={MAX_NAME_LENGTH}
         value={state.draft}
         onChange={(e) => state.type(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") onEscape?.();
+        onBlur={() => {
+          state.commit();
+          onLeave?.();
         }}
-        className={`-ml-2 w-56 rounded-md border bg-transparent px-[7px] py-[3px] font-medium placeholder:font-normal placeholder:text-muted focus:bg-surface focus:outline-none ${className} ${
+        onKeyDown={(e) => {
+          if (e.key === "Escape") state.cancel(e.currentTarget);
+        }}
+        className={`-ml-2 w-56 rounded-md border bg-transparent px-[7px] py-[3px] placeholder:font-normal placeholder:text-muted focus:bg-surface focus:outline-none ${className} ${
           state.error ? "border-bad" : "border-transparent hover:border-line focus:border-brand"
         }`}
       />

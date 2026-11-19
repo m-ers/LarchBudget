@@ -23,13 +23,15 @@ type Props = {
  * when empty), its category rows and the inline "new category" field.
  */
 export function GroupBody({ id, name, total, isEmpty, children }: Props) {
-  // An empty group opens its "new category" field straight away.
-  const [adding, setAdding] = useState(isEmpty && id !== null);
+  // True while the "new category" field is in use.
+  const [adding, setAdding] = useState(false);
   const adder = useAddByName(async (categoryName) =>
     id === null
       ? { ok: false, error: "Categories cannot be added here." }
       : createCategoryAction(id, categoryName),
   );
+  // An empty group always shows its field: there is nothing else in it.
+  const showField = (isEmpty && id !== null) || adding || adder.pending || adder.error;
 
   function remove(groupId: number) {
     // A refusal is reported next to the "new category" field.
@@ -80,25 +82,24 @@ export function GroupBody({ id, name, total, isEmpty, children }: Props) {
 
       {children}
 
-      {(adding || adder.error) && (
+      {showField && (
         <tr className="data-row">
           <td className="h-[43px] w-[54px] pl-3.5">
             <EmptyToken />
           </td>
           <td colSpan={4}>
-            <form onSubmit={adder.submit} className="flex items-center gap-3">
+            <form
+              onSubmit={adder.submit}
+              onFocus={() => setAdding(true)}
+              className="flex items-center gap-3"
+            >
               <AddByNameField
                 state={adder}
                 label={`New category in ${name}`}
                 placeholder="New category"
                 autoFocus={!isEmpty}
-                className="text-[15.5px]"
-                onEscape={() => {
-                  // An empty group keeps its field: there is nothing else in it.
-                  if (isEmpty) return;
-                  setAdding(false);
-                  adder.clear();
-                }}
+                className="text-[15.5px] font-medium"
+                onLeave={() => setAdding(false)}
               />
             </form>
           </td>

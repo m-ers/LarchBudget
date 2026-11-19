@@ -184,7 +184,7 @@ async function Budget({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
           </p>
         )}
 
-        <div className="mt-1">
+        <div className="mt-3">
           <NewGroup
             placeholder={budget.groups.length === 0 ? "Name your first group" : "New group"}
           />
