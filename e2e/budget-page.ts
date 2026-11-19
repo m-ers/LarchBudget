@@ -51,9 +51,12 @@ export async function addAccount(page: Page, name: string, balanceToday: string)
   await page.getByRole("textbox", { name: "Name" }).fill(name);
   await page.getByRole("textbox", { name: "Balance today" }).fill(balanceToday);
   await page.getByRole("button", { name: "Add account" }).click();
-  // The first cell of its row: the type column can read the same, e.g. "Checking".
+  // The first cell of a row: the type column can read the same, e.g. "Checking".
   await expect(
-    page.getByRole("row").getByRole("cell").first().filter({ hasText: name }),
+    page
+      .getByRole("row")
+      .locator("td:first-child")
+      .filter({ hasText: exactly(name) }),
   ).toBeVisible();
 }
 

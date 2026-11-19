@@ -67,11 +67,15 @@ test("picking a category saves at once and moves on to the next", async ({ page 
   await expect(shown(picker(page, "Acme Corp", "Nov 1, 2026"))).toHaveText(
     "No category (income or transfer)",
   );
-  await expect(shown(picker(page, "Starting balance", "Nov 19, 2026"))).toHaveCount(1);
+  // The starting balance is dated the day the account was added: today.
+  await expect(
+    page.getByRole("combobox", { name: /^Category for Starting balance on / }),
+  ).toHaveCount(1);
 
   // The budget now counts the spending: 1,000 + 2,850 in accounts, all of it
   // ready to assign, as the categories are overspent by what was spent.
-  await page.getByRole("link", { name: "Budget" }).click();
+  // The bank file is from November 2026, so that is the month to look at.
+  await page.goto("/?month=2026-11");
   await expect(categoryRow(page, "Groceries").getByRole("cell").nth(3)).toHaveText("45.10");
   await expect(categoryRow(page, "Groceries").getByRole("cell").last()).toContainText("-€45.10");
   await expect(categoryRow(page, "Rent").getByRole("cell").nth(3)).toHaveText("1,100.00");
