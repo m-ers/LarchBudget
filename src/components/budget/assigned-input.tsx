@@ -5,7 +5,7 @@ import { setAssignedAction } from "@/app/actions";
 import type { Month } from "@/lib/dates";
 import { formatAmount, toInputValue } from "@/lib/money";
 import { ErrorText } from "../form";
-import { useInlineEdit } from "../use-inline-edit";
+import { useInlineEdit, windowLostFocus } from "../use-inline-edit";
 
 type Props = {
   categoryId: number;
@@ -56,7 +56,9 @@ export function AssignedInput({ categoryId, categoryName, month, value, currency
             edit.start();
           }
         }}
-        onBlur={edit.commit}
+        onBlur={(e) => {
+          if (!windowLostFocus(e)) edit.commit();
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();

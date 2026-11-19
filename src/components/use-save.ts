@@ -22,10 +22,11 @@ export function useSave() {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  /** Calls the action; `onSaved` runs only when it succeeded. */
+  /** Calls the action; `onSaved` runs only when it succeeded, `onFailed` only when it did not. */
   function save<Saved extends { ok: true }>(
     action: () => Promise<Saved | Failure>,
     onSaved?: (result: Saved) => void,
+    onFailed?: () => void,
   ): void {
     startTransition(async () => {
       const result = await action().catch(() => UNREACHABLE);
@@ -35,6 +36,7 @@ export function useSave() {
           onSaved?.(result);
         } else {
           setError(result.error);
+          onFailed?.();
         }
       });
     });

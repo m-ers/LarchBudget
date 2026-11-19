@@ -3,7 +3,7 @@
 import { MAX_NAME_LENGTH } from "@/lib/limits";
 import type { ActionResult } from "@/lib/result";
 import { ErrorText } from "./form";
-import { useInlineEdit } from "./use-inline-edit";
+import { useInlineEdit, windowLostFocus } from "./use-inline-edit";
 
 type Props = {
   value: string;
@@ -45,8 +45,15 @@ export function InlineName({ value, label, onSave, className = "" }: Props) {
         value={edit.text}
         maxLength={MAX_NAME_LENGTH}
         onChange={(e) => edit.setText(e.target.value)}
-        onFocus={(e) => e.currentTarget.select()}
-        onBlur={edit.commit}
+        onFocus={(e) => {
+          // Only when editing starts, not when the window gets focus back.
+          if (e.currentTarget.dataset.selected) return;
+          e.currentTarget.dataset.selected = "true";
+          e.currentTarget.select();
+        }}
+        onBlur={(e) => {
+          if (!windowLostFocus(e)) edit.commit();
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();
           if (e.key === "Escape") edit.cancel(e.currentTarget);

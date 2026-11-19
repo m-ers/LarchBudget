@@ -5,6 +5,16 @@ import type { ActionResult } from "@/lib/result";
 import { useSave } from "./use-save";
 
 /**
+ * True when a field's blur only means the whole window lost focus, for
+ * example when switching to another app or tab. The field stays the active
+ * element then, and gets focus back when the window does, so a half-typed
+ * value should not be saved yet.
+ */
+export function windowLostFocus(e: React.FocusEvent<HTMLElement>): boolean {
+  return document.activeElement === e.currentTarget;
+}
+
+/**
  * Editing one value in place: it is saved when the field loses focus and
  * left alone when Escape is pressed.
  *

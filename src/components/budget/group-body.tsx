@@ -67,6 +67,7 @@ export function GroupBody({ id, name, total, isEmpty, children }: Props) {
                     title="Delete group"
                     onClick={() => remove(id)}
                     revealOn="head"
+                    keepFocus
                   >
                     <TrashIcon width={15} height={15} />
                   </RowAction>

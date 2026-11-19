@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { MAX_NAME_LENGTH } from "@/lib/limits";
 import type { ActionResult } from "@/lib/result";
 import { ErrorText } from "../form";
+import { windowLostFocus } from "../use-inline-edit";
 import { useSave } from "../use-save";
 
 /**
@@ -16,10 +17,16 @@ export function useAddByName(add: (name: string) => Promise<ActionResult>) {
   const cancelled = useRef(false);
 
   function addDraft() {
-    if (draft.trim() === "" || pending) return;
+    const submitted = draft;
+    if (submitted.trim() === "") return;
+    // Cleared straight away, ready for the next name, even while this one is
+    // still being saved. It comes back if it could not be added and nothing
+    // new was typed meanwhile.
+    setDraft("");
     save(
-      () => add(draft),
-      () => setDraft(""),
+      () => add(submitted),
+      undefined,
+      () => setDraft((current) => (current === "" ? submitted : current)),
     );
   }
 
@@ -92,7 +99,8 @@ export function AddByNameField({
         maxLength={MAX_NAME_LENGTH}
         value={state.draft}
         onChange={(e) => state.type(e.target.value)}
-        onBlur={() => {
+        onBlur={(e) => {
+          if (windowLostFocus(e)) return;
           state.commit();
           onLeave?.();
         }}
@@ -105,10 +113,10 @@ export function AddByNameField({
       />
       {state.error ? (
         <ErrorText error={state.error} as="span" className="text-xs" />
+      ) : state.pending ? (
+        <span className="text-xs text-muted">Adding…</span>
       ) : (
-        state.draft.trim() !== "" && (
-          <span className="text-xs text-muted">{state.pending ? "Adding…" : "Enter to add"}</span>
-        )
+        state.draft.trim() !== "" && <span className="text-xs text-muted">Enter to add</span>
       )}
     </>
   );
