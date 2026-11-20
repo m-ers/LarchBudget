@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { setAssignedAction } from "@/app/actions";
 import { formatAmount, parseMoney, toInputValue } from "@/lib/money";
 import { ErrorText } from "../form";
-import { windowLostFocus } from "../use-inline-edit";
+import { useSaveOnLeave } from "../use-inline-edit";
 import { useSave } from "../use-save";
 import { useBudget } from "./budget-context";
 
@@ -44,7 +44,6 @@ export function AssignedInput({ categoryId, categoryName, value }: Props) {
   // What was typed for a save that failed, to start the next edit from.
   const [retry, setRetry] = useState<string | null>(null);
   const { error, setError, save } = useSave();
-  const cancelled = useRef(false);
   const input = useRef<HTMLInputElement>(null);
   const selectOnEdit = useRef(false);
 
@@ -57,11 +56,7 @@ export function AssignedInput({ categoryId, categoryName, value }: Props) {
     }
   }, [text]);
 
-  function commit() {
-    if (cancelled.current) {
-      cancelled.current = false;
-      return;
-    }
+  function saveTyped() {
     if (text === null) return;
     const typed = text;
     setText(null);
@@ -83,17 +78,11 @@ export function AssignedInput({ categoryId, categoryName, value }: Props) {
     );
   }
 
-  /**
-   * For the Escape key: drops what was typed. Blurring the field here makes
-   * `commit` run now and see the cancel.
-   */
-  function cancel(field: HTMLElement) {
-    cancelled.current = true;
+  const { commit, cancel } = useSaveOnLeave(saveTyped, () => {
     setText(null);
     setRetry(null);
     setError(null);
-    field.blur();
-  }
+  });
 
   return (
     <div className="-mr-2 flex flex-col items-end">
@@ -115,9 +104,7 @@ export function AssignedInput({ categoryId, categoryName, value }: Props) {
             setText(retry ?? toInputValue(value, currency, locale));
           }
         }}
-        onBlur={(e) => {
-          if (!windowLostFocus(e)) commit();
-        }}
+        onBlur={commit}
         onKeyDown={(e) => {
           // Keys that pick a character from an input method are not ours.
           if (e.nativeEvent.isComposing) return;

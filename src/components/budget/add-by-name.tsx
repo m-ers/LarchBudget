@@ -1,10 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { MAX_NAME_LENGTH } from "@/lib/limits";
 import type { ActionResult } from "@/lib/result";
 import { ErrorText } from "../form";
-import { windowLostFocus } from "../use-inline-edit";
+import { useSaveOnLeave } from "../use-inline-edit";
 import { useSave } from "../use-save";
 
 /**
@@ -14,7 +14,6 @@ import { useSave } from "../use-save";
 export function useAddByName(add: (name: string) => Promise<ActionResult>) {
   const [draft, setDraft] = useState("");
   const { error, setError, pending, save } = useSave();
-  const cancelled = useRef(false);
 
   function addDraft() {
     const submitted = draft;
@@ -29,6 +28,11 @@ export function useAddByName(add: (name: string) => Promise<ActionResult>) {
       () => setDraft((current) => (current === "" ? submitted : current)),
     );
   }
+
+  const { commit, cancel } = useSaveOnLeave(addDraft, () => {
+    setDraft("");
+    setError(null);
+  });
 
   return {
     draft,
@@ -48,25 +52,14 @@ export function useAddByName(add: (name: string) => Promise<ActionResult>) {
       addDraft();
     },
 
-    /** For the field's `onBlur`: clicking away adds what was typed, like Enter. */
-    commit() {
-      if (cancelled.current) {
-        cancelled.current = false;
-      } else {
-        addDraft();
-      }
-    },
-
     /**
-     * For the Escape key: drops what was typed and any error. Blurring the
-     * field here makes `commit` run now and see the cancel.
+     * For the field's `onBlur`: clicking away adds what was typed, like
+     * Enter. Returns whether the field was really left.
      */
-    cancel(field: HTMLElement) {
-      cancelled.current = true;
-      setDraft("");
-      setError(null);
-      field.blur();
-    },
+    commit,
+
+    /** For the Escape key: drops what was typed and any error. */
+    cancel,
   };
 }
 
@@ -100,9 +93,7 @@ export function AddByNameField({
         value={state.draft}
         onChange={(e) => state.type(e.target.value)}
         onBlur={(e) => {
-          if (windowLostFocus(e)) return;
-          state.commit();
-          onLeave?.();
+          if (state.commit(e)) onLeave?.();
         }}
         onKeyDown={(e) => {
           if (e.key === "Escape") state.cancel(e.currentTarget);
