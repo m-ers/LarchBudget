@@ -98,6 +98,34 @@ test("leftovers roll over into the next month", async ({ page }) => {
   await expect(assignedField(page, "Rent")).toHaveValue("400.00");
 });
 
+test("the Available amount explains how it adds up", async ({ page }) => {
+  await addAccount(page, "Main account", "1000");
+  await page.goto("/");
+  await addGroup(page, "Fixed costs");
+  await addCategories(page, "Fixed costs", ["Rent", "Repairs"]);
+  const explanation = (name: string) => available(page, name).locator("[title]");
+  await expect(explanation("Rent")).toHaveAttribute(
+    "title",
+    "Nothing assigned or spent this month.",
+  );
+  await assign(page, "Rent", "400");
+  await assign(page, "Repairs", "-250");
+  await expect(explanation("Rent")).toHaveAttribute("title", "€400.00 assigned");
+
+  await page.getByRole("link", { name: "Next month" }).click();
+  await assign(page, "Rent", "100");
+  await expect(explanation("Rent")).toHaveAttribute(
+    "title",
+    "€400.00 from earlier months + €100.00 assigned",
+  );
+  await expect(explanation("Repairs")).toHaveAttribute(
+    "title",
+    "Overspent by €250.00: assign more to cover it. -€250.00 from earlier months",
+  );
+  // Screen readers hear it too.
+  await expect(available(page, "Repairs")).toHaveText("Overspent: -€250.00");
+});
+
 test("archiving a category gives its money back to Ready to assign", async ({ page }) => {
   await addAccount(page, "Main account", "1000");
   await page.goto("/");

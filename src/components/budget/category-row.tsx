@@ -1,6 +1,7 @@
 "use client";
 
 import type { CategoryRow as Category } from "@/db/budget";
+import { explainAvailable } from "@/lib/gauge";
 import { formatAmount, formatMoney } from "@/lib/money";
 import { EnvelopeToken } from "../icons";
 import { AssignedInput } from "./assigned-input";
@@ -35,7 +36,12 @@ export function CategoryRow({ category, color }: { category: Category; color: st
       </td>
       <td className="text-right text-muted tabular-nums">{spentLabel}</td>
       <td className="pr-3.5">
-        <Gauge available={available} activity={activity} label={availableLabel} />
+        <Gauge
+          available={available}
+          activity={activity}
+          label={availableLabel}
+          explanation={explainAvailable(category, currency, locale)}
+        />
       </td>
     </tr>
   );
