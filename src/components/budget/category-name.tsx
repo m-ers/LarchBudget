@@ -16,7 +16,10 @@ type Props = {
   balance: number;
 };
 
-/** Category name: click to rename. The archive button shows on row hover. */
+/**
+ * Category name: click to rename. The category's actions sit beside it and
+ * show on row hover; for now that is archiving.
+ */
 export function CategoryName({ id, name, balance }: Props) {
   const { currency, locale } = useBudget();
   const { error, pending, save } = useSave();

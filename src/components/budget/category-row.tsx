@@ -20,7 +20,7 @@ export function formatSpent(activity: number, currency: string, locale: string):
 /** One category in the budget table: its name and actions, Assigned, Spent and Available. */
 export function CategoryRow({ category, color }: { category: Category; color: string }) {
   const { currency, locale } = useBudget();
-  const { id, name, assigned, activity, available } = category;
+  const { id, name, assigned, activity, available, balance } = category;
   const availableLabel = formatMoney(available, currency, locale);
 
   return (
@@ -29,7 +29,7 @@ export function CategoryRow({ category, color }: { category: Category; color: st
         <EnvelopeToken color={color} />
       </td>
       <td>
-        <CategoryName id={id} name={name} balance={category.balance} />
+        <CategoryName id={id} name={name} balance={balance} />
       </td>
       <td>
         <AssignedInput categoryId={id} categoryName={name} value={assigned} />

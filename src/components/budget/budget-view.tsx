@@ -11,6 +11,7 @@ import { applyChange } from "./budget-changes";
 import { BudgetContext } from "./budget-context";
 import { GroupBody, UngroupedBody } from "./group-body";
 import { NewGroup } from "./new-group";
+import { TableHead } from "./table-head";
 
 type Props = {
   /** The month as the server worked it out. */
@@ -36,8 +37,6 @@ function readyHeadline(ready: number, hasAccounts: boolean) {
     : ({ label: "Ready to assign", tone: "quiet" } as const);
 }
 
-type Headline = ReturnType<typeof readyHeadline>;
-
 /** Whether an element is at least partly in the window. True until known, as on the first paint. */
 function useInView(ref: React.RefObject<Element | null>): boolean {
   const [inView, setInView] = useState(true);
@@ -48,57 +47,6 @@ function useInView(ref: React.RefObject<Element | null>): boolean {
     return () => observer.disconnect();
   }, [ref]);
   return inView;
-}
-
-// Every heading cell sticks, on a background so rows do not show through.
-// Its bottom line is drawn inside the cell, as a row's border would not
-// move along.
-const stuck = "sticky top-0 z-10 bg-surface shadow-[inset_0_-1px_0_var(--line)]";
-
-/**
- * The column headings. They stay in view while the page scrolls, and once
- * the page header is out of view they also show what is left to assign,
- * in place of the word "Category".
- */
-function TableHead({ ready }: { ready: (Headline & { amount: string }) | null }) {
-  return (
-    <thead>
-      <tr className="text-[12.5px] text-muted">
-        <th scope="col" className={`h-[38px] w-[54px] ${stuck}`}>
-          <span className="sr-only">Group colour</span>
-        </th>
-        <th scope="col" className={`text-left font-medium ${stuck}`}>
-          {ready ? (
-            <>
-              <span className="sr-only">Category</span>
-              {/* Screen readers have the page header's figure already. */}
-              <span aria-hidden="true" data-testid="table-head-ready">
-                {ready.label}{" "}
-                <b
-                  className={`text-sm font-semibold tabular-nums ${
-                    ready.tone === "alert" ? "text-bad" : "text-ink"
-                  }`}
-                >
-                  {ready.amount}
-                </b>
-              </span>
-            </>
-          ) : (
-            "Category"
-          )}
-        </th>
-        <th scope="col" className={`w-32 text-right font-medium ${stuck}`}>
-          Assigned
-        </th>
-        <th scope="col" className={`w-32 text-right font-medium ${stuck}`}>
-          Spent
-        </th>
-        <th scope="col" className={`w-40 pr-6 text-right font-medium ${stuck}`}>
-          Available
-        </th>
-      </tr>
-    </thead>
-  );
 }
 
 /**
@@ -161,7 +109,13 @@ export function BudgetView({ budget: saved, month, currency, locale, daysLeft, m
         <table className="w-full border-collapse">
           <TableHead
             ready={
-              heroInView ? null : { ...headline, amount: formatMoney(ready, currency, locale) }
+              heroInView
+                ? null
+                : {
+                    label: headline.label,
+                    alert: headline.tone === "alert",
+                    amount: formatMoney(ready, currency, locale),
+                  }
             }
           />
           {budget.groups.map((group) =>
