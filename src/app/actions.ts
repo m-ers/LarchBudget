@@ -46,6 +46,7 @@ const done = (): ActionResult => {
 const LOGGED_OUT = fail("Your session has ended. Reload the page to log in again.");
 const UNEXPECTED = fail("Something went wrong. Reload the page and try again.");
 const CATEGORY_GONE = fail("That category no longer exists.");
+const TRANSACTION_GONE = fail("That transaction no longer exists. Reload the page.");
 const categoryNameTaken = (name: string) => fail(`You already have a category called "${name}".`);
 const groupNameTaken = (name: string) => fail(`You already have a group called "${name}".`);
 
@@ -273,7 +274,17 @@ export async function sortTransactionAction(
   const parsedTarget = sortTarget.safeParse(target);
   if (!id.safeParse(transactionId).success || !parsedTarget.success) return UNEXPECTED;
 
-  return transactions.sortTransaction(db, transactionId, parsedTarget.data)
-    ? done()
-    : CATEGORY_GONE;
+  const result = transactions.sortTransaction(db, transactionId, parsedTarget.data);
+  if (result === "no-transaction") return TRANSACTION_GONE;
+  return result === "no-category" ? CATEGORY_GONE : done();
+}
+
+export async function deleteTransactionAction(transactionId: number): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  if (!id.safeParse(transactionId).success) return UNEXPECTED;
+
+  const result = transactions.deleteTransaction(db, transactionId);
+  if (result === "no-transaction") return TRANSACTION_GONE;
+  return result === "starting" ? fail("A starting balance cannot be deleted.") : done();
 }
