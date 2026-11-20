@@ -21,15 +21,39 @@ import { accounts, transactions } from "./schema";
 /** The payee of an account's starting balance transaction. */
 const STARTING_PAYEE = "Starting balance";
 
-type AccountRow = { id: number; name: string; type: AccountType; balance: number };
+/** Compares account names ignoring case, but not accents: "savings" is "Savings", "Cafe" is not "Café". */
+const names = new Intl.Collator(undefined, { sensitivity: "accent" });
 
+/** What an account holds: the sum of its transactions. */
+const balance = sql<number>`coalesce(sum(${transactions.amount}), 0)`.mapWith(Number);
+
+export type AccountRow = {
+  id: number;
+  name: string;
+  type: AccountType;
+  /** What it holds now, with every transaction counted. */
+  balance: number;
+  /** What its owner entered: it held `startingBalance` at the end of `balanceDate`. */
+  startingBalance: number | null;
+  balanceDate: IsoDate | null;
+  /** How many transactions it has, not counting its starting balance. */
+  transactionCount: number;
+};
+
+/** The open accounts. */
 export function getAccounts(db: Db): AccountRow[] {
   return db
     .select({
       id: accounts.id,
       name: accounts.name,
       type: accounts.type,
-      balance: sql<number>`coalesce(sum(${transactions.amount}), 0)`.mapWith(Number),
+      balance,
+      startingBalance: accounts.startingBalance,
+      balanceDate: accounts.balanceDate,
+      transactionCount:
+        sql<number>`count(${transactions.id}) FILTER (WHERE ${transactions.starting} = 0)`.mapWith(
+          Number,
+        ),
     })
     .from(accounts)
     .leftJoin(transactions, eq(transactions.accountId, accounts.id))
@@ -39,18 +63,120 @@ export function getAccounts(db: Db): AccountRow[] {
     .all();
 }
 
+/** Accounts that were closed, which can be reopened. */
+export function getClosedAccounts(db: Db): { id: number; name: string }[] {
+  return db
+    .select({ id: accounts.id, name: accounts.name })
+    .from(accounts)
+    .where(eq(accounts.archived, true))
+    .orderBy(accounts.name)
+    .all();
+}
+
+/** True when an open account other than `exceptId` already uses this name, ignoring case. */
+function accountNameTaken(db: Db, name: string, exceptId?: number): boolean {
+  return db
+    .select({ id: accounts.id, name: accounts.name })
+    .from(accounts)
+    .where(eq(accounts.archived, false))
+    .all()
+    .some((account) => account.id !== exceptId && names.compare(account.name, name) === 0);
+}
+
 /**
  * Creates an account that held `startingBalance` at the end of
- * `balanceDate`. Returns its id.
+ * `balanceDate`. Returns its id, or "name-taken".
  */
 export function createAccount(
   db: Db,
   input: { name: string; type: AccountType; startingBalance: number; balanceDate: IsoDate },
-): number {
+): number | "name-taken" {
   return db.transaction((tx) => {
+    if (accountNameTaken(tx, input.name)) return "name-taken";
     const { id } = tx.insert(accounts).values(input).returning().get();
     syncStartingBalance(tx, id);
     return id;
+  });
+}
+
+/** Renames an account. Returns false, and changes nothing, when another open account has the name. */
+export function renameAccount(db: Db, id: number, name: string): boolean {
+  return db.transaction((tx) => {
+    if (accountNameTaken(tx, name, id)) return false;
+    tx.update(accounts).set({ name }).where(eq(accounts.id, id)).run();
+    return true;
+  });
+}
+
+export function setAccountType(db: Db, id: number, type: AccountType): void {
+  db.update(accounts).set({ type }).where(eq(accounts.id, id)).run();
+}
+
+/**
+ * Changes what the account held at the end of a day, and moves its starting
+ * balance to match. Returns false, and changes nothing, when the account
+ * does not exist or is closed: a closed account holds nothing.
+ */
+export function setAccountBalance(
+  db: Db,
+  id: number,
+  input: { startingBalance: number; balanceDate: IsoDate },
+): boolean {
+  return db.transaction((tx) => {
+    const changes = tx
+      .update(accounts)
+      .set(input)
+      .where(and(eq(accounts.id, id), eq(accounts.archived, false)))
+      .run().changes;
+    if (changes === 0) return false;
+    syncStartingBalance(tx, id);
+    return true;
+  });
+}
+
+/**
+ * Closes an account: it leaves the list and the import page, and its
+ * transactions stay. Only an account that holds nothing can be closed, so
+ * no money disappears from view.
+ */
+export function closeAccount(db: Db, id: number): "closed" | "not-empty" | "gone" {
+  return db.transaction((tx) => {
+    const [account] = tx
+      .select({ balance })
+      .from(accounts)
+      .leftJoin(transactions, eq(transactions.accountId, accounts.id))
+      .where(eq(accounts.id, id))
+      .groupBy(accounts.id)
+      .all();
+    if (!account) return "gone";
+    if (account.balance !== 0) return "not-empty";
+    tx.update(accounts).set({ archived: true }).where(eq(accounts.id, id)).run();
+    return "closed";
+  });
+}
+
+/** Reopens a closed account. Returns false, and changes nothing, when an open account has its name. */
+export function reopenAccount(db: Db, id: number): boolean {
+  return db.transaction((tx) => {
+    const [account] = tx
+      .select({ name: accounts.name })
+      .from(accounts)
+      .where(eq(accounts.id, id))
+      .all();
+    if (account && accountNameTaken(tx, account.name, id)) return false;
+    tx.update(accounts).set({ archived: false }).where(eq(accounts.id, id)).run();
+    return true;
+  });
+}
+
+/**
+ * Deletes an account and all its transactions, as if it had never been
+ * added. What was spent from it leaves the categories it was sorted into.
+ */
+export function deleteAccount(db: Db, id: number): void {
+  db.transaction((tx) => {
+    tx.delete(transactions).where(eq(transactions.accountId, id)).run();
+    tx.delete(accounts).where(eq(accounts.id, id)).run();
   });
 }
 

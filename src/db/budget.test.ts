@@ -41,12 +41,14 @@ function expectEverythingAccountedFor() {
 beforeEach(() => {
   db = openDb(":memory:");
   group = createGroup(db, "Everyday");
-  checking = createAccount(db, {
-    name: "Checking",
-    type: "checking",
-    startingBalance: 100_000,
-    balanceDate: "2026-10-01",
-  });
+  checking = created(
+    createAccount(db, {
+      name: "Checking",
+      type: "checking",
+      startingBalance: 100_000,
+      balanceDate: "2026-10-01",
+    }),
+  );
 });
 
 describe("ready to assign", () => {
@@ -84,12 +86,14 @@ describe("ready to assign", () => {
   });
 
   it("is not changed by a transfer between accounts", () => {
-    const savings = createAccount(db, {
-      name: "Savings",
-      type: "savings",
-      startingBalance: 0,
-      balanceDate: "2026-10-01",
-    });
+    const savings = created(
+      createAccount(db, {
+        name: "Savings",
+        type: "savings",
+        startingBalance: 0,
+        balanceDate: "2026-10-01",
+      }),
+    );
     spend(null, "2026-10-10", -20_000, checking);
     spend(null, "2026-10-10", 20_000, savings);
     expect(getBudgetMonth(db, "2026-10").readyToAssign).toBe(100_000);

@@ -10,6 +10,7 @@ export function BalanceFields({
   today,
   amount = "",
   date = today,
+  autoFocus,
 }: {
   amountPlaceholder: string;
   /** The latest day a balance can be from. */
@@ -17,11 +18,13 @@ export function BalanceFields({
   /** The fields' starting values: the amount as typed, and the day. */
   amount?: string;
   date?: IsoDate;
+  autoFocus?: boolean;
 }) {
   return (
     <>
       <Field label="Balance">
         <input
+          autoFocus={autoFocus}
           name="startingBalance"
           inputMode="decimal"
           autoComplete="off"

@@ -42,18 +42,22 @@ const [firstYear, firstMonth] = months[0].split("-").map(Number);
 const balanceDate = today(new Date(firstYear, firstMonth - 1, 0));
 
 db.transaction((tx) => {
-  const checking = createAccount(tx, {
-    name: "Checking",
-    type: "checking",
-    startingBalance: money(1200),
-    balanceDate,
-  });
-  createAccount(tx, {
-    name: "Savings",
-    type: "savings",
-    startingBalance: money(5000),
-    balanceDate,
-  });
+  const checking = created(
+    createAccount(tx, {
+      name: "Checking",
+      type: "checking",
+      startingBalance: money(1200),
+      balanceDate,
+    }),
+  );
+  created(
+    createAccount(tx, {
+      name: "Savings",
+      type: "savings",
+      startingBalance: money(5000),
+      balanceDate,
+    }),
+  );
 
   const plan = [
     { group: "Fixed costs", name: "Rent", assign: 1100 },

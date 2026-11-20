@@ -29,6 +29,10 @@ export async function getAccounts() {
   return accounts.getAccounts(await database());
 }
 
+export async function getClosedAccounts() {
+  return accounts.getClosedAccounts(await database());
+}
+
 export async function getTransactions(options: { only?: "to-sort"; limit: number }) {
   return transactions.listTransactions(await database(), options);
 }

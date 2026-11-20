@@ -48,12 +48,14 @@ const november: ImportRow[] = [
 
 beforeEach(() => {
   db = openDb(":memory:");
-  checking = createAccount(db, {
-    name: "Checking",
-    type: "checking",
-    startingBalance: 100_000,
-    balanceDate: "2026-10-31",
-  });
+  checking = created(
+    createAccount(db, {
+      name: "Checking",
+      type: "checking",
+      startingBalance: 100_000,
+      balanceDate: "2026-10-31",
+    }),
+  );
   groceries = createCategory(db, "Groceries", createGroup(db, "Everyday"));
 });
 
@@ -84,12 +86,14 @@ describe("importing", () => {
   });
 
   it("treats the same row in another account as a different transaction", () => {
-    const savings = createAccount(db, {
-      name: "Savings",
-      type: "savings",
-      startingBalance: 0,
-      balanceDate: "2026-10-31",
-    });
+    const savings = created(
+      createAccount(db, {
+        name: "Savings",
+        type: "savings",
+        startingBalance: 0,
+        balanceDate: "2026-10-31",
+      }),
+    );
     importTransactions(db, checking, november, "a");
     expect(importTransactions(db, savings, november, "b")?.imported).toBe(4);
   });

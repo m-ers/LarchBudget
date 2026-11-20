@@ -1,13 +1,26 @@
 import { and, asc, eq, lte, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { IsoDate } from "../lib/dates";
-import { createAccount, getAccounts, syncStartingBalance } from "./accounts";
+import {
+  closeAccount,
+  createAccount,
+  deleteAccount,
+  getAccounts,
+  getClosedAccounts,
+  renameAccount,
+  reopenAccount,
+  setAccountBalance,
+  setAccountType,
+  syncStartingBalance,
+} from "./accounts";
 import * as budget from "./budget";
 import { getBudgetMonth, setAssigned } from "./budget";
 import { created } from "./created";
 import { openDb, type Db } from "./index";
-import { accounts, transactions } from "./schema";
+import { accounts, deletedImports, transactions } from "./schema";
 import {
+  countTransactions,
+  getImportAccounts,
   importTransactions,
   listTransactions,
   sortTransaction,
@@ -52,7 +65,7 @@ const october: ImportRow[] = [
 ];
 
 const addAccount = (startingBalance: number, balanceDate: IsoDate, name = "Checking") =>
-  createAccount(db, { name, type: "checking", startingBalance, balanceDate });
+  created(createAccount(db, { name, type: "checking", startingBalance, balanceDate }));
 
 /** What the account holds now, counting every transaction. */
 const balance = (accountId: number) => getAccounts(db).find((a) => a.id === accountId)!.balance;
@@ -111,14 +124,171 @@ beforeEach(() => {
 });
 
 describe("accounts", () => {
-  it("derive their balance from the ledger", () => {
+  it("are listed with what they hold, what was entered and how many transactions they have", () => {
     const checking = addAccount(100_000, "2026-10-01");
-    db.insert(transactions)
-      .values({ accountId: checking, date: "2026-10-03", amount: -2_500 })
-      .run();
+    importTransactions(
+      db,
+      checking,
+      [row("2026-10-03", -2_500, "Bakery"), row("2026-09-30", 1_000, "Refund")],
+      "a",
+    );
     expect(getAccounts(db)).toEqual([
-      { id: checking, name: "Checking", type: "checking", balance: 97_500 },
+      {
+        id: checking,
+        name: "Checking",
+        type: "checking",
+        balance: 97_500,
+        startingBalance: 100_000,
+        balanceDate: "2026-10-01",
+        transactionCount: 2,
+      },
     ]);
+  });
+
+  it("cannot share a name with another open account, ignoring case", () => {
+    const checking = addAccount(0, "2026-11-01", "Checking");
+    const savings = addAccount(0, "2026-11-01", "Savings");
+    expect(
+      createAccount(db, {
+        name: "CHECKING",
+        type: "checking",
+        startingBalance: 0,
+        balanceDate: "2026-11-01",
+      }),
+    ).toBe("name-taken");
+    expect(renameAccount(db, savings, "checking")).toBe(false);
+    expect(renameAccount(db, checking, "checking")).toBe(true);
+    expect(getAccounts(db).find((a) => a.id === checking)?.name).toBe("checking");
+
+    // Also beyond plain English letters; an accent makes another name.
+    addAccount(0, "2026-11-01", "Épargne");
+    expect(renameAccount(db, savings, "ÉPARGNE")).toBe(false);
+    expect(renameAccount(db, savings, "Epargne")).toBe(true);
+  });
+
+  it("can change type", () => {
+    const card = addAccount(-25_000, "2026-11-01", "Visa");
+    setAccountType(db, card, "credit");
+    expect(getAccounts(db)[0]).toMatchObject({ name: "Visa", type: "credit", balance: -25_000 });
+  });
+});
+
+describe("changing an account's balance", () => {
+  it("moves its starting balance so the account holds the new amount on the new day", () => {
+    const checking = addAccount(195_490, "2026-11-20");
+    importTransactions(db, checking, november, "a");
+    importTransactions(db, checking, [row("2026-11-19", -680, "Bakery")], "b");
+    expect(balance(checking)).toBe(195_490);
+
+    // The balance was in fact from the 18th, before the bakery.
+    expect(
+      setAccountBalance(db, checking, { startingBalance: 195_490, balanceDate: "2026-11-18" }),
+    ).toBe(true);
+    expect(balanceAt(checking, "2026-11-18")).toBe(195_490);
+    expect(balance(checking)).toBe(194_810);
+    expect(startingRow(checking)).toMatchObject({ date: "2026-10-31", amount: 34_900 });
+    expect(getAccounts(db)[0]).toMatchObject({
+      startingBalance: 195_490,
+      balanceDate: "2026-11-18",
+    });
+    expectEverythingAccountedFor();
+
+    // A new amount on a later day.
+    setAccountBalance(db, checking, { startingBalance: 200_000, balanceDate: "2026-11-25" });
+    expect(balance(checking)).toBe(200_000);
+    expect(balanceAt(checking, "2026-11-18")).toBe(200_680);
+    expectEverythingAccountedFor();
+  });
+
+  it("to 0, without history, leaves no starting balance", () => {
+    const cash = addAccount(5_000, "2026-11-20", "Cash");
+    setAccountBalance(db, cash, { startingBalance: 0, balanceDate: "2026-11-20" });
+    expect(startingRow(cash)).toBeUndefined();
+    expect(balance(cash)).toBe(0);
+  });
+
+  it("is refused for an account that is closed or does not exist", () => {
+    const cash = addAccount(0, "2026-11-20", "Cash");
+    closeAccount(db, cash);
+    const change = { startingBalance: 5_000, balanceDate: "2026-11-20" } as const;
+    expect(setAccountBalance(db, cash, change)).toBe(false);
+    expect(setAccountBalance(db, 9999, change)).toBe(false);
+    expect(startingRow(cash)).toBeUndefined();
+  });
+});
+
+describe("closing an account", () => {
+  it("needs it to hold nothing", () => {
+    const savings = addAccount(500_000, "2026-11-01", "Savings");
+    expect(closeAccount(db, savings)).toBe("not-empty");
+    expect(getAccounts(db)).toHaveLength(1);
+    expect(getClosedAccounts(db)).toEqual([]);
+  });
+
+  it("takes it off the list and the import page, and keeps its history", () => {
+    const savings = addAccount(500_000, "2026-11-01", "Savings");
+    // The money moved out, as the bank file shows.
+    importTransactions(db, savings, [row("2026-11-10", -500_000, "To checking")], "a");
+    expect(closeAccount(db, savings)).toBe("closed");
+
+    expect(getAccounts(db)).toEqual([]);
+    expect(getImportAccounts(db)).toEqual([]);
+    expect(getClosedAccounts(db)).toEqual([{ id: savings, name: "Savings" }]);
+    expect(countTransactions(db).all).toBe(2);
+    expect(importTransactions(db, savings, november, "b")).toBeNull();
+    // Someone who closed their last account has still started their budget.
+    expect(getBudgetMonth(db, "2026-11").hasAccounts).toBe(true);
+    expectEverythingAccountedFor();
+  });
+
+  it("says when the account does not exist", () => {
+    expect(closeAccount(db, 9999)).toBe("gone");
+  });
+
+  it("can be undone by reopening it, unless an open account has its name by then", () => {
+    const cash = addAccount(0, "2026-11-01", "Cash");
+    closeAccount(db, cash);
+    // A closed account's name is free.
+    const other = addAccount(0, "2026-11-01", "cash");
+    expect(reopenAccount(db, cash)).toBe(false);
+    expect(getClosedAccounts(db)).toHaveLength(1);
+
+    renameAccount(db, other, "Wallet");
+    expect(reopenAccount(db, cash)).toBe(true);
+    expect(getAccounts(db).map((a) => a.name)).toEqual(["Cash", "Wallet"]);
+    expect(getClosedAccounts(db)).toEqual([]);
+  });
+});
+
+describe("deleting an account", () => {
+  it("removes it with all its transactions, also from the categories", () => {
+    const everyday = created(budget.createGroup(db, "Everyday"));
+    const groceries = created(budget.createCategory(db, "Groceries", everyday));
+    const checking = addAccount(100_000, "2026-10-31");
+    const card = addAccount(-20_000, "2026-10-31", "Visa");
+    setAssigned(db, groceries, "2026-11", 30_000);
+    importTransactions(db, card, [row("2026-11-03", -4_510, "Fresh Market")], "a");
+    const market = listTransactions(db, { limit: 50 }).find((t) => t.payee === "Fresh Market")!;
+    sortTransaction(db, market.id, groceries);
+    db.insert(deletedImports).values({ accountId: card, importId: "gone:1" }).run();
+    expect(getBudgetMonth(db, "2026-11").totals.available).toBe(30_000 - 4_510);
+
+    deleteAccount(db, card);
+    expect(getAccounts(db).map((a) => a.id)).toEqual([checking]);
+    expect(getClosedAccounts(db)).toEqual([]);
+    expect(ledger().map((t) => t.accountId)).toEqual([checking]);
+    expect(db.select().from(deletedImports).all()).toEqual([]);
+    expect(getBudgetMonth(db, "2026-11").totals.available).toBe(30_000);
+    expectEverythingAccountedFor();
+  });
+
+  it("lets the same bank file be imported again into a new account", () => {
+    const checking = addAccount(195_490, "2026-11-20");
+    importTransactions(db, checking, november, "a");
+    deleteAccount(db, checking);
+    const again = addAccount(195_490, "2026-11-20");
+    expect(importTransactions(db, again, november, "b")?.imported).toBe(6);
+    expect(balance(again)).toBe(195_490);
   });
 });
 
