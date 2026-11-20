@@ -222,6 +222,32 @@ test("closing the last account does not bring back the welcome", async ({ page }
   await page.getByRole("link", { name: "Budget" }).click();
   await expect(page.getByRole("textbox", { name: "New group name" })).toBeVisible();
   await expect(page.getByText("Welcome to LarchBudget.")).toHaveCount(0);
+
+  // The import page does not claim there never was an account.
+  await page.getByRole("link", { name: "Import from bank" }).click();
+  await expect(
+    page.getByText(
+      "Transactions are imported into an account, and all of yours are closed. Reopen one, or add a new one.",
+    ),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "Go to Accounts" }).click();
+  await expect(page).toHaveURL(/\/accounts$/);
+});
+
+test("a balance from a mistyped year is refused", async ({ page }) => {
+  await page.goto("/accounts");
+  const form = addForm(page);
+  await form.getByRole("textbox", { name: "Name" }).fill("Checking");
+  await amountField(form).fill("100");
+  // Past the date field's own check, as a script or an old browser would send it.
+  await dateField(form).evaluate((field: HTMLInputElement) => {
+    field.removeAttribute("min");
+    field.value = "0202-11-18";
+  });
+  await form.getByRole("button", { name: "Add account" }).click();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Check the year of the date." }),
+  ).toBeVisible();
 });
 
 test("deleting an account asks first and says how many transactions go with it", async ({

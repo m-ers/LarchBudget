@@ -28,12 +28,33 @@ export function ErrorText({
   );
 }
 
-/** A form control with its label above it. */
-export function Field({ label, children }: { label: string; children: React.ReactNode }) {
+/**
+ * A form control with its label above it, and an optional hint under it.
+ * The hint stays out of the label, so it is not read as part of the
+ * control's name: give the control `aria-describedby={hintId}` instead.
+ */
+export function Field({
+  label,
+  hint,
+  hintId,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  hintId?: string;
+  children: React.ReactNode;
+}) {
   return (
-    <label className="flex flex-col gap-1.5 text-sm font-medium">
-      {label}
-      {children}
-    </label>
+    <div className="flex flex-col gap-1.5 text-sm font-medium">
+      <label className="flex flex-col gap-1.5">
+        {label}
+        {children}
+      </label>
+      {hint && (
+        <p id={hintId} className="text-xs font-normal text-muted">
+          {hint}
+        </p>
+      )}
+    </div>
   );
 }

@@ -20,7 +20,7 @@ import {
   MAX_ROWS,
 } from "@/lib/import/limits";
 import { applyMapping, isMapping, serializeMapping, type Mapping } from "@/lib/import/mapping";
-import { MAX_NAME_LENGTH } from "@/lib/limits";
+import { EARLIEST_BALANCE_DATE, MAX_NAME_LENGTH } from "@/lib/limits";
 import { minorUnitDigits, parseMoney } from "@/lib/money";
 import type { ActionResult, Failure } from "@/lib/result";
 import { isLoggedIn } from "./session";
@@ -164,6 +164,7 @@ const accountType = z.enum(accountTypes);
 const balanceDate = z.iso
   .date("That is not a date.")
   .refine((date) => date <= today(), "The date cannot be in the future.")
+  .refine((date) => date >= EARLIEST_BALANCE_DATE, "Check the year of the date.")
   .transform((date) => date as IsoDate);
 
 const balanceInput = z.object({ startingBalance: z.string(), balanceDate });

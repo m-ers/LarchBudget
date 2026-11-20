@@ -1,4 +1,6 @@
+import { useId } from "react";
 import type { IsoDate } from "@/lib/dates";
+import { EARLIEST_BALANCE_DATE } from "@/lib/limits";
 import { Field, field } from "../form";
 
 /**
@@ -20,35 +22,40 @@ export function BalanceFields({
   date?: IsoDate;
   autoFocus?: boolean;
 }) {
+  const id = useId();
   return (
     <>
-      <Field label="Balance">
+      <Field
+        label="Balance"
+        hint="For a credit card you owe money on, enter a negative amount."
+        hintId={`${id}-amount`}
+      >
         <input
           autoFocus={autoFocus}
           name="startingBalance"
+          aria-describedby={`${id}-amount`}
           inputMode="decimal"
           autoComplete="off"
           placeholder={amountPlaceholder}
           defaultValue={amount}
           className={`${field} px-3 tabular-nums`}
         />
-        <span className="text-xs font-normal text-muted">
-          For a credit card you owe money on, enter a negative amount.
-        </span>
       </Field>
-      <Field label="On">
+      <Field
+        label="On"
+        hint="What the account held at the end of that day. Transactions from before that day that you import later are filled in behind it; they do not change this balance."
+        hintId={`${id}-date`}
+      >
         <input
           type="date"
           name="balanceDate"
           required
+          min={EARLIEST_BALANCE_DATE}
           max={today}
           defaultValue={date}
+          aria-describedby={`${id}-date`}
           className={`${field} px-3 tabular-nums`}
         />
-        <span className="text-xs font-normal text-muted">
-          What the account held at the end of that day. Transactions from before that day that you
-          import later are filled in behind it; they do not change this balance.
-        </span>
       </Field>
     </>
   );

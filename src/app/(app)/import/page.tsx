@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { getImportAccounts } from "@/app/queries";
+import { getClosedAccounts, getImportAccounts } from "@/app/queries";
 import { primaryButton } from "@/components/form";
 import { Hero, HeroLead, HeroTitle } from "@/components/hero";
 import { ImportWizard } from "@/components/import/import-wizard";
@@ -35,11 +35,16 @@ async function Import() {
   const { currency, locale } = getConfig();
 
   if (accounts.length === 0) {
+    const closed = (await getClosedAccounts()).length > 0;
     return (
       <div className="text-muted">
-        <p>Transactions are imported into an account, and you have none yet.</p>
+        <p>
+          {closed
+            ? "Transactions are imported into an account, and all of yours are closed. Reopen one, or add a new one."
+            : "Transactions are imported into an account, and you have none yet."}
+        </p>
         <Link href="/accounts" className={`${primaryButton} mt-4 inline-block px-3.5 py-2`}>
-          Add an account
+          {closed ? "Go to Accounts" : "Add an account"}
         </Link>
       </div>
     );
