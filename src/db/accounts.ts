@@ -102,17 +102,21 @@ export function createAccount(
   });
 }
 
-/** Renames an account. Returns false, and changes nothing, when another open account has the name. */
-export function renameAccount(db: Db, id: number, name: string): boolean {
+/** What came of changing an account: it worked, its name is in use, or it no longer exists. */
+export type AccountChange = "done" | "name-taken" | "gone";
+
+/** Renames an account. Changes nothing when another open account has the name. */
+export function renameAccount(db: Db, id: number, name: string): AccountChange {
   return db.transaction((tx) => {
-    if (accountNameTaken(tx, name, id)) return false;
-    tx.update(accounts).set({ name }).where(eq(accounts.id, id)).run();
-    return true;
+    if (accountNameTaken(tx, name, id)) return "name-taken";
+    const changes = tx.update(accounts).set({ name }).where(eq(accounts.id, id)).run().changes;
+    return changes > 0 ? "done" : "gone";
   });
 }
 
-export function setAccountType(db: Db, id: number, type: AccountType): void {
-  db.update(accounts).set({ type }).where(eq(accounts.id, id)).run();
+/** Returns false when the account no longer exists. */
+export function setAccountType(db: Db, id: number, type: AccountType): boolean {
+  return db.update(accounts).set({ type }).where(eq(accounts.id, id)).run().changes > 0;
 }
 
 /**
@@ -158,28 +162,30 @@ export function closeAccount(db: Db, id: number): "closed" | "not-empty" | "gone
   });
 }
 
-/** Reopens a closed account. Returns false, and changes nothing, when an open account has its name. */
-export function reopenAccount(db: Db, id: number): boolean {
+/** Reopens a closed account. Changes nothing when an open account has its name. */
+export function reopenAccount(db: Db, id: number): AccountChange {
   return db.transaction((tx) => {
     const [account] = tx
       .select({ name: accounts.name })
       .from(accounts)
       .where(eq(accounts.id, id))
       .all();
-    if (account && accountNameTaken(tx, account.name, id)) return false;
+    if (!account) return "gone";
+    if (accountNameTaken(tx, account.name, id)) return "name-taken";
     tx.update(accounts).set({ archived: false }).where(eq(accounts.id, id)).run();
-    return true;
+    return "done";
   });
 }
 
 /**
  * Deletes an account and all its transactions, as if it had never been
  * added. What was spent from it leaves the categories it was sorted into.
+ * Returns false when the account no longer exists.
  */
-export function deleteAccount(db: Db, id: number): void {
-  db.transaction((tx) => {
+export function deleteAccount(db: Db, id: number): boolean {
+  return db.transaction((tx) => {
     tx.delete(transactions).where(eq(transactions.accountId, id)).run();
-    tx.delete(accounts).where(eq(accounts.id, id)).run();
+    return tx.delete(accounts).where(eq(accounts.id, id)).run().changes > 0;
   });
 }
 

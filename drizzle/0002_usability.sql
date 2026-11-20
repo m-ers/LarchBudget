@@ -11,9 +11,10 @@ ALTER TABLE `accounts` ADD `starting_balance` integer;--> statement-breakpoint
 ALTER TABLE `accounts` ADD `balance_date` text;--> statement-breakpoint
 ALTER TABLE `categories` ADD `income` integer DEFAULT false NOT NULL;--> statement-breakpoint
 ALTER TABLE `transactions` ADD `starting` integer DEFAULT false NOT NULL;--> statement-breakpoint
--- Existing data: mark each account's starting balance, and record what the
--- account held on that day, so nothing changes for accounts that exist.
-UPDATE `transactions` SET `starting` = 1
+-- Existing data: mark each account's starting balance (it belongs to no
+-- category and is never "to sort"), and record what the account held on
+-- that day, so nothing changes for accounts that exist.
+UPDATE `transactions` SET `starting` = 1, `to_sort` = 0, `category_id` = NULL
 WHERE `import_id` IS NULL AND `payee` = 'Starting balance'
   AND `id` IN (SELECT min(`id`) FROM `transactions` GROUP BY `account_id`);--> statement-breakpoint
 UPDATE `accounts` SET `balance_date` = coalesce(

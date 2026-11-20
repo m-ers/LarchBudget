@@ -11,15 +11,16 @@ export const delimiterLabels: Record<Delimiter, string> = {
   "|": "Pipe",
 };
 
-/** How many lines are looked at, and how many of them must agree. */
-const SAMPLE_LINES = 20;
-const AGREEMENT = 0.8;
+/** How many lines are looked at. */
+const SAMPLE_LINES = 50;
 
 /**
- * Picks the delimiter that splits (nearly) every sampled line into the same
+ * Picks the delimiter that splits the most sampled lines into the same
  * number of cells, more than one. A stray tab or semicolon inside one cell
- * gives that line another count, so it cannot win over the real delimiter.
- * When several qualify, the one with more cells wins; falls back to a comma.
+ * gives that one line another count, so it cannot win over the real
+ * delimiter; and a few lines of account details above the table, which some
+ * banks add, do not hide it either. When delimiters tie, the one with more
+ * cells wins; a file with no table in it falls back to a comma.
  */
 export function detectDelimiter(text: string): Delimiter {
   // Per delimiter, the number of cells of every sampled line; quoted text does not count.
@@ -45,15 +46,16 @@ export function detectDelimiter(text: string): Delimiter {
   }
   endLine();
 
-  let best: { delimiter: Delimiter; width: number } | null = null;
+  // More than one line must agree, unless the file is a single line.
+  const needed = Math.min(2, lines);
+  let best: { delimiter: Delimiter; width: number; agreeing: number } | null = null;
   for (const delimiter of delimiters) {
-    const counts = cells[delimiter];
     const tally = new Map<number, number>();
-    for (const n of counts) tally.set(n, (tally.get(n) ?? 0) + 1);
+    for (const n of cells[delimiter]) if (n > 1) tally.set(n, (tally.get(n) ?? 0) + 1);
     const [width, agreeing] = [...tally].sort((x, y) => y[1] - x[1] || y[0] - x[0])[0] ?? [1, 0];
-    if (width > 1 && agreeing >= counts.length * AGREEMENT && (!best || width > best.width)) {
-      best = { delimiter, width };
-    }
+    const better =
+      !best || agreeing > best.agreeing || (agreeing === best.agreeing && width > best.width);
+    if (agreeing >= needed && agreeing > 0 && better) best = { delimiter, width, agreeing };
   }
   return best?.delimiter ?? ",";
 }

@@ -9,6 +9,7 @@ import {
   isMapping,
   layoutSignature,
   readSavedMapping,
+  savedDelimiter,
   serializeMapping,
   type Mapping,
 } from "./mapping";
@@ -33,9 +34,25 @@ describe("parseCsv", () => {
   });
 
   it("reads with the separator it is given, whatever the guess would be", () => {
-    const text = "a;b\n1;x,y,z\n2;x,y,z\n3;x,y,z\n4;x,y,z\n5;x,y,z";
+    // Both separators split every line evenly; the comma gives more cells and wins the guess.
+    const text = "1;x,y,z\n2;x,y,z\n3;x,y,z";
     expect(detectDelimiter(text)).toBe(",");
-    expect(parseCsv(text, ";")[1]).toEqual(["1", "x,y,z"]);
+    expect(parseCsv(text, ";")[1]).toEqual(["2", "x,y,z"]);
+  });
+
+  it("finds the table under a few lines of account details", () => {
+    const table = ["Date;Payee;Purpose;IBAN;BIC;Amount;Currency;Balance;Note"].concat(
+      Array.from(
+        { length: 14 },
+        (_, i) => `2026-11-${10 + i};Shop, the;x;NL01;BIC;-1,50;EUR;10,00;`,
+      ),
+    );
+    // Twelve lines of two cells first, as some banks write them.
+    const long = Array.from({ length: 12 }, (_, i) => `Detail ${i};value, with a comma`);
+    expect(detectDelimiter([...long, ...table].join("\n"))).toBe(";");
+    // Five such lines, where a comma splits them into two cells as well.
+    const short = Array.from({ length: 5 }, (_, i) => `Detail ${i},value`);
+    expect(detectDelimiter([...short, ...table].join("\n"))).toBe(";");
   });
 
   it("looks at the whole sample, ignores quoted text and prefers more columns on a tie", () => {
@@ -341,7 +358,7 @@ describe("detectMapping and applyMapping", () => {
       const rows = parseCsv("a,b,c,d\n2026-11-03,Shop,12.50,\n2026-11-01,Pay,,2850.00");
       const mapping = { ...detectMapping(rows, 2), amount: 2, amountIn: 3 };
       expect(applyMapping(rows, mapping, 2).rows.map((r) => r.amount)).toEqual([-1250, 285000]);
-      expect(readSavedMapping(serializeMapping(rows, mapping), rows)).toEqual(mapping);
+      expect(readSavedMapping(serializeMapping(rows, mapping, ";"), rows)).toEqual(mapping);
       expect(isMapping({ ...mapping, amountIn: 999 })).toBe(false);
       expect(isMapping({ ...mapping, amountIn: 1.5 })).toBe(false);
     });
@@ -395,11 +412,17 @@ describe("saved mappings", () => {
   const mapping = detectMapping(rows, 2);
 
   it("come back for a file with the same columns", () => {
-    expect(readSavedMapping(serializeMapping(rows, mapping), rows)).toEqual(mapping);
+    expect(readSavedMapping(serializeMapping(rows, mapping, ";"), rows)).toEqual(mapping);
   });
 
   it("are not used for another layout, or when missing or damaged", () => {
-    const stored = serializeMapping(rows, mapping);
+    const stored = serializeMapping(rows, mapping, ";");
+    // The separator the file was read with is remembered too.
+    expect(savedDelimiter(stored)).toBe(";");
+    expect(savedDelimiter(null)).toBeNull();
+    expect(savedDelimiter(JSON.stringify({ mapping, signature: "x" }))).toBeNull();
+    expect(savedDelimiter(JSON.stringify({ delimiter: "x" }))).toBeNull();
+    expect(savedDelimiter("not json")).toBeNull();
     expect(readSavedMapping(stored, parseCsv(rabobank))).toBeNull();
     expect(readSavedMapping(null, rows)).toBeNull();
     expect(readSavedMapping("not json", rows)).toBeNull();

@@ -20,6 +20,7 @@ import { openDb, type Db } from "./index";
 import { accounts, deletedImports, transactions } from "./schema";
 import {
   countTransactions,
+  deleteTransaction,
   getImportAccounts,
   importTransactions,
   listTransactions,
@@ -156,14 +157,14 @@ describe("accounts", () => {
         balanceDate: "2026-11-01",
       }),
     ).toBe("name-taken");
-    expect(renameAccount(db, savings, "checking")).toBe(false);
-    expect(renameAccount(db, checking, "checking")).toBe(true);
+    expect(renameAccount(db, savings, "checking")).toBe("name-taken");
+    expect(renameAccount(db, checking, "checking")).toBe("done");
     expect(getAccounts(db).find((a) => a.id === checking)?.name).toBe("checking");
 
     // Also beyond plain English letters; an accent makes another name.
     addAccount(0, "2026-11-01", "Épargne");
-    expect(renameAccount(db, savings, "ÉPARGNE")).toBe(false);
-    expect(renameAccount(db, savings, "Epargne")).toBe(true);
+    expect(renameAccount(db, savings, "ÉPARGNE")).toBe("name-taken");
+    expect(renameAccount(db, savings, "Epargne")).toBe("done");
   });
 
   it("are listed alphabetically, ignoring case, here and on the import page", () => {
@@ -255,6 +256,30 @@ describe("closing an account", () => {
 
   it("says when the account does not exist", () => {
     expect(closeAccount(db, 9999)).toBe("gone");
+    expect(reopenAccount(db, 9999)).toBe("gone");
+    expect(renameAccount(db, 9999, "Ghost")).toBe("gone");
+    expect(setAccountType(db, 9999, "cash")).toBe(false);
+    expect(deleteAccount(db, 9999)).toBe(false);
+  });
+
+  it("keeps holding nothing: its transactions cannot be deleted or un-imported", () => {
+    const card = addAccount(0, "2026-10-31", "Visa");
+    importTransactions(
+      db,
+      card,
+      [row("2026-11-03", -1_000, "Shop"), row("2026-11-05", 1_000, "Refund")],
+      "a",
+    );
+    expect(closeAccount(db, card)).toBe("closed");
+
+    const refund = listTransactions(db, { limit: 50 }).find((t) => t.payee === "Refund")!;
+    expect(deleteTransaction(db, refund.id)).toBe("closed");
+    expect(undoImport(db, "a")).toEqual({ removed: 0, sorted: 0, closed: true });
+    expect(ledger().filter((t) => t.accountId === card)).toHaveLength(2);
+
+    // Reopened, both work again.
+    reopenAccount(db, card);
+    expect(deleteTransaction(db, refund.id)).toBe("deleted");
   });
 
   it("can be undone by reopening it, unless an open account has its name by then", () => {
@@ -262,11 +287,11 @@ describe("closing an account", () => {
     closeAccount(db, cash);
     // A closed account's name is free.
     const other = addAccount(0, "2026-11-01", "cash");
-    expect(reopenAccount(db, cash)).toBe(false);
+    expect(reopenAccount(db, cash)).toBe("name-taken");
     expect(getClosedAccounts(db)).toHaveLength(1);
 
     renameAccount(db, other, "Wallet");
-    expect(reopenAccount(db, cash)).toBe(true);
+    expect(reopenAccount(db, cash)).toBe("done");
     expect(getAccounts(db).map((a) => a.name)).toEqual(["Cash", "Wallet"]);
     expect(getClosedAccounts(db)).toEqual([]);
   });
@@ -409,14 +434,14 @@ describe("an account's entered balance", () => {
     importTransactions(db, checking, [row("2026-11-21", -1_000, "Bakery")], "c");
 
     // Undoing the newest rows takes them off the top again.
-    expect(undoImport(db, "c")).toEqual({ removed: 1, sorted: 0 });
+    expect(undoImport(db, "c")).toMatchObject({ removed: 1, sorted: 0 });
     expect(balance(checking)).toBe(195_490);
 
     // Undoing older history moves the starting balance back.
-    expect(undoImport(db, "b")).toEqual({ removed: 3, sorted: 0 });
+    expect(undoImport(db, "b")).toMatchObject({ removed: 3, sorted: 0 });
     expect(ledger()).toEqual(afterNovember);
 
-    expect(undoImport(db, "a")).toEqual({ removed: 6, sorted: 0 });
+    expect(undoImport(db, "a")).toMatchObject({ removed: 6, sorted: 0 });
     expect(ledger()).toEqual(empty);
     expectEverythingAccountedFor();
   });

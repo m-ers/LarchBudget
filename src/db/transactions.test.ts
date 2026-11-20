@@ -113,7 +113,7 @@ describe("importing", () => {
   it("can be undone as a whole, without touching other transactions", () => {
     importTransactions(db, checking, november, "a");
     importTransactions(db, checking, [row("2026-11-09", -1_200, "Bakery")], "b");
-    expect(undoImport(db, "a")).toEqual({ removed: 4, sorted: 0 });
+    expect(undoImport(db, "a")).toMatchObject({ removed: 4, sorted: 0 });
     expect(listTransactions(db, { limit: 50 }).map((t) => t.payee)).toEqual([
       "Bakery",
       "Starting balance",
@@ -141,12 +141,12 @@ describe("importing", () => {
     const market = listTransactions(db, { limit: 50 }).find((t) => t.payee === "Fresh Market")!;
     sortTransaction(db, market.id, groceries);
 
-    expect(undoImport(db, "a")).toEqual({ removed: 0, sorted: 1 });
+    expect(undoImport(db, "a")).toMatchObject({ removed: 0, sorted: 1 });
     expect(countTransactions(db).all).toBe(5);
 
     // Sending it back to "to sort" makes the import undoable again.
     sortTransaction(db, market.id, "unsorted");
-    expect(undoImport(db, "a")).toEqual({ removed: 4, sorted: 0 });
+    expect(undoImport(db, "a")).toMatchObject({ removed: 4, sorted: 0 });
   });
 
   it("counts income and unsorted spending towards ready to assign straight away", () => {
@@ -438,8 +438,8 @@ describe("finding transactions", () => {
     archiveCategory(db, old);
     expect(getFilterOptions(db)).toEqual({
       accounts: [
-        { id: checking, name: "Checking" },
-        { id: savings, name: "Savings" },
+        { id: checking, name: "Checking", closed: false },
+        { id: savings, name: "Savings", closed: false },
       ],
       categories: [
         { id: groceries, name: "Groceries", archived: false },
@@ -552,6 +552,13 @@ describe("deleting", () => {
     expect(start.payee).toBe("Starting balance");
     expect(deleteTransaction(db, start.id)).toBe("starting");
     expect(countTransactions(db).all).toBe(1);
+  });
+
+  it("does not put a starting balance in a category or back on the to-sort list", () => {
+    const start = listTransactions(db, { limit: 50 })[0];
+    expect(sortTransaction(db, start.id, groceries)).toBe("starting");
+    expect(sortTransaction(db, start.id, "unsorted")).toBe("starting");
+    expect(countTransactions(db)).toEqual({ all: 1, toSort: 0 });
   });
 
   it("keeps what the account held on its balance date when older history is deleted", () => {

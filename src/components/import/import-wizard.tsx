@@ -21,6 +21,7 @@ import {
   detectMapping,
   isDateOrderGuess,
   readSavedMapping,
+  savedDelimiter,
   type Mapping,
 } from "@/lib/import/mapping";
 import { formatAmount, formatMoney, minorUnitDigits } from "@/lib/money";
@@ -134,8 +135,21 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
     if (text.includes(String.fromCharCode(0))) {
       return setError("This is not a CSV file. Choose CSV when you download from your bank.");
     }
-    const delimiter = detectDelimiter(text);
-    const read = readRows(text, delimiter);
+    let delimiter = detectDelimiter(text);
+    let read = readRows(text, delimiter);
+    // When the guess leads to no saved settings, try the separators that
+    // earlier files were read with: one corrected by hand stays corrected.
+    if (!fitsSavedSettings(read)) {
+      for (const remembered of new Set(accounts.map((a) => savedDelimiter(a.importMapping)))) {
+        if (remembered === null || remembered === delimiter) continue;
+        const again = readRows(text, remembered);
+        if (fitsSavedSettings(again)) {
+          delimiter = remembered;
+          read = again;
+          break;
+        }
+      }
+    }
     if ("problem" in read) return setError(read.problem);
     const { rows } = read;
     setFile({ name: chosen.name, text, delimiter, rows });
@@ -144,6 +158,14 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
     const into = accountFor(rows);
     setAccountId(into.id);
     chooseMapping(rows, into);
+  }
+
+  /** True when some account's saved settings were made for a file laid out like this one. */
+  function fitsSavedSettings(read: ReturnType<typeof readRows>) {
+    return (
+      !("problem" in read) &&
+      accounts.some((a) => readSavedMapping(a.importMapping, read.rows) !== null)
+    );
   }
 
   /** For a file where the guessed separator is wrong. The columns are found anew. */

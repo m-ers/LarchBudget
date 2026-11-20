@@ -12,7 +12,7 @@ import { quietButton } from "../form";
 
 type Props = {
   filter: TransactionFilter;
-  accounts: { id: number; name: string }[];
+  accounts: { id: number; name: string; closed: boolean }[];
   categories: { id: number; name: string; archived: boolean }[];
 };
 
@@ -91,6 +91,7 @@ export function TransactionFilters({ filter, accounts, categories }: Props) {
         {accounts.map((account) => (
           <option key={account.id} value={account.id}>
             {account.name}
+            {account.closed ? " (closed)" : ""}
           </option>
         ))}
       </select>

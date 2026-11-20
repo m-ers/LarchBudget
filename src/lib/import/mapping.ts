@@ -1,4 +1,5 @@
 import { parseBankAmount } from "./amount";
+import { delimiters, type Delimiter } from "./csv";
 import type { IsoDate } from "../dates";
 import {
   dateOrders,
@@ -365,10 +366,26 @@ export function applyMapping(
 
 /**
  * A mapping as it is stored with an account, together with the layout of the
- * file it was made for. It is only reused on a file with the same layout.
+ * file it was made for and the separator the file was read with. It is only
+ * reused on a file with the same layout.
  */
-export function serializeMapping(rows: string[][], mapping: Mapping): string {
-  return JSON.stringify({ signature: layoutSignature(rows, mapping), mapping });
+export function serializeMapping(rows: string[][], mapping: Mapping, delimiter: Delimiter): string {
+  return JSON.stringify({ signature: layoutSignature(rows, mapping), mapping, delimiter });
+}
+
+/**
+ * The separator an account's file was read with last time, if it is known.
+ * When the guess for a new file leads to no saved settings, this one is
+ * tried: a separator corrected by hand once should not need correcting again.
+ */
+export function savedDelimiter(stored: string | null): Delimiter | null {
+  if (!stored) return null;
+  try {
+    const { delimiter } = JSON.parse(stored) as { delimiter?: unknown };
+    return delimiters.find((known) => known === delimiter) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /** The stored mapping, when there is a valid one and `rows` has the layout it was made for. */

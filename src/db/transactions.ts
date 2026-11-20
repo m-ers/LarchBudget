@@ -129,16 +129,30 @@ export function importTransactions(
 /**
  * Removes everything one import added, as long as none of it has been sorted
  * yet. Once work has gone into those transactions, `sorted` says how many and
- * nothing is removed.
+ * nothing is removed. Nothing is removed from an account that was closed
+ * since, either (`closed`).
  */
-export function undoImport(db: Db, batch: string): { removed: number; sorted: number } {
+export function undoImport(
+  db: Db,
+  batch: string,
+): { removed: number; sorted: number; closed: boolean } {
   return db.transaction((tx) => {
     const sorted = tx
       .select({ id: transactions.id })
       .from(transactions)
       .where(and(eq(transactions.importBatch, batch), eq(transactions.toSort, false)))
       .all().length;
-    if (sorted > 0) return { removed: 0, sorted };
+    if (sorted > 0) return { removed: 0, sorted, closed: false };
+
+    // A closed account holds nothing, and has to keep doing so.
+    const closed = tx
+      .select({ id: accounts.id })
+      .from(transactions)
+      .innerJoin(accounts, eq(accounts.id, transactions.accountId))
+      .where(and(eq(transactions.importBatch, batch), eq(accounts.archived, true)))
+      .limit(1)
+      .all();
+    if (closed.length > 0) return { removed: 0, sorted: 0, closed: true };
 
     const affected = tx
       .selectDistinct({ accountId: transactions.accountId })
@@ -150,7 +164,7 @@ export function undoImport(db: Db, batch: string): { removed: number; sorted: nu
       .where(eq(transactions.importBatch, batch))
       .run().changes;
     for (const { accountId } of affected) syncStartingBalance(tx, accountId);
-    return { removed, sorted: 0 };
+    return { removed, sorted: 0, closed: false };
   });
 }
 
@@ -311,16 +325,18 @@ export function suggestCategories(db: Db, payees: string[]): Map<string, Suggest
  */
 export type SortTarget = number | "ready" | "unsorted";
 
-/** What came of sorting: it worked, or what was missing. */
-export type SortResult = "sorted" | "no-transaction" | "no-category";
+/** What came of sorting: it worked, or why it could not. */
+export type SortResult = "sorted" | "no-transaction" | "no-category" | "starting";
 
 export function sortTransaction(db: Db, id: number, target: SortTarget): SortResult {
-  const exists = db
-    .select({ id: transactions.id })
+  const [found] = db
+    .select({ starting: transactions.starting })
     .from(transactions)
     .where(eq(transactions.id, id))
     .all();
-  if (exists.length === 0) return "no-transaction";
+  if (!found) return "no-transaction";
+  // A starting balance is not income or spending: it belongs to no category.
+  if (found.starting) return "starting";
   if (typeof target === "number") {
     const category = db
       .select({ id: categories.id })
@@ -342,25 +358,33 @@ export function sortTransaction(db: Db, id: number, target: SortTarget): SortRes
 /**
  * Deletes one transaction. An imported one is remembered, so importing the
  * same bank file again does not bring it back. A starting balance is not
- * deleted: it belongs to its account.
+ * deleted: it belongs to its account. Nor is a transaction of a closed
+ * account: reopen the account first.
  *
  * The account's starting balance is then worked out again: it depends on
  * the transactions from before its date, so what the account held on that
  * date stays as its owner entered it.
  */
-export function deleteTransaction(db: Db, id: number): "deleted" | "no-transaction" | "starting" {
+export function deleteTransaction(
+  db: Db,
+  id: number,
+): "deleted" | "no-transaction" | "starting" | "closed" {
   return db.transaction((tx) => {
     const [found] = tx
       .select({
         accountId: transactions.accountId,
         importId: transactions.importId,
         starting: transactions.starting,
+        closed: accounts.archived,
       })
       .from(transactions)
+      .innerJoin(accounts, eq(accounts.id, transactions.accountId))
       .where(eq(transactions.id, id))
       .all();
     if (!found) return "no-transaction";
     if (found.starting) return "starting";
+    // A closed account holds nothing, and has to keep doing so.
+    if (found.closed) return "closed";
 
     if (found.importId !== null) {
       tx.insert(deletedImports)
@@ -409,15 +433,16 @@ export function getCategoryOptions(db: Db): CategoryOptionGroup[] {
 
 /** What the "All" list can be narrowed to: every account, and every category even if archived. */
 export function getFilterOptions(db: Db): {
-  accounts: { id: number; name: string }[];
+  accounts: { id: number; name: string; closed: boolean }[];
   categories: { id: number; name: string; archived: boolean }[];
 } {
   return {
+    // Open accounts first, each part in the order of the Accounts page.
     accounts: db
-      .select({ id: accounts.id, name: accounts.name })
+      .select({ id: accounts.id, name: accounts.name, closed: accounts.archived })
       .from(accounts)
-      .orderBy(accounts.name)
-      .all(),
+      .all()
+      .sort((a, b) => Number(a.closed) - Number(b.closed) || byName(a, b)),
     categories: db
       .select({ id: categories.id, name: categories.name, archived: categories.archived })
       .from(categories)

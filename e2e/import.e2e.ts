@@ -347,7 +347,7 @@ test.describe("with an account", () => {
   });
 
   test("when the separator was guessed wrong, it can be chosen", async ({ page }) => {
-    // Every line has three commas in its text, which look like the separator.
+    // Every line, the first included, has three commas in its text, which look like the separator.
     await chooseFile(page, "commas-in-text.csv");
     await expect(
       page.getByText("Choose which columns hold the date and the amount."),
@@ -368,5 +368,26 @@ test.describe("with an account", () => {
         name: "Category for Shop, Main Street, Amsterdam, NL on Nov 2, 2026",
       }),
     ).toBeVisible();
+  });
+
+  test("a separator chosen by hand is remembered for the next file of that bank", async ({
+    page,
+  }) => {
+    await chooseFile(page, "commas-in-text.csv");
+    await page.getByRole("combobox", { name: "Separator" }).selectOption({ label: "Semicolon" });
+    await page.getByRole("button", { name: "Import 5 transactions into Checking" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Imported 5 transactions into Checking." }),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "Import another file" }).click();
+    await chooseFile(page, "commas-in-text.csv");
+    await expect(
+      page.getByText("Read with the settings from your last import into this account."),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("combobox", { name: "Separator" }).locator("option:checked"),
+    ).toHaveText("Semicolon");
+    await expect(picked(page, "Amount")).toHaveText("Amount · -1100.00");
   });
 });

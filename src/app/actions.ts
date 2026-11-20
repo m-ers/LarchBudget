@@ -156,6 +156,8 @@ export async function deleteGroupAction(groupId: number): Promise<ActionResult> 
 // ---- Accounts --------------------------------------------------------------
 
 const ACCOUNT_GONE = fail("That account no longer exists.");
+const ACCOUNT_CLOSED =
+  "Its account is closed. Reopen the account on the Accounts page first, then try again.";
 const accountNameTaken = (name: string) => fail(`You already have an account called "${name}".`);
 
 const accountType = z.enum(accountTypes);
@@ -212,9 +214,9 @@ export async function renameAccountAction(accountId: number, input: string): Pro
   const parsed = name.safeParse(input);
   if (!parsed.success) return fail(parsed.error.issues[0].message);
 
-  return accounts.renameAccount(db, accountId, parsed.data)
-    ? done()
-    : accountNameTaken(parsed.data);
+  const result = accounts.renameAccount(db, accountId, parsed.data);
+  if (result === "name-taken") return accountNameTaken(parsed.data);
+  return result === "gone" ? ACCOUNT_GONE : done();
 }
 
 export async function setAccountTypeAction(accountId: number, type: string): Promise<ActionResult> {
@@ -223,8 +225,7 @@ export async function setAccountTypeAction(accountId: number, type: string): Pro
   const parsed = accountType.safeParse(type);
   if (!id.safeParse(accountId).success || !parsed.success) return UNEXPECTED;
 
-  accounts.setAccountType(db, accountId, parsed.data);
-  return done();
+  return accounts.setAccountType(db, accountId, parsed.data) ? done() : ACCOUNT_GONE;
 }
 
 export async function setAccountBalanceAction(
@@ -259,9 +260,11 @@ export async function reopenAccountAction(accountId: number): Promise<ActionResu
   if (!db) return LOGGED_OUT;
   if (!id.safeParse(accountId).success) return UNEXPECTED;
 
-  return accounts.reopenAccount(db, accountId)
-    ? done()
-    : fail("You already have an account with this name. Rename that one first.");
+  const result = accounts.reopenAccount(db, accountId);
+  if (result === "name-taken") {
+    return fail("You already have an account with this name. Rename that one first.");
+  }
+  return result === "gone" ? ACCOUNT_GONE : done();
 }
 
 export async function deleteAccountAction(accountId: number): Promise<ActionResult> {
@@ -269,8 +272,7 @@ export async function deleteAccountAction(accountId: number): Promise<ActionResu
   if (!db) return LOGGED_OUT;
   if (!id.safeParse(accountId).success) return UNEXPECTED;
 
-  accounts.deleteAccount(db, accountId);
-  return done();
+  return accounts.deleteAccount(db, accountId) ? done() : ACCOUNT_GONE;
 }
 
 // ---- Bank import -----------------------------------------------------------
@@ -314,7 +316,7 @@ function readImportFile(input: unknown) {
   if (!parsedRows.success) return null;
   const rows = parsedRows.data;
   const read = applyMapping(rows, mapping, minorUnitDigits(getConfig().currency));
-  return { accountId, mapping, rows, read };
+  return { accountId, mapping, delimiter, rows, read };
 }
 
 /** Imports a bank file into an account. */
@@ -323,7 +325,7 @@ export async function importTransactionsAction(input: unknown): Promise<ImportRe
   if (!db) return LOGGED_OUT;
   const file = readImportFile(input);
   if (!file) return fail("This file could not be imported.");
-  const { accountId, mapping, rows, read } = file;
+  const { accountId, mapping, delimiter, rows, read } = file;
   if (read.rows.length === 0) return fail("No transactions could be read from this file.");
   if (read.rows.some((row) => Math.abs(row.amount) > MAX_AMOUNT)) {
     return fail("This file holds an amount that is too large to be real.");
@@ -342,7 +344,7 @@ export async function importTransactionsAction(input: unknown): Promise<ImportRe
   );
   if (result === null) return fail("That account no longer exists.");
 
-  transactions.saveImportMapping(db, accountId, serializeMapping(rows, mapping));
+  transactions.saveImportMapping(db, accountId, serializeMapping(rows, mapping, delimiter));
   refresh();
   return { ok: true, ...result, batch };
 }
@@ -369,7 +371,8 @@ export async function undoImportAction(batch: string): Promise<UndoResult> {
   if (!db) return LOGGED_OUT;
   if (!z.uuid().safeParse(batch).success) return UNEXPECTED;
 
-  const { removed, sorted } = transactions.undoImport(db, batch);
+  const { removed, sorted, closed } = transactions.undoImport(db, batch);
+  if (closed) return fail(ACCOUNT_CLOSED);
   if (sorted > 0) {
     return fail(
       sorted === 1
@@ -396,6 +399,7 @@ export async function sortTransactionAction(
 
   const result = transactions.sortTransaction(db, transactionId, parsedTarget.data);
   if (result === "no-transaction") return TRANSACTION_GONE;
+  if (result === "starting") return fail("A starting balance does not go into a category.");
   return result === "no-category" ? CATEGORY_GONE : done();
 }
 
@@ -406,5 +410,6 @@ export async function deleteTransactionAction(transactionId: number): Promise<Ac
 
   const result = transactions.deleteTransaction(db, transactionId);
   if (result === "no-transaction") return TRANSACTION_GONE;
+  if (result === "closed") return fail(ACCOUNT_CLOSED);
   return result === "starting" ? fail("A starting balance cannot be deleted.") : done();
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   getCategoryOptions,
   getFilterOptions,
@@ -45,6 +46,9 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
     getCategoryOptions(),
   ]);
   const rows = found.slice(0, PAGE_SIZE);
+  // An older page that has emptied (its last rows were sorted or deleted)
+  // would claim there is nothing left: go back to the newest page.
+  if (before && rows.length === 0) redirect(transactionsHref({ showAll, filter }));
   const last = rows.at(-1);
   const hasOlder = found.length > PAGE_SIZE;
   const [summary, filterOptions, suggestions] = await Promise.all([
@@ -106,7 +110,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
               </span>
               , money out{" "}
               <span className="font-medium text-ink tabular-nums">
-                {formatMoney(-summary.moneyOut, currency, locale)}
+                {formatMoney(Math.abs(summary.moneyOut), currency, locale)}
               </span>
               .
             </p>
