@@ -8,6 +8,8 @@ import {
   categoryRow,
   category,
   headerFigure,
+  menuItem,
+  openMenu,
   windowLosesFocus,
 } from "./budget-page";
 import { expect, test } from "./fixtures";
@@ -159,8 +161,8 @@ test("a transaction keeps showing its category after the category is archived", 
 
   await page.getByRole("link", { name: "Budget" }).click();
   page.once("dialog", (dialog) => void dialog.accept());
-  await categoryRow(page, "Groceries").hover();
-  await page.getByRole("button", { name: "Archive Groceries" }).click();
+  await openMenu(page, "Groceries");
+  await menuItem(page, "Archive").click();
   await expect(category(page, "Groceries")).toHaveCount(0);
 
   await page.getByRole("link", { name: /^Transactions/ }).click();
@@ -232,9 +234,9 @@ test.describe("on a slow connection", () => {
   }) => {
     const other = await context.newPage();
     await other.goto("/");
-    await categoryRow(other, "Groceries").hover();
     other.once("dialog", (dialog) => void dialog.accept());
-    await other.getByRole("button", { name: "Archive Groceries" }).click();
+    await openMenu(other, "Groceries");
+    await menuItem(other, "Archive").click();
     await expect(category(other, "Groceries")).toHaveCount(0);
 
     // This page still offers Groceries.
