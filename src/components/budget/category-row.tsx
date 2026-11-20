@@ -4,6 +4,7 @@ import type { CategoryRow as Category } from "@/db/budget";
 import { explainAvailable } from "@/lib/gauge";
 import { formatAmount, formatMoney } from "@/lib/money";
 import { EnvelopeToken } from "../icons";
+import { useMenu } from "../menu";
 import { AssignedInput } from "./assigned-input";
 import { useBudget } from "./budget-context";
 import { CategoryName } from "./category-name";
@@ -22,14 +23,15 @@ export function CategoryRow({ category, color }: { category: Category; color: st
   const { currency, locale } = useBudget();
   const { id, name, assigned, activity, available, balance } = category;
   const availableLabel = formatMoney(available, currency, locale);
+  const menu = useMenu();
 
   return (
-    <tr className="data-row group/row">
+    <tr className="data-row group/row" onContextMenu={menu.openAtPointer}>
       <td className="h-[43px] w-[54px] pl-3.5">
         <EnvelopeToken color={color} />
       </td>
       <td>
-        <CategoryName id={id} name={name} balance={balance} />
+        <CategoryName id={id} name={name} balance={balance} menu={menu} />
       </td>
       <td>
         <AssignedInput categoryId={id} categoryName={name} value={assigned} />

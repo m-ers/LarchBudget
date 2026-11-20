@@ -74,6 +74,15 @@ export const TrashIcon = (props: SVGProps<SVGSVGElement>) => (
   </Icon>
 );
 
+/** Three dots in a row: "more actions". */
+export const MoreIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props} fill="currentColor" stroke="none">
+    <circle cx="5.5" cy="12" r="1.7" />
+    <circle cx="12" cy="12" r="1.7" />
+    <circle cx="18.5" cy="12" r="1.7" />
+  </Icon>
+);
+
 export const CheckIcon = (props: SVGProps<SVGSVGElement>) => (
   <Icon {...props}>
     <path d="m5 12.5 4.5 4.5L19 7.5" />

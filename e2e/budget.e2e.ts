@@ -14,6 +14,8 @@ import {
   groupRow,
   groupTotal,
   headerFigure,
+  menuItem,
+  openMenu,
   openNewCategory,
 } from "./budget-page";
 import { expect, test } from "./fixtures";
@@ -174,8 +176,8 @@ async function archive(page: Page, name: string): Promise<string> {
       void dialog.accept();
     }),
   );
-  await categoryRow(page, name).hover();
-  await page.getByRole("button", { name: `Archive ${name}` }).click();
+  await openMenu(page, name);
+  await menuItem(page, "Archive").click();
   await expect(category(page, name)).toHaveCount(0);
   return question;
 }

@@ -1,28 +1,33 @@
 "use client";
 
+import { useRef } from "react";
 import { archiveCategoryAction, renameCategoryAction } from "@/app/actions";
 import { formatMoney } from "@/lib/money";
 import { ErrorText } from "../form";
-import { ArchiveIcon } from "../icons";
-import { InlineName } from "../inline-name";
+import { MoreIcon } from "../icons";
+import { InlineName, type InlineNameHandle } from "../inline-name";
+import { Menu, type useMenu } from "../menu";
 import { useSave } from "../use-save";
 import { useBudget } from "./budget-context";
-import { RowAction } from "./row-action";
+import { rowActionLook } from "./row-action";
 
 type Props = {
   id: number;
   name: string;
   /** What the category holds over all time: what archiving gives back. */
   balance: number;
+  /** The row's menu, which a right-click on the row opens too. */
+  menu: ReturnType<typeof useMenu>;
 };
 
 /**
- * Category name: click to rename. The category's actions sit beside it and
- * show on row hover; for now that is archiving.
+ * Category name: click to rename. The category's actions are in a menu
+ * beside it, whose button shows on row hover.
  */
-export function CategoryName({ id, name, balance }: Props) {
+export function CategoryName({ id, name, balance, menu }: Props) {
   const { currency, locale } = useBudget();
   const { error, pending, save } = useSave();
+  const nameField = useRef<InlineNameHandle>(null);
 
   function archive() {
     const question = `Archive "${name}"?`;
@@ -39,14 +44,23 @@ export function CategoryName({ id, name, balance }: Props) {
   return (
     <div className={`flex min-w-0 items-center gap-1 ${pending ? "opacity-60" : ""}`}>
       <InlineName
+        ref={nameField}
         value={name}
         label="Category name"
         onSave={(text) => renameCategoryAction(id, text)}
         className="text-[15.5px] font-medium"
       />
-      <RowAction label={`Archive ${name}`} title="Archive" onClick={archive} revealOn="row">
-        <ArchiveIcon width={15} height={15} />
-      </RowAction>
+      <Menu
+        label={`Actions for ${name}`}
+        state={menu}
+        buttonClassName={rowActionLook("row")}
+        items={[
+          { label: "Rename", onSelect: () => nameField.current?.startEditing() },
+          { label: "Archive", onSelect: archive, destructive: true },
+        ]}
+      >
+        <MoreIcon width={15} height={15} />
+      </Menu>
       <ErrorText error={error} as="span" className="text-xs" />
     </div>
   );

@@ -1,11 +1,16 @@
 "use client";
 
+import { useImperativeHandle } from "react";
 import { MAX_NAME_LENGTH } from "@/lib/limits";
 import type { ActionResult } from "@/lib/result";
 import { ErrorText } from "./form";
 import { useInlineEdit } from "./use-inline-edit";
 
+/** Lets a menu item start the rename, as clicking the name does. */
+export type InlineNameHandle = { startEditing: () => void };
+
 type Props = {
+  ref?: React.Ref<InlineNameHandle>;
   value: string;
   /** Accessible name of the text field, e.g. "Category name". */
   label: string;
@@ -18,8 +23,9 @@ type Props = {
  * A name you click to rename in place. Enter or clicking away saves,
  * Escape cancels.
  */
-export function InlineName({ value, label, onSave, className = "" }: Props) {
+export function InlineName({ ref, value, label, onSave, className = "" }: Props) {
   const edit = useInlineEdit(value, onSave);
+  useImperativeHandle(ref, () => ({ startEditing: edit.start }));
 
   if (edit.text === null) {
     return (
