@@ -38,6 +38,7 @@ function assign(budget: BudgetMonth, categoryId: number, amount: number): Budget
       group.categories.includes(category)
         ? {
             ...group,
+            assigned: group.assigned + delta,
             available: group.available + delta,
             categories: group.categories.map((c) =>
               c === category

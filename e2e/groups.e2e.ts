@@ -5,6 +5,7 @@ import {
   category,
   clickAway,
   groupHeading,
+  groupTotal,
   headerFigure,
   newCategoryField,
 } from "./budget-page";
@@ -48,9 +49,7 @@ test.describe("deleting a group with categories", () => {
     // Read from the page: what the demo data holds depends on the day of the month.
     const cents = (money: string) => Math.round(Number(money.replace(/[^0-9.-]/g, "")) * 100);
     const before = cents(await headerFigure(page).innerText());
-    const held = cents(
-      await groupHeading(page, "Everyday").locator("xpath=..").getByRole("cell").innerText(),
-    );
+    const held = cents(await groupTotal(page, "Everyday").innerText());
     expect(held).not.toBe(0);
 
     const question = answerNextQuestion(page, true);

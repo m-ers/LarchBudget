@@ -25,9 +25,12 @@ export const categoryRow = (page: Page, name: string) =>
 export const available = (page: Page, name: string) =>
   categoryRow(page, name).getByRole("cell").last();
 
+/** A group's heading row. Its cells hold the group's Assigned, Spent and Available totals. */
+export const groupRow = (page: Page, name: string) => groupHeading(page, name).locator("xpath=..");
+
 /** What a group's categories hold together, at the end of its heading row. */
 export const groupTotal = (page: Page, name: string) =>
-  groupHeading(page, name).locator("xpath=..").getByRole("cell").last();
+  groupRow(page, name).getByRole("cell").last();
 
 /** The line under the month, e.g. "€0 spent of €1,195 assigned". */
 export const spentLine = (page: Page) => page.getByText(/ spent of /).filter({ visible: true });

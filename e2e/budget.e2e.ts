@@ -11,6 +11,8 @@ import {
   category,
   categoryRow,
   groupHeading,
+  groupRow,
+  groupTotal,
   headerFigure,
   openNewCategory,
 } from "./budget-page";
@@ -54,7 +56,7 @@ test("money is divided over categories, and over-assigning is flagged", async ({
   await page.keyboard.press("Enter");
   await expect(headerFigure(page)).toHaveText("€954.50");
   await expect(available(page, "Groceries")).toHaveText("€350.50");
-  await expect(groupHeading(page, "Fixed costs").locator("xpath=..")).toContainText("€1,195.00");
+  await expect(groupTotal(page, "Fixed costs")).toHaveText("€1,195.00");
 
   await assign(page, "Groceries", "2000");
   await expect(headerFigure(page)).toHaveText("-€695.00");
@@ -63,6 +65,42 @@ test("money is divided over categories, and over-assigning is flagged", async ({
   await assign(page, "Groceries", "1305");
   await expect(headerFigure(page)).toHaveText("€0.00");
   await expect(page.getByText("Every cent is assigned")).toBeVisible();
+});
+
+test("a group's heading adds up what its categories got and spent, and what they hold", async ({
+  page,
+}) => {
+  await addAccount(page, "Main account", "2500");
+  await page.goto("/");
+  await addGroup(page, "Fixed costs");
+  await addCategories(page, "Fixed costs", ["Rent", "Utilities"]);
+  await expect(groupRow(page, "Fixed costs").getByRole("cell")).toHaveText(["0.00", "–", "€0.00"]);
+
+  await assign(page, "Rent", "1100");
+  await assign(page, "Utilities", "95");
+  await expect(groupRow(page, "Fixed costs").getByRole("cell")).toHaveText([
+    "1,195.00",
+    "–",
+    "€1,195.00",
+  ]);
+});
+
+test.describe("with transactions", () => {
+  test.use({ app: { seed: true } });
+
+  test("a group's Spent is what its categories spent together", async ({ page }) => {
+    await page.goto("/");
+    // Read from the page: what the demo data holds depends on the day of the month.
+    const cents = (spent: string) =>
+      spent === "–" ? 0 : Math.round(Number(spent.replace(/[^0-9.]/g, "")) * 100);
+    const spentIn = async (name: string) =>
+      cents(await categoryRow(page, name).getByRole("cell").nth(3).innerText());
+
+    const together = (await spentIn("Groceries")) + (await spentIn("Eating out"));
+    expect(together).toBeGreaterThan(0);
+    const groupSpent = await groupRow(page, "Everyday").getByRole("cell").nth(1).innerText();
+    expect(cents(groupSpent)).toBe(together);
+  });
 });
 
 test("something that is not an amount is refused, and Escape clears it", async ({ page }) => {

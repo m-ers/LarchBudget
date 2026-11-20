@@ -23,6 +23,8 @@ const budget: BudgetMonth = {
         },
         { id: 11, name: "Water", assigned: 2_000, activity: 0, available: 2_000, balance: 4_000 },
       ],
+      assigned: 102_000,
+      activity: -5_000,
       available: 127_000,
     },
     {
@@ -30,6 +32,8 @@ const budget: BudgetMonth = {
       name: "Goals",
       colorSlot: 1,
       categories: [{ id: 20, name: "Holiday", assigned: 0, activity: 0, available: 0, balance: 0 }],
+      assigned: 0,
+      activity: 0,
       available: 0,
     },
   ],
@@ -55,7 +59,11 @@ describe("assigning, before the server confirms it", () => {
       available: 145_000,
       balance: 145_000,
     });
-    expect(after.groups[0].available).toBe(147_000);
+    expect(after.groups[0]).toMatchObject({
+      assigned: 122_000,
+      activity: -5_000,
+      available: 147_000,
+    });
     expect(after.totals).toEqual({ assigned: 122_000, spent: 5_000, available: 147_000 });
     expect(after.readyToAssign).toBe(30_000);
   });

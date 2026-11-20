@@ -4,12 +4,12 @@ import { useState } from "react";
 import { createCategoryAction, deleteGroupAction, renameGroupAction } from "@/app/actions";
 import type { GroupRow } from "@/db/budget";
 import { groupColor } from "@/lib/group-colors";
-import { formatMoney } from "@/lib/money";
+import { formatAmount, formatMoney } from "@/lib/money";
 import { EmptyToken, PlusIcon, TrashIcon } from "../icons";
 import { InlineName } from "../inline-name";
 import { AddByNameField, useAddByName } from "./add-by-name";
 import { useBudget } from "./budget-context";
-import { CategoryRow } from "./category-row";
+import { CategoryRow, formatSpent } from "./category-row";
 import { RowAction } from "./row-action";
 
 /** What deleting a group does, asked before it happens. */
@@ -112,18 +112,26 @@ export function UngroupedBody({ group }: { group: GroupRow }) {
   );
 }
 
-/** A group's heading row: its name and actions, and what its categories hold together. */
+const total = "h-[38px] pt-1 text-right text-[13.5px] text-muted tabular-nums";
+
+/**
+ * A group's heading row: its name and actions, and in the columns what its
+ * categories got assigned, spent and hold together.
+ */
 function GroupHeading({ group, children }: { group: GroupRow; children: React.ReactNode }) {
   const { currency, locale } = useBudget();
+  const isEmpty = group.categories.length === 0;
   return (
     <tr className="group/head">
-      <th scope="rowgroup" colSpan={4} className="h-[38px] pt-1 pl-3.5 text-left font-normal">
+      <th scope="rowgroup" colSpan={2} className="h-[38px] pt-1 pl-3.5 text-left font-normal">
         <div className="flex items-center gap-1 text-xs tracking-[0.07em] text-muted uppercase">
           {children}
         </div>
       </th>
-      <td className="h-[38px] pt-1 pr-6 text-right text-[13.5px] text-muted tabular-nums">
-        {group.categories.length === 0 ? "" : formatMoney(group.available, currency, locale)}
+      <td className={total}>{isEmpty ? "" : formatAmount(group.assigned, currency, locale)}</td>
+      <td className={total}>{isEmpty ? "" : formatSpent(group.activity, currency, locale)}</td>
+      <td className={`${total} pr-6`}>
+        {isEmpty ? "" : formatMoney(group.available, currency, locale)}
       </td>
     </tr>
   );

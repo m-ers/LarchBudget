@@ -244,7 +244,7 @@ describe("categories", () => {
 });
 
 describe("groups", () => {
-  it("list their categories and add up what they hold", () => {
+  it("list their categories and add up what was assigned, spent and is held", () => {
     const goals = createGroup(db, "Goals");
     const groceries = createCategory(db, "Groceries");
     const holiday = createCategory(db, "Holiday", goals);
@@ -255,9 +255,17 @@ describe("groups", () => {
     spend(holiday, "2026-10-12", -4_000);
 
     const { groups } = getBudgetMonth(db, "2026-10");
-    expect(groups.map((g) => [g.name, g.categories.map((e) => e.name), g.available])).toEqual([
-      ["Everyday", ["Groceries"], 30_000],
-      ["Goals", ["Holiday", "Car"], 21_000],
+    expect(
+      groups.map((g) => [
+        g.name,
+        g.categories.map((e) => e.name),
+        g.assigned,
+        g.activity,
+        g.available,
+      ]),
+    ).toEqual([
+      ["Everyday", ["Groceries"], 30_000, 0, 30_000],
+      ["Goals", ["Holiday", "Car"], 25_000, -4_000, 21_000],
     ]);
   });
 

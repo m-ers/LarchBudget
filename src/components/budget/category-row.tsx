@@ -9,19 +9,19 @@ import { useBudget } from "./budget-context";
 import { CategoryName } from "./category-name";
 import { Gauge } from "./gauge";
 
+/** The Spent column: spending as a positive amount, a net refund with a plus sign. */
+export function formatSpent(activity: number, currency: string, locale: string): string {
+  if (activity === 0) return "–";
+  return activity < 0
+    ? formatAmount(-activity, currency, locale)
+    : `+${formatAmount(activity, currency, locale)}`;
+}
+
 /** One category in the budget table: its name and actions, Assigned, Spent and Available. */
 export function CategoryRow({ category, color }: { category: Category; color: string }) {
   const { currency, locale } = useBudget();
   const { id, name, assigned, activity, available } = category;
   const availableLabel = formatMoney(available, currency, locale);
-
-  // Spending is shown as a positive amount; a net refund gets a plus sign.
-  const spentLabel =
-    activity === 0
-      ? "–"
-      : activity < 0
-        ? formatAmount(-activity, currency, locale)
-        : `+${formatAmount(activity, currency, locale)}`;
 
   return (
     <tr className="data-row group/row">
@@ -34,7 +34,9 @@ export function CategoryRow({ category, color }: { category: Category; color: st
       <td>
         <AssignedInput categoryId={id} categoryName={name} value={assigned} />
       </td>
-      <td className="text-right text-muted tabular-nums">{spentLabel}</td>
+      <td className="text-right text-muted tabular-nums">
+        {formatSpent(activity, currency, locale)}
+      </td>
       <td className="pr-3.5">
         <Gauge
           available={available}

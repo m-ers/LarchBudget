@@ -47,7 +47,9 @@ export type GroupRow = {
   name: string;
   colorSlot: number | null;
   categories: CategoryRow[];
-  /** Sum of what its categories hold at the end of the viewed month. */
+  /** Sums over its categories, with the same meaning as theirs. */
+  assigned: number;
+  activity: number;
   available: number;
 };
 
@@ -126,6 +128,8 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
       name,
       colorSlot,
       categories: members,
+      assigned: members.reduce((sum, c) => sum + c.assigned, 0),
+      activity: members.reduce((sum, c) => sum + c.activity, 0),
       available: members.reduce((sum, c) => sum + c.available, 0),
     };
   };
