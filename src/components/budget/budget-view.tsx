@@ -33,6 +33,36 @@ function readyHeadline(ready: number, hasAccounts: boolean) {
     : ({ label: "Ready to assign", tone: "quiet" } as const);
 }
 
+// Every heading cell sticks, on a background so rows do not show through.
+// Its bottom line is drawn inside the cell, as a row's border would not
+// move along.
+const stuck = "sticky top-0 z-10 bg-surface shadow-[inset_0_-1px_0_var(--line)]";
+
+/** The column headings. They stay in view while the page scrolls. */
+function TableHead() {
+  return (
+    <thead>
+      <tr className="text-[12.5px] text-muted">
+        <th scope="col" className={`h-[38px] w-[54px] ${stuck}`}>
+          <span className="sr-only">Group colour</span>
+        </th>
+        <th scope="col" className={`text-left font-medium ${stuck}`}>
+          Category
+        </th>
+        <th scope="col" className={`w-32 text-right font-medium ${stuck}`}>
+          Assigned
+        </th>
+        <th scope="col" className={`w-32 text-right font-medium ${stuck}`}>
+          Spent
+        </th>
+        <th scope="col" className={`w-40 pr-6 text-right font-medium ${stuck}`}>
+          Available
+        </th>
+      </tr>
+    </thead>
+  );
+}
+
 /**
  * The budget page for one month: the header with Ready to assign, and the
  * table of groups and categories.
@@ -91,25 +121,7 @@ export function BudgetView({ budget: saved, month, currency, locale, daysLeft, m
         )}
 
         <table className="w-full border-collapse">
-          <thead>
-            <tr className="border-b border-line text-[12.5px] text-muted">
-              <th scope="col" className="h-[38px] w-[54px]">
-                <span className="sr-only">Group colour</span>
-              </th>
-              <th scope="col" className="text-left font-medium">
-                Category
-              </th>
-              <th scope="col" className="w-32 text-right font-medium">
-                Assigned
-              </th>
-              <th scope="col" className="w-32 text-right font-medium">
-                Spent
-              </th>
-              <th scope="col" className="w-40 pr-6 text-right font-medium">
-                Available
-              </th>
-            </tr>
-          </thead>
+          <TableHead />
           {budget.groups.map((group) => (
             <GroupBody key={group.id ?? "ungrouped"} group={group} />
           ))}

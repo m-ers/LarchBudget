@@ -168,3 +168,24 @@ test("a rename started again after Escape is saved", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(category(page, "Food")).toBeVisible();
 });
+
+test.describe("a budget longer than the window", () => {
+  test.use({ app: { seed: true }, viewport: { width: 1280, height: 400 } });
+
+  test("keeps the column headings in view, above the field being edited", async ({ page }) => {
+    await page.goto("/");
+    await assignedField(page, "Emergency fund").click();
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    const heading = page.getByRole("columnheader", { name: "Assigned" });
+    await expect(heading).toBeInViewport();
+
+    for (const name of ["Holiday", "Eating out", "Groceries", "Transport", "Utilities", "Rent"]) {
+      await page.keyboard.press("ArrowUp");
+      await expect(assignedField(page, name)).toBeFocused();
+      await expect(heading).toBeInViewport();
+      const field = (await assignedField(page, name).boundingBox())!;
+      const head = (await heading.boundingBox())!;
+      expect(field.y).toBeGreaterThanOrEqual(head.y + head.height);
+    }
+  });
+});

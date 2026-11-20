@@ -135,7 +135,8 @@ export function AssignedInput({ categoryId, categoryName, value }: Props) {
           if (next) next.focus();
           else if (e.key === "Enter") field.blur();
         }}
-        className={`w-28 rounded-md border bg-transparent px-2 py-[3px] text-right text-[15px] tabular-nums transition-colors placeholder:text-muted/40 focus:bg-surface focus:outline-none ${
+        // scroll-mt: a field that gets focus scrolls into view below the sticky column headings.
+        className={`w-28 scroll-mt-14 rounded-md border bg-transparent px-2 py-[3px] text-right text-[15px] tabular-nums transition-colors placeholder:text-muted/40 focus:bg-surface focus:outline-none ${
           error ? "border-bad" : "border-transparent hover:border-line focus:border-brand"
         }`}
       />
