@@ -36,7 +36,7 @@ export type CategoryRow = {
   available: number;
 };
 
-type GroupRow = {
+export type GroupRow = {
   /** Null for the fallback section holding categories without a group. */
   id: number | null;
   name: string;
@@ -46,7 +46,7 @@ type GroupRow = {
   available: number;
 };
 
-type BudgetMonth = {
+export type BudgetMonth = {
   groups: GroupRow[];
   /** Over all visible categories. `spent` is the activity as a positive amount, never below zero. */
   totals: { assigned: number; spent: number; available: number };

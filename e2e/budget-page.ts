@@ -25,6 +25,13 @@ export const categoryRow = (page: Page, name: string) =>
 export const available = (page: Page, name: string) =>
   categoryRow(page, name).getByRole("cell").last();
 
+/** What a group's categories hold together, at the end of its heading row. */
+export const groupTotal = (page: Page, name: string) =>
+  groupHeading(page, name).locator("xpath=..").getByRole("cell").last();
+
+/** The line under the month, e.g. "€0 spent of €1,195 assigned". */
+export const spentLine = (page: Page) => page.getByText(/ spent of /).filter({ visible: true });
+
 export const newGroupField = (page: Page) => page.getByRole("textbox", { name: "New group name" });
 
 export const newCategoryField = (page: Page, group: string) =>
@@ -45,6 +52,27 @@ export const windowLosesFocus = (page: Page) =>
 
 /** A click on the page title, which does nothing, so the field being edited loses focus. */
 export const clickAway = (page: Page) => page.getByRole("heading", { level: 1 }).click();
+
+/** Delays every request by `latency` milliseconds, like a slow connection. */
+export async function slowConnection(page: Page, latency: number) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Network.enable");
+  await cdp.send("Network.emulateNetworkConditions", {
+    offline: false,
+    latency,
+    downloadThroughput: -1,
+    uploadThroughput: -1,
+  });
+}
+
+/** Counts the server's answers to saves from now on. Saves are Server Actions, sent as POST. */
+export function countAnswers(page: Page): () => number {
+  let answers = 0;
+  page.on("response", (response) => {
+    if (response.request().method() === "POST") answers++;
+  });
+  return () => answers;
+}
 
 export async function addAccount(page: Page, name: string, balanceToday: string) {
   await page.goto("/accounts");

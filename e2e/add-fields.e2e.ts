@@ -8,6 +8,7 @@ import {
   newCategoryField,
   newGroupField,
   openNewCategory,
+  slowConnection,
   windowLosesFocus,
 } from "./budget-page";
 import { expect, test } from "./fixtures";
@@ -170,14 +171,7 @@ test.describe("on a slow connection", () => {
   test.beforeEach(async ({ page }) => {
     await addGroup(page, "Fixed");
     await addCategories(page, "Fixed", ["Rent"]);
-    const cdp = await page.context().newCDPSession(page);
-    await cdp.send("Network.enable");
-    await cdp.send("Network.emulateNetworkConditions", {
-      offline: false,
-      latency: 800,
-      downloadThroughput: -1,
-      uploadThroughput: -1,
-    });
+    await slowConnection(page, 800);
   });
 
   test("the field clears at once, so the next name can be typed meanwhile", async ({ page }) => {

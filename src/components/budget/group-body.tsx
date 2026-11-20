@@ -2,22 +2,15 @@
 
 import { useState } from "react";
 import { createCategoryAction, deleteGroupAction, renameGroupAction } from "@/app/actions";
+import type { GroupRow } from "@/db/budget";
+import { groupColor } from "@/lib/group-colors";
+import { formatMoney } from "@/lib/money";
 import { EmptyToken, PlusIcon, TrashIcon } from "../icons";
 import { InlineName } from "../inline-name";
 import { AddByNameField, useAddByName } from "./add-by-name";
+import { useBudget } from "./budget-context";
+import { CategoryRow } from "./category-row";
 import { RowAction } from "./row-action";
-
-type Props = {
-  /** Null for the fallback section of categories without a group, which cannot be changed. */
-  id: number | null;
-  name: string;
-  /** What the group's categories hold together, formatted as money. */
-  total: string;
-  /** How many visible categories the group has. */
-  categoryCount: number;
-  /** The category rows, rendered on the server. */
-  children: React.ReactNode;
-};
 
 /** What deleting a group does, asked before it happens. */
 function deleteQuestion(name: string, categoryCount: number): string {
@@ -32,7 +25,10 @@ function deleteQuestion(name: string, categoryCount: number): string {
  * One group in the budget table: its heading (rename, add category,
  * delete), its category rows and the inline "new category" field.
  */
-export function GroupBody({ id, name, total, categoryCount, children }: Props) {
+export function GroupBody({ group }: { group: GroupRow }) {
+  const { id, name, categories } = group;
+  const { currency, locale } = useBudget();
+  const categoryCount = categories.length;
   const isEmpty = categoryCount === 0;
   // True while the "new category" field is in use.
   const [adding, setAdding] = useState(false);
@@ -88,11 +84,13 @@ export function GroupBody({ id, name, total, categoryCount, children }: Props) {
           </div>
         </th>
         <td className="h-[38px] pt-1 pr-6 text-right text-[13.5px] text-muted tabular-nums">
-          {isEmpty ? "" : total}
+          {isEmpty ? "" : formatMoney(group.available, currency, locale)}
         </td>
       </tr>
 
-      {children}
+      {categories.map((category) => (
+        <CategoryRow key={category.id} category={category} color={groupColor(group.colorSlot)} />
+      ))}
 
       {showField && (
         <tr className="data-row">

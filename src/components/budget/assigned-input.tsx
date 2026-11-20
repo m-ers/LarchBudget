@@ -1,40 +1,85 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { setAssignedAction } from "@/app/actions";
-import type { Month } from "@/lib/dates";
-import { formatAmount, toInputValue } from "@/lib/money";
+import { formatAmount, parseMoney, toInputValue } from "@/lib/money";
 import { ErrorText } from "../form";
-import { useInlineEdit, windowLostFocus } from "../use-inline-edit";
+import { windowLostFocus } from "../use-inline-edit";
+import { useSave } from "../use-save";
+import { useBudget } from "./budget-context";
 
 type Props = {
   categoryId: number;
   categoryName: string;
-  month: Month;
+  /** Assigned in the viewed month, including a change still being saved. */
   value: number;
-  currency: string;
-  locale: string;
 };
 
 /**
  * The amount assigned to one category this month. Shows a formatted number
  * until focused; saves on blur or Enter (Enter also jumps to the next row).
+ *
+ * Leaving the field shows the new amount straight away, and every figure it
+ * moves; the save follows. If the save fails, the old amount comes back with
+ * the reason, and editing again starts from what was typed.
  */
-export function AssignedInput({ categoryId, categoryName, month, value, currency, locale }: Props) {
-  const edit = useInlineEdit(toInputValue(value, currency, locale), (typed) =>
-    setAssignedAction(categoryId, month, typed),
-  );
+export function AssignedInput({ categoryId, categoryName, value }: Props) {
+  const { month, currency, locale, show } = useBudget();
+  // null = not being edited, so the amount is shown.
+  const [text, setText] = useState<string | null>(null);
+  // What was typed for a save that failed, to start the next edit from.
+  const [retry, setRetry] = useState<string | null>(null);
+  const { error, setError, save } = useSave();
+  const cancelled = useRef(false);
   const input = useRef<HTMLInputElement>(null);
   const selectOnEdit = useRef(false);
 
   // Select the whole amount when editing starts. This runs right after the
   // value switches to its editable form, before the next keystroke lands.
   useLayoutEffect(() => {
-    if (selectOnEdit.current && edit.text !== null) {
+    if (selectOnEdit.current && text !== null) {
       selectOnEdit.current = false;
       input.current?.select();
     }
-  }, [edit.text]);
+  }, [text]);
+
+  function commit() {
+    if (cancelled.current) {
+      cancelled.current = false;
+      return;
+    }
+    if (text === null) return;
+    const typed = text;
+    setText(null);
+    // Read the way the server reads it. What cannot be read is not shown;
+    // the server says why.
+    const amount = typed.trim() === "" ? 0 : parseMoney(typed, currency);
+    if (amount === value) {
+      setRetry(null);
+      setError(null);
+      return;
+    }
+    save(
+      () => setAssignedAction(categoryId, month, typed),
+      () => setRetry(null),
+      () => setRetry(typed),
+      () => {
+        if (amount !== null) show({ type: "assign", categoryId, amount });
+      },
+    );
+  }
+
+  /**
+   * For the Escape key: drops what was typed. Blurring the field here makes
+   * `commit` run now and see the cancel.
+   */
+  function cancel(field: HTMLElement) {
+    cancelled.current = true;
+    setText(null);
+    setRetry(null);
+    setError(null);
+    field.blur();
+  }
 
   return (
     <div className="-mr-2 flex flex-col items-end">
@@ -45,19 +90,19 @@ export function AssignedInput({ categoryId, categoryName, month, value, currency
         inputMode="decimal"
         autoComplete="off"
         aria-label={`Assigned to ${categoryName}`}
-        aria-invalid={edit.error ? true : undefined}
-        title={edit.error ?? undefined}
+        aria-invalid={error ? true : undefined}
+        title={error ?? undefined}
         placeholder={formatAmount(0, currency, locale)}
-        value={edit.text ?? (value === 0 ? "" : formatAmount(value, currency, locale))}
-        onChange={(e) => edit.setText(e.target.value)}
+        value={text ?? (value === 0 ? "" : formatAmount(value, currency, locale))}
+        onChange={(e) => setText(e.target.value)}
         onFocus={() => {
-          if (edit.text === null) {
+          if (text === null) {
             selectOnEdit.current = true;
-            edit.start();
+            setText(retry ?? toInputValue(value, currency, locale));
           }
         }}
         onBlur={(e) => {
-          if (!windowLostFocus(e)) edit.commit();
+          if (!windowLostFocus(e)) commit();
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
@@ -71,14 +116,14 @@ export function AssignedInput({ categoryId, categoryName, month, value, currency
             if (next) next.focus();
             else e.currentTarget.blur();
           } else if (e.key === "Escape") {
-            edit.cancel(e.currentTarget);
+            cancel(e.currentTarget);
           }
         }}
         className={`w-28 rounded-md border bg-transparent px-2 py-[3px] text-right text-[15px] tabular-nums transition-colors placeholder:text-muted/40 focus:bg-surface focus:outline-none ${
-          edit.error ? "border-bad" : "border-transparent hover:border-line focus:border-brand"
-        } ${edit.pending ? "opacity-60" : ""}`}
+          error ? "border-bad" : "border-transparent hover:border-line focus:border-brand"
+        }`}
       />
-      <ErrorText error={edit.error} className="mt-1 text-xs" />
+      <ErrorText error={error} className="mt-1 text-xs" />
     </div>
   );
 }
