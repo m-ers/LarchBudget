@@ -1,5 +1,13 @@
 import type { Page } from "@playwright/test";
-import { addGroup, category, groupHeading, headerFigure, newCategoryField } from "./budget-page";
+import {
+  addCategories,
+  addGroup,
+  category,
+  clickAway,
+  groupHeading,
+  headerFigure,
+  newCategoryField,
+} from "./budget-page";
 import { expect, test } from "./fixtures";
 
 /** Answers the next confirmation, and returns its question. */
@@ -76,4 +84,23 @@ test.describe("deleting an empty group", () => {
     await expect(groupHeading(page, "Goals")).toHaveCount(0);
     await expect(category(page, "Car")).toHaveCount(0);
   });
+});
+
+test("a group heading always shows how to add a category; delete shows on hover", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await addGroup(page, "Fixed");
+  await addCategories(page, "Fixed", ["Rent"]);
+  await clickAway(page);
+
+  const add = page.getByRole("button", { name: "Add a category to Fixed" });
+  const remove = page.getByRole("button", { name: "Delete the group Fixed" });
+  await expect(add).toHaveCSS("opacity", "1");
+  await expect(remove).toHaveCSS("opacity", "0");
+
+  await groupHeading(page, "Fixed").hover();
+  await expect(remove).toHaveCSS("opacity", "1");
+  await add.click();
+  await expect(newCategoryField(page, "Fixed")).toBeFocused();
 });

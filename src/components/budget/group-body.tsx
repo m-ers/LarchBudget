@@ -25,72 +25,50 @@ function deleteQuestion(name: string, categoryCount: number): string {
  * One group in the budget table: its heading (rename, add category,
  * delete), its category rows and the inline "new category" field.
  */
-export function GroupBody({ group }: { group: GroupRow }) {
+export function GroupBody({ group }: { group: GroupRow & { id: number } }) {
   const { id, name, categories } = group;
-  const { currency, locale } = useBudget();
-  const categoryCount = categories.length;
-  const isEmpty = categoryCount === 0;
+  const isEmpty = categories.length === 0;
   // True while the "new category" field is in use.
   const [adding, setAdding] = useState(false);
-  const adder = useAddByName(async (categoryName) =>
-    id === null
-      ? { ok: false, error: "Categories cannot be added here." }
-      : createCategoryAction(id, categoryName),
-  );
+  const adder = useAddByName((categoryName) => createCategoryAction(id, categoryName));
   // An empty group always shows its field: there is nothing else in it.
-  const showField = (isEmpty && id !== null) || adding || adder.pending || adder.error;
+  const showField = isEmpty || adding || adder.pending || adder.error;
 
-  function remove(groupId: number) {
+  function remove() {
     // A failure is reported next to the "new category" field.
-    if (window.confirm(deleteQuestion(name, categoryCount))) {
-      adder.save(() => deleteGroupAction(groupId));
+    if (window.confirm(deleteQuestion(name, categories.length))) {
+      adder.save(() => deleteGroupAction(id));
     }
   }
 
   return (
     <tbody>
-      <tr className="group/head">
-        <th scope="rowgroup" colSpan={4} className="h-[38px] pt-1 pl-3.5 text-left font-normal">
-          <div className="flex items-center gap-1 text-xs tracking-[0.07em] text-muted uppercase">
-            {id === null ? (
-              <span className="font-semibold">{name}</span>
-            ) : (
-              <>
-                <InlineName
-                  value={name}
-                  label="Group name"
-                  onSave={(text) => renameGroupAction(id, text)}
-                  className="font-semibold tracking-[0.07em] uppercase"
-                />
-                <RowAction
-                  label={`Add a category to ${name}`}
-                  title="Add category"
-                  onClick={() => setAdding(true)}
-                  revealOn="head"
-                >
-                  <PlusIcon width={15} height={15} />
-                </RowAction>
-                <RowAction
-                  label={`Delete the group ${name}`}
-                  title="Delete group"
-                  onClick={() => remove(id)}
-                  revealOn="head"
-                  keepFocus
-                >
-                  <TrashIcon width={15} height={15} />
-                </RowAction>
-              </>
-            )}
-          </div>
-        </th>
-        <td className="h-[38px] pt-1 pr-6 text-right text-[13.5px] text-muted tabular-nums">
-          {isEmpty ? "" : formatMoney(group.available, currency, locale)}
-        </td>
-      </tr>
+      <GroupHeading group={group}>
+        <InlineName
+          value={name}
+          label="Group name"
+          onSave={(text) => renameGroupAction(id, text)}
+          className="font-semibold tracking-[0.07em] uppercase"
+        />
+        <RowAction
+          label={`Add a category to ${name}`}
+          title="Add category"
+          onClick={() => setAdding(true)}
+        >
+          <PlusIcon width={15} height={15} />
+        </RowAction>
+        <RowAction
+          label={`Delete the group ${name}`}
+          title="Delete group"
+          onClick={remove}
+          revealOn="head"
+          keepFocus
+        >
+          <TrashIcon width={15} height={15} />
+        </RowAction>
+      </GroupHeading>
 
-      {categories.map((category) => (
-        <CategoryRow key={category.id} category={category} color={groupColor(group.colorSlot)} />
-      ))}
+      <CategoryRows group={group} />
 
       {showField && (
         <tr className="data-row">
@@ -117,4 +95,43 @@ export function GroupBody({ group }: { group: GroupRow }) {
       )}
     </tbody>
   );
+}
+
+/**
+ * Categories without a group. The app never makes these; the section
+ * covers a hand-edited database, so it has no actions of its own.
+ */
+export function UngroupedBody({ group }: { group: GroupRow }) {
+  return (
+    <tbody>
+      <GroupHeading group={group}>
+        <span className="font-semibold">{group.name}</span>
+      </GroupHeading>
+      <CategoryRows group={group} />
+    </tbody>
+  );
+}
+
+/** A group's heading row: its name and actions, and what its categories hold together. */
+function GroupHeading({ group, children }: { group: GroupRow; children: React.ReactNode }) {
+  const { currency, locale } = useBudget();
+  return (
+    <tr className="group/head">
+      <th scope="rowgroup" colSpan={4} className="h-[38px] pt-1 pl-3.5 text-left font-normal">
+        <div className="flex items-center gap-1 text-xs tracking-[0.07em] text-muted uppercase">
+          {children}
+        </div>
+      </th>
+      <td className="h-[38px] pt-1 pr-6 text-right text-[13.5px] text-muted tabular-nums">
+        {group.categories.length === 0 ? "" : formatMoney(group.available, currency, locale)}
+      </td>
+    </tr>
+  );
+}
+
+function CategoryRows({ group }: { group: GroupRow }) {
+  const color = groupColor(group.colorSlot);
+  return group.categories.map((category) => (
+    <CategoryRow key={category.id} category={category} color={color} />
+  ));
 }

@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useOptimistic } from "react";
-import type { BudgetMonth } from "@/db/budget";
+import type { BudgetMonth, GroupRow } from "@/db/budget";
 import type { Month } from "@/lib/dates";
 import { formatMoneyParts, formatMoneyRounded } from "@/lib/money";
 import { primaryButton } from "../form";
 import { Hero, HeroFigure, HeroLead } from "../hero";
 import { applyChange } from "./budget-changes";
 import { BudgetContext } from "./budget-context";
-import { GroupBody } from "./group-body";
+import { GroupBody, UngroupedBody } from "./group-body";
 import { NewGroup } from "./new-group";
 
 type Props = {
@@ -23,6 +23,9 @@ type Props = {
   /** The month's title and the links to other months. */
   monthNav: React.ReactNode;
 };
+
+/** True for a group, false for the section of categories without one. */
+const isGroup = (group: GroupRow): group is GroupRow & { id: number } => group.id !== null;
 
 /** What the headline says about the money that is not in a category yet. */
 function readyHeadline(ready: number, hasAccounts: boolean) {
@@ -122,9 +125,13 @@ export function BudgetView({ budget: saved, month, currency, locale, daysLeft, m
 
         <table className="w-full border-collapse">
           <TableHead />
-          {budget.groups.map((group) => (
-            <GroupBody key={group.id ?? "ungrouped"} group={group} />
-          ))}
+          {budget.groups.map((group) =>
+            isGroup(group) ? (
+              <GroupBody key={group.id} group={group} />
+            ) : (
+              <UngroupedBody key="ungrouped" group={group} />
+            ),
+          )}
         </table>
 
         {budget.groups.length === 0 && (
