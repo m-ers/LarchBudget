@@ -239,16 +239,29 @@ describe("detectMapping and applyMapping", () => {
     ]);
   });
 
-  it("finds the date in a file without a header and lets the rest be chosen", () => {
+  it("finds the date in a file without a header and the amount beside the balance", () => {
     const rows = parseCsv(noHeader);
     const mapping = detectMapping(rows, 2);
-    expect(mapping).toMatchObject({ hasHeader: false, date: 2, dateOrder: "ymd" });
-    // The first column with decimals is a balance; the user picks the right one.
-    const result = applyMapping(rows, { ...mapping, amount: 6, payee: 7 }, 2);
+    // Column 4 is the balance after the first row; column 7 is what moved it.
+    expect(mapping).toMatchObject({ hasHeader: false, date: 2, dateOrder: "ymd", amount: 6 });
+    const result = applyMapping(rows, { ...mapping, payee: 7 }, 2);
     expect(result.rows).toMatchObject([
       { date: "2026-11-03", amount: -4510, payee: "BEA Fresh Market" },
       { date: "2026-11-01", amount: 285000, payee: "SEPA Acme Corp Salary" },
     ]);
+  });
+
+  it("does not take the running balance for the amount, whichever way the rows run", () => {
+    const newestFirst =
+      "2026-11-03;-45,10;1954,90\n2026-11-02;-5,00;2000,00\n2026-11-01;2850,00;2005,00";
+    expect(detectMapping(parseCsv(newestFirst), 2).amount).toBe(1);
+    const oldestFirst =
+      "2026-11-01;2850,00;2005,00\n2026-11-02;-5,00;2000,00\n2026-11-03;-45,10;1954,90";
+    expect(detectMapping(parseCsv(oldestFirst), 2).amount).toBe(1);
+    // Amounts that move nothing are left alone: the first numeric column is taken.
+    expect(detectMapping(parseCsv("2026-11-03;12,50;99,00\n2026-11-02;3,50;77,00"), 2).amount).toBe(
+      1,
+    );
   });
 
   it("does not take a column of only C (Cleared) for money out or in", () => {

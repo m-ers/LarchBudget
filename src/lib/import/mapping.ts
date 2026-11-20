@@ -178,6 +178,41 @@ function findOutOrIn(header: string[], names: string[], exclude: number[]): numb
   return -1;
 }
 
+/**
+ * Among numeric columns, the one that explains how another column moves from
+ * row to row: that other column is a running balance, and this one holds the
+ * amounts. Rows may run newest first or oldest first, so the change between
+ * two rows is the amount of either the first or the second of them, in every
+ * pair. Null when no column is a balance.
+ */
+function amountBesideBalance(
+  body: string[][],
+  candidates: number[],
+  digits: number,
+): number | null {
+  const values = (i: number) => body.map((row) => parseBankAmount(row[i] ?? "", digits));
+  const columns = new Map(candidates.map((i) => [i, values(i)]));
+  for (const balance of candidates) {
+    const b = columns.get(balance)!;
+    for (const amount of candidates) {
+      if (amount === balance) continue;
+      const a = columns.get(amount)!;
+      let pairs = 0;
+      let firstOwn = 0;
+      let secondOwn = 0;
+      for (let i = 0; i + 1 < body.length; i++) {
+        if (b[i] === null || b[i + 1] === null || a[i] === null || a[i + 1] === null) continue;
+        pairs++;
+        const change = Math.abs(b[i]! - b[i + 1]!);
+        if (change === Math.abs(a[i]!)) firstOwn++;
+        if (change === Math.abs(a[i + 1]!)) secondOwn++;
+      }
+      if (pairs > 0 && (firstOwn === pairs || secondOwn === pairs)) return amount;
+    }
+  }
+  return null;
+}
+
 /** Guesses the mapping for a parsed file. Columns it cannot find are left at -1 or null. */
 export function detectMapping(rows: string[][], digits: number, monthFirst = false): Mapping {
   const first = rows[0] ?? [];
@@ -214,12 +249,15 @@ export function detectMapping(rows: string[][], digits: number, monthFirst = fal
 
   if (amount === -1) amount = hasHeader ? findByName(first, NAMES.amount, [date]) : -1;
   if (amount === -1) {
-    // Without a name to go on: the first column of numbers with decimals that is not the date.
-    amount = columns.findIndex(
-      (values, i) =>
+    // Without a name to go on: a column of numbers with decimals that is not the date.
+    const numeric = Array.from({ length: width }, (_, i) => i).filter(
+      (i) =>
         i !== date &&
-        share(values, (v) => /[.,]\d{2}$/.test(v) && parseBankAmount(v, digits) !== null) >= 0.8,
+        share(columns[i], (v) => /[.,]\d{2}$/.test(v) && parseBankAmount(v, digits) !== null) >=
+          0.8,
     );
+    // The running balance is such a column too; the column that moves it is the amount.
+    amount = amountBesideBalance(body, numeric, digits) ?? numeric[0] ?? -1;
   }
 
   // Without a name, a column counts only when it has both money out and money

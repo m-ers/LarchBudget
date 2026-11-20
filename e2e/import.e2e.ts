@@ -122,19 +122,21 @@ test.describe("with an account", () => {
     await expect(page.getByRole("link", { name: /^Transactions.*6 to sort/ })).toBeVisible();
   });
 
-  test("a file without column names: the columns are chosen by hand", async ({ page }) => {
+  test("a file without column names: date and amount are found, the payee is chosen by hand", async ({
+    page,
+  }) => {
     await chooseFile(page, "noheader.txt");
     await expect(
       page.getByRole("checkbox", { name: "First row holds column names" }),
     ).not.toBeChecked();
     await expect(picked(page, "Date")).toHaveText("Column 3 · 20261103");
+    // Column 4 is the running balance; the amount is the column that moves it.
+    await expect(picked(page, "Amount")).toHaveText("Column 7 · -45,10");
     await expect(summary(page)).toContainText(
-      "2 transactions · Nov 1, 2026 to Nov 3, 2026 · €2,000.00 in · €850.00 out",
+      "2 transactions · Nov 1, 2026 to Nov 3, 2026 · €2,850.00 in · €45.10 out",
     );
 
-    await page.getByRole("combobox", { name: "Amount", exact: true }).selectOption("6");
     await page.getByRole("combobox", { name: "Payee", exact: true }).selectOption("7");
-    await expect(summary(page)).toContainText("€2,850.00 in · €45.10 out");
     await expect(
       page.getByRole("row", { name: /Nov 3, 2026.*BEA Fresh Market.*-45\.10/ }),
     ).toBeVisible();
@@ -286,15 +288,15 @@ test.describe("with an account", () => {
     await addAccount(page, "Savings", "0");
     await page.getByRole("link", { name: "Import from bank" }).click();
     await chooseFile(page, "noheader.txt");
-    await expect(picked(page, "Amount")).toHaveText("Column 4 · 2000,00");
+    await expect(picked(page, "Amount")).toHaveText("Column 7 · -45,10");
 
     // Nothing was changed yet: the other account's settings (here none) are read.
     await page.getByRole("combobox", { name: "Into account" }).selectOption({ label: "Savings" });
-    await expect(picked(page, "Amount")).toHaveText("Column 4 · 2000,00");
-
-    await page.getByRole("combobox", { name: "Amount", exact: true }).selectOption("6");
-    await page.getByRole("combobox", { name: "Into account" }).selectOption({ label: "Checking" });
     await expect(picked(page, "Amount")).toHaveText("Column 7 · -45,10");
+
+    await page.getByRole("combobox", { name: "Amount", exact: true }).selectOption("3");
+    await page.getByRole("combobox", { name: "Into account" }).selectOption({ label: "Checking" });
+    await expect(picked(page, "Amount")).toHaveText("Column 4 · 2000,00");
   });
 
   test("the account for a file is the one whose settings fit it, else the last one used", async ({
@@ -304,7 +306,7 @@ test.describe("with an account", () => {
     await page.getByRole("link", { name: "Import from bank" }).click();
     await chooseFile(page, "noheader.txt");
     await page.getByRole("combobox", { name: "Into account" }).selectOption({ label: "Savings" });
-    await page.getByRole("combobox", { name: "Amount", exact: true }).selectOption("6");
+    await page.getByRole("combobox", { name: "Amount", exact: true }).selectOption("3");
     await page.getByRole("button", { name: "Import 2 transactions into Savings" }).click();
     await expect(
       page.getByRole("heading", { name: "Imported 2 transactions into Savings." }),
@@ -318,7 +320,7 @@ test.describe("with an account", () => {
     await expect(
       page.getByText("Read with the settings from your last import into this account."),
     ).toBeVisible();
-    await expect(picked(page, "Amount")).toHaveText("Column 7 · -45,10");
+    await expect(picked(page, "Amount")).toHaveText("Column 4 · 2000,00");
 
     // No account has settings for this file: the account of the last import.
     await page.getByRole("button", { name: "Choose another file" }).click();
@@ -330,7 +332,7 @@ test.describe("with an account", () => {
     await page.getByRole("combobox", { name: "Into account" }).selectOption({ label: "Checking" });
     await chooseFile(page, "noheader.txt");
     await expect(picked(page, "Into account")).toHaveText("Checking");
-    await expect(picked(page, "Amount")).toHaveText("Column 4 · 2000,00");
+    await expect(picked(page, "Amount")).toHaveText("Column 7 · -45,10");
 
     // The last account is remembered after the page is opened anew.
     await page.reload();
