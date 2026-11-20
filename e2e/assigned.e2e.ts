@@ -5,6 +5,7 @@ import {
   addGroup,
   alert,
   assign,
+  assignAndSave,
   assignedField,
   available,
   clickAway,
@@ -41,11 +42,8 @@ test.describe("on a slow connection", () => {
     await page.goto("/");
     await addGroup(page, "Fixed costs");
     await addCategories(page, "Fixed costs", ["Rent", "Utilities", "Insurance", "Internet"]);
-    // The figure shows before the server answers, so wait for the answer too.
-    const answers = countAnswers(page);
-    await assign(page, "Utilities", "95");
+    await assignAndSave(page, "Utilities", "95");
     await expect(headerFigure(page)).toHaveText("€2,405.00");
-    await expect.poll(answers).toBe(1);
   });
 
   test("a new amount and every figure it moves show before the server answers", async ({
@@ -151,10 +149,8 @@ test("a save while LarchBudget cannot be reached puts the old amount back, and k
   await page.goto("/");
   await addGroup(page, "Everyday");
   await addCategories(page, "Everyday", ["Groceries"]);
-  const answers = countAnswers(page);
-  await assign(page, "Groceries", "40");
+  await assignAndSave(page, "Groceries", "40");
   await expect(headerFigure(page)).toHaveText("€60.00");
-  await expect.poll(answers).toBe(1);
 
   await server.stop();
   await assign(page, "Groceries", "123");

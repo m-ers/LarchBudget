@@ -40,7 +40,14 @@ function assign(budget: BudgetMonth, categoryId: number, amount: number): Budget
             ...group,
             available: group.available + delta,
             categories: group.categories.map((c) =>
-              c === category ? { ...c, assigned: amount, available: c.available + delta } : c,
+              c === category
+                ? {
+                    ...c,
+                    assigned: amount,
+                    available: c.available + delta,
+                    balance: c.balance + delta,
+                  }
+                : c,
             ),
           }
         : group,

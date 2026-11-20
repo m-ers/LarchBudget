@@ -29,7 +29,7 @@ export function CategoryRow({ category, color }: { category: Category; color: st
         <EnvelopeToken color={color} />
       </td>
       <td>
-        <CategoryName id={id} name={name} available={availableLabel} hasBalance={available !== 0} />
+        <CategoryName id={id} name={name} balance={category.balance} />
       </td>
       <td>
         <AssignedInput categoryId={id} categoryName={name} value={assigned} />

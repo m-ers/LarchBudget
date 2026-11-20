@@ -117,6 +117,7 @@ describe("category balances", () => {
       assigned: 30_000,
       activity: -10_000,
       available: 20_000,
+      balance: 20_000,
     });
   });
 
@@ -140,6 +141,22 @@ describe("category balances", () => {
       activity: 0,
       available: 45_000,
     });
+  });
+
+  it("tell their balance over all time, which a later month can change", () => {
+    const holiday = createCategory(db, "Holiday");
+    setAssigned(db, holiday, "2026-10", 30_000);
+    setAssigned(db, holiday, "2026-11", 20_000);
+    spend(holiday, "2026-12-01", -5_000);
+
+    const [october] = rows("2026-10");
+    expect(october.available).toBe(30_000);
+    expect(october.balance).toBe(45_000);
+
+    // That balance is what archiving gives back.
+    const before = getBudgetMonth(db, "2026-10").readyToAssign;
+    archiveCategory(db, holiday);
+    expect(getBudgetMonth(db, "2026-10").readyToAssign).toBe(before + october.balance);
   });
 
   it("roll overspending over as a negative balance", () => {

@@ -34,6 +34,11 @@ export type CategoryRow = {
   activity: number;
   /** Balance at the end of the viewed month, including earlier months. */
   available: number;
+  /**
+   * Balance over all time, including later months: what archiving the
+   * category gives back to Ready to assign.
+   */
+  balance: number;
 };
 
 export type GroupRow = {
@@ -108,6 +113,7 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
       assigned: r.assigned,
       activity: r.activity,
       available: r.assigned_through + r.activity_through,
+      balance: r.assigned_total + r.activity_total,
     };
     byGroup.set(r.group_id, [...(byGroup.get(r.group_id) ?? []), row]);
     return row;

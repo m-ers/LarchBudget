@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { BudgetMonth } from "@/db/budget";
 import { applyChange, type BudgetChange } from "./budget-changes";
 
-/** Two groups; Rent has 300.00 left from earlier months and 50.00 spent this month. */
+/**
+ * Two groups. Rent has 300.00 left from earlier months and 50.00 spent this
+ * month; Water has 20.00 more assigned in a later month.
+ */
 const budget: BudgetMonth = {
   groups: [
     {
@@ -10,8 +13,15 @@ const budget: BudgetMonth = {
       name: "Fixed costs",
       colorSlot: 0,
       categories: [
-        { id: 10, name: "Rent", assigned: 100_000, activity: -5_000, available: 125_000 },
-        { id: 11, name: "Water", assigned: 2_000, activity: 0, available: 2_000 },
+        {
+          id: 10,
+          name: "Rent",
+          assigned: 100_000,
+          activity: -5_000,
+          available: 125_000,
+          balance: 125_000,
+        },
+        { id: 11, name: "Water", assigned: 2_000, activity: 0, available: 2_000, balance: 4_000 },
       ],
       available: 127_000,
     },
@@ -19,7 +29,7 @@ const budget: BudgetMonth = {
       id: 2,
       name: "Goals",
       colorSlot: 1,
-      categories: [{ id: 20, name: "Holiday", assigned: 0, activity: 0, available: 0 }],
+      categories: [{ id: 20, name: "Holiday", assigned: 0, activity: 0, available: 0, balance: 0 }],
       available: 0,
     },
   ],
@@ -43,6 +53,7 @@ describe("assigning, before the server confirms it", () => {
       assigned: 120_000,
       activity: -5_000,
       available: 145_000,
+      balance: 145_000,
     });
     expect(after.groups[0].available).toBe(147_000);
     expect(after.totals).toEqual({ assigned: 122_000, spent: 5_000, available: 147_000 });
@@ -57,7 +68,11 @@ describe("assigning, before the server confirms it", () => {
 
   it("can take money back out", () => {
     const after = applyChange(budget, assign(11, 0));
-    expect(after.groups[0].categories[1]).toMatchObject({ assigned: 0, available: 0 });
+    expect(after.groups[0].categories[1]).toMatchObject({
+      assigned: 0,
+      available: 0,
+      balance: 2_000,
+    });
     expect(after.readyToAssign).toBe(52_000);
   });
 

@@ -117,3 +117,14 @@ export async function assign(page: Page, name: string, amount: string) {
   await field.fill(amount);
   await field.press("Tab");
 }
+
+/**
+ * Like `assign`, and waits until the server has stored the amount. The page
+ * shows it before that, so use this before a step that needs it stored,
+ * such as opening another month.
+ */
+export async function assignAndSave(page: Page, name: string, amount: string) {
+  const answered = page.waitForResponse((response) => response.request().method() === "POST");
+  await assign(page, name, amount);
+  await answered;
+}

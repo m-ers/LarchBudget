@@ -1,9 +1,11 @@
+import type { Page } from "@playwright/test";
 import {
   addAccount,
   addCategories,
   addGroup,
   alert,
   assign,
+  assignAndSave,
   assignedField,
   available,
   category,
@@ -85,7 +87,7 @@ test("leftovers roll over into the next month", async ({ page }) => {
   await page.goto("/");
   await addGroup(page, "Fixed costs");
   await addCategories(page, "Fixed costs", ["Rent"]);
-  await assign(page, "Rent", "400");
+  await assignAndSave(page, "Rent", "400");
   await expect(available(page, "Rent")).toHaveText("€400.00");
 
   await page.getByRole("link", { name: "Next month" }).click();
@@ -108,8 +110,8 @@ test("the Available amount explains how it adds up", async ({ page }) => {
     "title",
     "Nothing assigned or spent this month.",
   );
-  await assign(page, "Rent", "400");
-  await assign(page, "Repairs", "-250");
+  await assignAndSave(page, "Rent", "400");
+  await assignAndSave(page, "Repairs", "-250");
   await expect(explanation("Rent")).toHaveAttribute("title", "€400.00 assigned");
 
   await page.getByRole("link", { name: "Next month" }).click();
@@ -126,27 +128,54 @@ test("the Available amount explains how it adds up", async ({ page }) => {
   await expect(available(page, "Repairs")).toHaveText("Overspent: -€250.00");
 });
 
-test("archiving a category gives its money back to Ready to assign", async ({ page }) => {
+/** Archives a category, agreeing to the question, and returns the question. */
+async function archive(page: Page, name: string): Promise<string> {
+  const question = new Promise<string>((resolve) =>
+    page.once("dialog", (dialog) => {
+      resolve(dialog.message());
+      void dialog.accept();
+    }),
+  );
+  await categoryRow(page, name).hover();
+  await page.getByRole("button", { name: `Archive ${name}` }).click();
+  await expect(category(page, name)).toHaveCount(0);
+  return question;
+}
+
+test("archiving a category gives all its money back to Ready to assign", async ({ page }) => {
   await addAccount(page, "Main account", "1000");
   await page.goto("/");
   await addGroup(page, "Everyday");
   await addCategories(page, "Everyday", ["Groceries", "Eating out"]);
+  await page.getByRole("link", { name: "Next month" }).click();
+  await assignAndSave(page, "Groceries", "200");
+  await page.getByRole("link", { name: "This month" }).click();
   await assign(page, "Groceries", "300");
-  await expect(headerFigure(page)).toHaveText("€700.00");
+  await expect(headerFigure(page)).toHaveText("€500.00");
 
-  let question = "";
-  page.once("dialog", (dialog) => {
-    question = dialog.message();
-    void dialog.accept();
-  });
-  await categoryRow(page, "Groceries").hover();
-  await page.getByRole("button", { name: "Archive Groceries" }).click();
-  await expect(category(page, "Groceries")).toHaveCount(0);
-  expect(question).toBe(
-    'Archive "Groceries"? Its balance of €300.00 goes back to Ready to assign.',
+  // Viewing this month, the question still names what next month holds too.
+  expect(await archive(page, "Groceries")).toBe(
+    'Archive "Groceries"? Its €500.00 goes back to Ready to assign.',
   );
   await expect(headerFigure(page)).toHaveText("€1,000.00");
   await expect(category(page, "Eating out")).toBeVisible();
+});
+
+test("archiving an overspent category says what it takes from Ready to assign", async ({
+  page,
+}) => {
+  await addAccount(page, "Main account", "1000");
+  await page.goto("/");
+  await addGroup(page, "Fixed costs");
+  await addCategories(page, "Fixed costs", ["Repairs", "Water"]);
+  await assign(page, "Repairs", "-250");
+  await expect(headerFigure(page)).toHaveText("€1,250.00");
+
+  expect(await archive(page, "Repairs")).toBe(
+    'Archive "Repairs"? It is overspent by €250.00, which then comes out of Ready to assign.',
+  );
+  await expect(headerFigure(page)).toHaveText("€1,000.00");
+  expect(await archive(page, "Water")).toBe('Archive "Water"?');
 });
 
 test("groups and categories are renamed in place", async ({ page }) => {
