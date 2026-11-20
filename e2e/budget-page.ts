@@ -21,12 +21,50 @@ export const category = (page: Page, name: string) =>
 export const categoryRow = (page: Page, name: string) =>
   page.getByRole("row").filter({ has: category(page, name) });
 
+/** The "⋯" button that opens a category's menu. */
+export const menuButton = (page: Page, name: string) =>
+  page.getByRole("button", { name: `Actions for ${name}`, exact: true });
+
+/** The "⋯" button that opens a group's menu. */
+export const groupMenuButton = (page: Page, name: string) =>
+  page.getByRole("button", { name: `Actions for the group ${name}`, exact: true });
+
+/** An item in the open menu. */
+export const menuItem = (page: Page, label: string) =>
+  page.getByRole("menuitem", { name: label, exact: true });
+
+/** Opens a category's menu with the button that shows when its row is hovered. */
+export async function openMenu(page: Page, name: string) {
+  await categoryRow(page, name).hover();
+  await menuButton(page, name).click();
+  await expect(page.getByRole("menu")).toBeVisible();
+}
+
+/** Opens a group's menu with the button that shows when its heading is hovered. */
+export async function openGroupMenu(page: Page, name: string) {
+  await groupHeading(page, name).hover();
+  await groupMenuButton(page, name).click();
+  await expect(page.getByRole("menu")).toBeVisible();
+}
+
 /** The Available amount at the end of a category's row. */
 export const available = (page: Page, name: string) =>
   categoryRow(page, name).getByRole("cell").last();
 
 /** A group's heading row. Its cells hold the group's Assigned, Spent and Available totals. */
 export const groupRow = (page: Page, name: string) => groupHeading(page, name).locator("xpath=..");
+
+/** The names of a group's categories, top to bottom, read from their Assigned fields. */
+export const categoriesIn = (page: Page, group: string) =>
+  groupRow(page, group)
+    .locator("xpath=..")
+    .getByRole("textbox", { name: /^Assigned to / })
+    .evaluateAll((fields) =>
+      fields.map((field) => field.getAttribute("aria-label")!.replace(/^Assigned to /, "")),
+    );
+
+/** The names of the groups, top to bottom, as typed (the headings show them in capitals). */
+export const groupNames = (page: Page) => page.getByRole("rowheader").allTextContents();
 
 /** What a group's categories hold together, at the end of its heading row. */
 export const groupTotal = (page: Page, name: string) =>

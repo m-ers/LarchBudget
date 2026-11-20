@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { useEffect, useOptimistic, useRef, useState } from "react";
-import type { BudgetMonth, GroupRow } from "@/db/budget";
+import type { ArchivedCategory, BudgetMonth, GroupRow } from "@/db/budget";
 import type { Month } from "@/lib/dates";
 import { formatMoney, formatMoneyParts, formatMoneyRounded } from "@/lib/money";
 import { primaryButton } from "../form";
 import { Hero, HeroFigure, HeroLead } from "../hero";
+import { ArchivedCategories } from "./archived-categories";
 import { applyChange } from "./budget-changes";
 import { BudgetContext } from "./budget-context";
+import { CopyLastMonth } from "./copy-last-month";
 import { GroupBody, UngroupedBody } from "./group-body";
 import { NewGroup } from "./new-group";
 import { TableHead } from "./table-head";
@@ -16,6 +18,8 @@ import { TableHead } from "./table-head";
 type Props = {
   /** The month as the server worked it out. */
   budget: BudgetMonth;
+  /** Archived categories, which can be restored from under the table. */
+  archived: ArchivedCategory[];
   month: Month;
   currency: string;
   locale: string;
@@ -58,16 +62,25 @@ function useInView(ref: React.RefObject<Element | null>): boolean {
  * moves show at once. Parts below reach the month, the formatting and `show`
  * through `useBudget`.
  */
-export function BudgetView({ budget: saved, month, currency, locale, daysLeft, monthNav }: Props) {
+export function BudgetView({
+  budget: saved,
+  archived,
+  month,
+  currency,
+  locale,
+  daysLeft,
+  monthNav,
+}: Props) {
   const [budget, show] = useOptimistic(saved, applyChange);
   const { spent, assigned } = budget.totals;
   const ready = budget.readyToAssign;
   const headline = readyHeadline(ready, budget.hasAccounts);
   const hero = useRef<HTMLElement>(null);
   const heroInView = useInView(hero);
+  const groupCount = budget.groups.filter(isGroup).length;
 
   return (
-    <BudgetContext value={{ month, currency, locale, show }}>
+    <BudgetContext value={{ month, currency, locale, figures: budget, show }}>
       <Hero ref={hero}>
         <div className="relative">
           {monthNav}
@@ -89,7 +102,12 @@ export function BudgetView({ budget: saved, month, currency, locale, daysLeft, m
             </HeroLead>
           )}
         </div>
-        <HeroFigure amount={formatMoneyParts(ready, currency, locale)} {...headline} />
+        {/* How the figure adds up, on hover. */}
+        <div
+          title={`${formatMoney(budget.inAccounts, currency, locale)} in your accounts − ${formatMoney(budget.inCategories, currency, locale)} in categories`}
+        >
+          <HeroFigure amount={formatMoneyParts(ready, currency, locale)} {...headline} />
+        </div>
       </Hero>
 
       <section className="flex-1 rounded-2xl border border-line bg-surface px-2.5 pt-1.5 pb-2.5">
@@ -106,6 +124,11 @@ export function BudgetView({ budget: saved, month, currency, locale, daysLeft, m
           </div>
         )}
 
+        {budget.assignedLastMonth &&
+          budget.groups.every((g) => g.categories.every((c) => c.assigned === 0)) && (
+            <CopyLastMonth />
+          )}
+
         <table className="w-full border-collapse">
           <TableHead
             ready={
@@ -118,9 +141,15 @@ export function BudgetView({ budget: saved, month, currency, locale, daysLeft, m
                   }
             }
           />
-          {budget.groups.map((group) =>
+          {budget.groups.map((group, i) =>
             isGroup(group) ? (
-              <GroupBody key={group.id} group={group} />
+              <GroupBody
+                key={group.id}
+                group={group}
+                first={i === 0}
+                // Categories without a group come after every group.
+                last={i === groupCount - 1}
+              />
             ) : (
               <UngroupedBody key="ungrouped" group={group} />
             ),
@@ -140,6 +169,8 @@ export function BudgetView({ budget: saved, month, currency, locale, daysLeft, m
             placeholder={budget.groups.length === 0 ? "Name your first group" : "New group"}
           />
         </div>
+
+        {archived.length > 0 && <ArchivedCategories categories={archived} />}
       </section>
     </BudgetContext>
   );

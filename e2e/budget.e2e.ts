@@ -14,7 +14,10 @@ import {
   groupRow,
   groupTotal,
   headerFigure,
+  menuItem,
+  openMenu,
   openNewCategory,
+  slowConnection,
 } from "./budget-page";
 import { expect, test } from "./fixtures";
 
@@ -67,6 +70,31 @@ test("money is divided over categories, and over-assigning is flagged", async ({
   await expect(page.getByText("Every cent is assigned")).toBeVisible();
 });
 
+test("Ready to assign explains how it adds up, also straight after a new amount", async ({
+  page,
+}) => {
+  await addAccount(page, "Main account", "7000");
+  await page.goto("/");
+  await addGroup(page, "Fixed costs");
+  await addCategories(page, "Fixed costs", ["Rent", "Water"]);
+  await assignAndSave(page, "Rent", "1300");
+  await assignAndSave(page, "Water", "92");
+  const explained = page.getByTitle(/ in your accounts /).filter({ visible: true });
+  await expect(explained).toHaveAttribute(
+    "title",
+    "€7,000.00 in your accounts − €1,392.00 in categories",
+  );
+
+  await slowConnection(page, 2_000);
+  await assign(page, "Water", "100");
+  await expect(explained).toHaveAttribute(
+    "title",
+    "€7,000.00 in your accounts − €1,400.00 in categories",
+    { timeout: 1_000 },
+  );
+  await expect(headerFigure(page)).toHaveText("€5,600.00");
+});
+
 test("a group's heading adds up what its categories got and spent, and what they hold", async ({
   page,
 }) => {
@@ -100,6 +128,31 @@ test.describe("with transactions", () => {
     expect(together).toBeGreaterThan(0);
     const groupSpent = await groupRow(page, "Everyday").getByRole("cell").nth(1).innerText();
     expect(cents(groupSpent)).toBe(together);
+  });
+});
+
+test.describe("a Spent amount", () => {
+  test.use({ app: { seed: true } });
+
+  test("leads to the category's transactions of that month", async ({ page }) => {
+    await page.goto("/");
+    const spent = categoryRow(page, "Groceries").getByRole("link");
+    await expect(spent).toHaveAttribute(
+      "href",
+      /^\/transactions\?show=all&category=\d+&month=\d{4}-\d{2}$/,
+    );
+    // It looks like the other amounts until it is hovered.
+    await expect(spent).toHaveCSS("text-decoration-line", "none");
+    await spent.hover();
+    await expect(spent).toHaveCSS("text-decoration-line", "underline");
+    // Nothing spent is not a link.
+    await expect(categoryRow(page, "Holiday").getByRole("link")).toHaveCount(0);
+
+    const amount = await spent.innerText();
+    await spent.click();
+    const picked = page.getByRole("combobox", { name: "Category", exact: true });
+    await expect(picked.locator("option:checked")).toHaveText("Groceries");
+    await expect(page.getByText(/ match(es)?\. Money in/)).toContainText(`money out €${amount}.`);
   });
 });
 
@@ -174,8 +227,8 @@ async function archive(page: Page, name: string): Promise<string> {
       void dialog.accept();
     }),
   );
-  await categoryRow(page, name).hover();
-  await page.getByRole("button", { name: `Archive ${name}` }).click();
+  await openMenu(page, name);
+  await menuItem(page, "Archive").click();
   await expect(category(page, name)).toHaveCount(0);
   return question;
 }

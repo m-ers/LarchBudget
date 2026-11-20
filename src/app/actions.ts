@@ -9,7 +9,7 @@ import * as budget from "@/db/budget";
 import * as transactions from "@/db/transactions";
 import { accountTypes } from "@/lib/account-types";
 import { getConfig } from "@/lib/config";
-import { isMonth, today, type IsoDate } from "@/lib/dates";
+import { addMonths, isMonth, today, type IsoDate } from "@/lib/dates";
 import { delimiters, parseCsv } from "@/lib/import/csv";
 import {
   MAX_CELL_LENGTH,
@@ -47,11 +47,14 @@ const done = (): ActionResult => {
 const LOGGED_OUT = fail("Your session has ended. Reload the page to log in again.");
 const UNEXPECTED = fail("Something went wrong. Reload the page and try again.");
 const CATEGORY_GONE = fail("That category no longer exists.");
+const GROUP_GONE = fail("That group no longer exists.");
 const TRANSACTION_GONE = fail("That transaction no longer exists. Reload the page.");
 const categoryNameTaken = (name: string) => fail(`You already have a category called "${name}".`);
 const groupNameTaken = (name: string) => fail(`You already have a group called "${name}".`);
 
 const id = z.number().int().positive();
+const direction = z.enum(["up", "down"]);
+const moneyEnd = z.union([id, z.literal("ready")]);
 const name = z
   .string()
   .trim()
@@ -86,6 +89,38 @@ export async function setAssignedAction(
   return budget.setAssigned(db, categoryId, month, amount) ? done() : CATEGORY_GONE;
 }
 
+/** Starts a month with what each category got the month before, where it has nothing yet. */
+export async function copyLastMonthAction(month: string): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  if (!isMonth(month)) return UNEXPECTED;
+
+  budget.copyAssignments(db, addMonths(month, -1), month);
+  return done();
+}
+
+export async function moveMoneyAction(
+  from: budget.MoneyEnd,
+  to: budget.MoneyEnd,
+  month: string,
+  input: string,
+): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  if (!moneyEnd.safeParse(from).success || !moneyEnd.safeParse(to).success || !isMonth(month)) {
+    return UNEXPECTED;
+  }
+
+  const amount = parseAmount(String(input));
+  if (amount === null) return fail("That is not an amount.");
+
+  const result = budget.moveMoney(db, { from, to, month, amount });
+  if (result === "not-positive") return fail("Enter an amount above zero.");
+  if (result === "no-category") return CATEGORY_GONE;
+  if (result === "same") return UNEXPECTED;
+  return done();
+}
+
 export async function createCategoryAction(groupId: number, input: string): Promise<ActionResult> {
   const db = await database();
   if (!db) return LOGGED_OUT;
@@ -94,7 +129,7 @@ export async function createCategoryAction(groupId: number, input: string): Prom
   if (!parsed.success) return fail(parsed.error.issues[0].message);
 
   const result = budget.createCategory(db, parsed.data, groupId);
-  if (result === "no-group") return fail("That group no longer exists.");
+  if (result === "no-group") return GROUP_GONE;
   if (result === "name-taken") return categoryNameTaken(parsed.data);
   return done();
 }
@@ -123,6 +158,46 @@ export async function archiveCategoryAction(categoryId: number): Promise<ActionR
   return done();
 }
 
+export async function moveCategoryAction(
+  categoryId: number,
+  to: budget.Direction,
+): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  if (!id.safeParse(categoryId).success || !direction.safeParse(to).success) return UNEXPECTED;
+
+  // Already first or last: nothing to do, and the page shows the order as it is.
+  return budget.moveCategory(db, categoryId, to) === "gone" ? CATEGORY_GONE : done();
+}
+
+export async function moveCategoryToGroupAction(
+  categoryId: number,
+  groupId: number,
+): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  if (!id.safeParse(categoryId).success || !id.safeParse(groupId).success) return UNEXPECTED;
+
+  const result = budget.moveCategoryToGroup(db, categoryId, groupId);
+  if (result === "no-category") return CATEGORY_GONE;
+  if (result === "no-group") return GROUP_GONE;
+  return done();
+}
+
+export async function restoreCategoryAction(categoryId: number): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  if (!id.safeParse(categoryId).success) return UNEXPECTED;
+
+  const result = budget.restoreCategory(db, categoryId);
+  if (result === "no-category") return CATEGORY_GONE;
+  if (result === "name-taken") {
+    return fail("Another category already has this name. Rename that one first.");
+  }
+  if (result === "no-group") return fail("There is no group to put it back in. Add a group first.");
+  return done();
+}
+
 export async function createGroupAction(input: string): Promise<ActionResult> {
   const db = await database();
   if (!db) return LOGGED_OUT;
@@ -142,6 +217,17 @@ export async function renameGroupAction(groupId: number, input: string): Promise
   if (!parsed.success) return fail(parsed.error.issues[0].message);
 
   return budget.renameGroup(db, groupId, parsed.data) ? done() : groupNameTaken(parsed.data);
+}
+
+export async function moveGroupAction(
+  groupId: number,
+  to: budget.Direction,
+): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  if (!id.safeParse(groupId).success || !direction.safeParse(to).success) return UNEXPECTED;
+
+  return budget.moveGroup(db, groupId, to) === "gone" ? GROUP_GONE : done();
 }
 
 export async function deleteGroupAction(groupId: number): Promise<ActionResult> {

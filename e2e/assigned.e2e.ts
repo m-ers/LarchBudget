@@ -12,6 +12,7 @@ import {
   countAnswers,
   groupTotal,
   headerFigure,
+  menuButton,
   newGroupField,
   slowConnection,
   spentLine,
@@ -201,7 +202,7 @@ test("Tab and the arrow keys go down and up the column; Shift+Tab reaches the bu
   await expect(assignedField(page, "Utilities")).toBeFocused();
 
   await page.keyboard.press("Shift+Tab");
-  await expect(page.getByRole("button", { name: "Archive Utilities" })).toBeFocused();
+  await expect(menuButton(page, "Utilities")).toBeFocused();
 
   // From the last field, Tab leaves the table.
   await assignedField(page, "Groceries").click();

@@ -1,28 +1,45 @@
 "use client";
 
-import { archiveCategoryAction, renameCategoryAction } from "@/app/actions";
+import { useRef } from "react";
+import {
+  archiveCategoryAction,
+  moveCategoryAction,
+  moveCategoryToGroupAction,
+  renameCategoryAction,
+} from "@/app/actions";
+import type { CategoryRow } from "@/db/budget";
 import { formatMoney } from "@/lib/money";
 import { ErrorText } from "../form";
-import { ArchiveIcon } from "../icons";
-import { InlineName } from "../inline-name";
+import { MoreIcon } from "../icons";
+import { InlineName, type InlineNameHandle } from "../inline-name";
+import { Menu, type useMenu } from "../menu";
 import { useSave } from "../use-save";
 import { useBudget } from "./budget-context";
-import { RowAction } from "./row-action";
+import type { Flow } from "./move-money";
+import { rowActionLook } from "./row-action";
+
+/** Where a category is: its group, and whether it is that group's first or last. */
+export type Place = { groupId: number | null; first: boolean; last: boolean };
 
 type Props = {
-  id: number;
-  name: string;
-  /** What the category holds over all time: what archiving gives back. */
-  balance: number;
+  category: CategoryRow;
+  place: Place;
+  /** The row's menu, which a right-click on the row opens too. */
+  menu: ReturnType<typeof useMenu>;
+  /** Opens the form for moving money out of the category, or into it to cover overspending. */
+  onMoveMoney: (flow: Flow) => void;
 };
 
 /**
- * Category name: click to rename. The category's actions sit beside it and
- * show on row hover; for now that is archiving.
+ * Category name: click to rename. The category's actions are in a menu
+ * beside it, whose button shows on row hover.
  */
-export function CategoryName({ id, name, balance }: Props) {
-  const { currency, locale } = useBudget();
+export function CategoryName({ category, place, menu, onMoveMoney }: Props) {
+  // `balance` is what the category holds over all time: what archiving gives back.
+  const { id, name, balance, available } = category;
+  const { currency, locale, figures } = useBudget();
   const { error, pending, save } = useSave();
+  const nameField = useRef<InlineNameHandle>(null);
 
   function archive() {
     const question = `Archive "${name}"?`;
@@ -39,14 +56,47 @@ export function CategoryName({ id, name, balance }: Props) {
   return (
     <div className={`flex min-w-0 items-center gap-1 ${pending ? "opacity-60" : ""}`}>
       <InlineName
+        ref={nameField}
         value={name}
         label="Category name"
         onSave={(text) => renameCategoryAction(id, text)}
         className="text-[15.5px] font-medium"
       />
-      <RowAction label={`Archive ${name}`} title="Archive" onClick={archive} revealOn="row">
-        <ArchiveIcon width={15} height={15} />
-      </RowAction>
+      <Menu
+        label={`Actions for ${name}`}
+        state={menu}
+        buttonClassName={rowActionLook("row")}
+        items={[
+          { label: "Rename", onSelect: () => nameField.current?.startEditing() },
+          {
+            label: "Move up",
+            onSelect: () => save(() => moveCategoryAction(id, "up")),
+            disabled: place.first,
+          },
+          {
+            label: "Move down",
+            onSelect: () => save(() => moveCategoryAction(id, "down")),
+            disabled: place.last,
+          },
+          ...figures.groups.flatMap(({ id: groupId, name: groupName }) =>
+            groupId === null || groupId === place.groupId
+              ? []
+              : [
+                  {
+                    label: `Move to ${groupName}`,
+                    onSelect: () => save(() => moveCategoryToGroupAction(id, groupId)),
+                  },
+                ],
+          ),
+          { label: "Move money…", onSelect: () => onMoveMoney("out") },
+          ...(available < 0
+            ? [{ label: "Cover overspending…", onSelect: () => onMoveMoney("in") }]
+            : []),
+          { label: "Archive", onSelect: archive, destructive: true },
+        ]}
+      >
+        <MoreIcon width={15} height={15} />
+      </Menu>
       <ErrorText error={error} as="span" className="text-xs" />
     </div>
   );

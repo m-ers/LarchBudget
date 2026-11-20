@@ -1,16 +1,24 @@
 "use client";
 
-import { useState } from "react";
-import { createCategoryAction, deleteGroupAction, renameGroupAction } from "@/app/actions";
+import { useRef, useState } from "react";
+import {
+  createCategoryAction,
+  deleteGroupAction,
+  moveGroupAction,
+  renameGroupAction,
+} from "@/app/actions";
 import type { GroupRow } from "@/db/budget";
 import { groupColor } from "@/lib/group-colors";
 import { formatAmount, formatMoney } from "@/lib/money";
-import { EmptyToken, PlusIcon, TrashIcon } from "../icons";
-import { InlineName } from "../inline-name";
+import { ErrorText } from "../form";
+import { EmptyToken, MoreIcon, PlusIcon } from "../icons";
+import { InlineName, type InlineNameHandle } from "../inline-name";
+import { Menu, useMenu } from "../menu";
+import { useSave } from "../use-save";
 import { AddByNameField, useAddByName } from "./add-by-name";
 import { useBudget } from "./budget-context";
 import { CategoryRow, formatSpent } from "./category-row";
-import { RowAction } from "./row-action";
+import { RowAction, rowActionLook } from "./row-action";
 
 /** What deleting a group does, asked before it happens. */
 function deleteQuestion(name: string, categoryCount: number): string {
@@ -22,10 +30,19 @@ function deleteQuestion(name: string, categoryCount: number): string {
 }
 
 /**
- * One group in the budget table: its heading (rename, add category,
- * delete), its category rows and the inline "new category" field.
+ * One group in the budget table: its heading (rename, add category, and a
+ * menu with the rest), its category rows and the inline "new category" field.
  */
-export function GroupBody({ group }: { group: GroupRow & { id: number } }) {
+export function GroupBody({
+  group,
+  first,
+  last,
+}: {
+  group: GroupRow & { id: number };
+  /** Whether it is the first or the last group, which cannot move further that way. */
+  first: boolean;
+  last: boolean;
+}) {
   const { id, name, categories } = group;
   const isEmpty = categories.length === 0;
   // True while the "new category" field is in use.
@@ -33,9 +50,13 @@ export function GroupBody({ group }: { group: GroupRow & { id: number } }) {
   const adder = useAddByName((categoryName) => createCategoryAction(id, categoryName));
   // An empty group always shows its field: there is nothing else in it.
   const showField = isEmpty || adding || adder.pending || adder.error;
+  const menu = useMenu();
+  const nameField = useRef<InlineNameHandle>(null);
+  // Moving the group; it reports a failure in the heading.
+  const mover = useSave();
 
+  // A failure is reported next to the "new category" field.
   function remove() {
-    // A failure is reported next to the "new category" field.
     if (window.confirm(deleteQuestion(name, categories.length))) {
       adder.save(() => deleteGroupAction(id));
     }
@@ -43,8 +64,9 @@ export function GroupBody({ group }: { group: GroupRow & { id: number } }) {
 
   return (
     <tbody>
-      <GroupHeading group={group}>
+      <GroupHeading group={group} onContextMenu={menu.openAtPointer}>
         <InlineName
+          ref={nameField}
           value={name}
           label="Group name"
           onSave={(text) => renameGroupAction(id, text)}
@@ -57,15 +79,32 @@ export function GroupBody({ group }: { group: GroupRow & { id: number } }) {
         >
           <PlusIcon width={15} height={15} />
         </RowAction>
-        <RowAction
-          label={`Delete the group ${name}`}
-          title="Delete group"
-          onClick={remove}
-          revealOn="head"
-          keepFocus
+        <Menu
+          label={`Actions for the group ${name}`}
+          state={menu}
+          buttonClassName={rowActionLook("head")}
+          items={[
+            { label: "Rename", onSelect: () => nameField.current?.startEditing() },
+            {
+              label: "Move up",
+              onSelect: () => mover.save(() => moveGroupAction(id, "up")),
+              disabled: first,
+            },
+            {
+              label: "Move down",
+              onSelect: () => mover.save(() => moveGroupAction(id, "down")),
+              disabled: last,
+            },
+            { label: "Delete group", onSelect: remove, destructive: true },
+          ]}
         >
-          <TrashIcon width={15} height={15} />
-        </RowAction>
+          <MoreIcon width={15} height={15} />
+        </Menu>
+        <ErrorText
+          error={mover.error}
+          as="span"
+          className="text-xs font-normal tracking-normal normal-case"
+        />
       </GroupHeading>
 
       <CategoryRows group={group} />
@@ -118,11 +157,20 @@ const total = "h-[38px] pt-1 text-right text-[13.5px] text-muted tabular-nums";
  * A group's heading row: its name and actions, and in the columns what its
  * categories got assigned, spent and hold together.
  */
-function GroupHeading({ group, children }: { group: GroupRow; children: React.ReactNode }) {
+function GroupHeading({
+  group,
+  onContextMenu,
+  children,
+}: {
+  group: GroupRow;
+  /** Opens the heading's menu on a right-click. */
+  onContextMenu?: (e: React.MouseEvent) => void;
+  children: React.ReactNode;
+}) {
   const { currency, locale } = useBudget();
   const isEmpty = group.categories.length === 0;
   return (
-    <tr className="group/head">
+    <tr className="group/head" onContextMenu={onContextMenu}>
       <th scope="rowgroup" colSpan={2} className="h-[38px] pt-1 pl-3.5 text-left font-normal">
         <div className="flex items-center gap-1 text-xs tracking-[0.07em] text-muted uppercase">
           {children}
@@ -139,7 +187,13 @@ function GroupHeading({ group, children }: { group: GroupRow; children: React.Re
 
 function CategoryRows({ group }: { group: GroupRow }) {
   const color = groupColor(group.colorSlot);
-  return group.categories.map((category) => (
-    <CategoryRow key={category.id} category={category} color={color} />
+  const { categories } = group;
+  return categories.map((category, i) => (
+    <CategoryRow
+      key={category.id}
+      category={category}
+      color={color}
+      place={{ groupId: group.id, first: i === 0, last: i === categories.length - 1 }}
+    />
   ));
 }
