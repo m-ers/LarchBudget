@@ -1,8 +1,9 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { IsoDate } from "../lib/dates";
+import { createAccount, getAccounts } from "./accounts";
 import * as budget from "./budget";
-import { archiveCategory, createAccount, getAccounts, getBudgetMonth, setAssigned } from "./budget";
+import { archiveCategory, getBudgetMonth, setAssigned } from "./budget";
 import { openDb, type Db } from "./index";
 import { created } from "./created";
 import { deletedImports, transactions } from "./schema";
@@ -54,18 +55,23 @@ const november: ImportRow[] = [
 
 beforeEach(() => {
   db = openDb(":memory:");
-  checking = createAccount(db, {
-    name: "Checking",
-    type: "checking",
-    startingBalance: 100_000,
-    date: "2026-10-31",
-  });
+  checking = created(
+    createAccount(db, {
+      name: "Checking",
+      type: "checking",
+      startingBalance: 100_000,
+      balanceDate: "2026-10-31",
+    }),
+  );
   groceries = createCategory(db, "Groceries", createGroup(db, "Everyday"));
 });
 
 describe("importing", () => {
   it("adds the rows and marks them to sort", () => {
-    expect(importTransactions(db, checking, november, "a")).toEqual({ imported: 4, duplicates: 0 });
+    expect(importTransactions(db, checking, november, "a")).toMatchObject({
+      imported: 4,
+      duplicates: 0,
+    });
     expect(countTransactions(db)).toEqual({ all: 5, toSort: 4 });
     expect(getAccounts(db)[0].balance).toBe(100_000 + 285_000 - 4_510 - 700);
   });
@@ -79,7 +85,7 @@ describe("importing", () => {
   it("skips rows that were imported before, so files may overlap", () => {
     importTransactions(db, checking, november, "a");
     const overlapping = [...november.slice(1), row("2026-11-09", -1_200, "Bakery")];
-    expect(importTransactions(db, checking, overlapping, "b")).toEqual({
+    expect(importTransactions(db, checking, overlapping, "b")).toMatchObject({
       imported: 1,
       duplicates: 3,
     });
@@ -87,12 +93,14 @@ describe("importing", () => {
   });
 
   it("treats the same row in another account as a different transaction", () => {
-    const savings = createAccount(db, {
-      name: "Savings",
-      type: "savings",
-      startingBalance: 0,
-      date: "2026-10-31",
-    });
+    const savings = created(
+      createAccount(db, {
+        name: "Savings",
+        type: "savings",
+        startingBalance: 0,
+        balanceDate: "2026-10-31",
+      }),
+    );
     importTransactions(db, checking, november, "a");
     expect(importTransactions(db, savings, november, "b")?.imported).toBe(4);
   });
@@ -122,7 +130,7 @@ describe("importing", () => {
       payee: "NL01BANK0123456789",
       note: null,
     }));
-    expect(importTransactions(db, checking, readDifferently, "b")).toEqual({
+    expect(importTransactions(db, checking, readDifferently, "b")).toMatchObject({
       imported: 0,
       duplicates: 4,
     });
@@ -162,12 +170,14 @@ describe("finding rows that are known already", () => {
   });
 
   it("knows only the rows of the account asked about", () => {
-    const savings = createAccount(db, {
-      name: "Savings",
-      type: "savings",
-      startingBalance: 0,
-      date: "2026-10-31",
-    });
+    const savings = created(
+      createAccount(db, {
+        name: "Savings",
+        type: "savings",
+        startingBalance: 0,
+        balanceDate: "2026-10-31",
+      }),
+    );
     importTransactions(db, checking, november, "a");
     expect(findKnownRows(db, savings, november)).toEqual([]);
   });
@@ -318,12 +328,15 @@ describe("finding transactions", () => {
   let savings: number;
 
   beforeEach(() => {
-    savings = createAccount(db, {
-      name: "Savings",
-      type: "savings",
-      startingBalance: 0,
-      date: "2026-10-31",
-    });
+    // Empty before any of its rows below, so it gets no starting balance of its own.
+    savings = created(
+      createAccount(db, {
+        name: "Savings",
+        type: "savings",
+        startingBalance: 0,
+        balanceDate: "2026-09-30",
+      }),
+    );
     importTransactions(db, checking, november, "a");
     importTransactions(
       db,
@@ -515,24 +528,47 @@ describe("deleting", () => {
     deleteTransaction(db, coffees[0].id);
 
     // The same file again: the deleted row is skipped and counted as a duplicate.
-    expect(importTransactions(db, checking, november, "b")).toEqual({ imported: 0, duplicates: 4 });
+    expect(importTransactions(db, checking, november, "b")).toMatchObject({
+      imported: 0,
+      duplicates: 4,
+    });
     expect(countTransactions(db).all).toBe(4);
 
     // Other rows and other accounts are not affected.
-    const savings = createAccount(db, {
-      name: "Savings",
-      type: "savings",
-      startingBalance: 0,
-      date: "2026-10-31",
-    });
+    const savings = created(
+      createAccount(db, {
+        name: "Savings",
+        type: "savings",
+        startingBalance: 0,
+        balanceDate: "2026-10-31",
+      }),
+    );
     expect(importTransactions(db, savings, november, "c")?.imported).toBe(4);
   });
 
   it("says when the transaction is gone, and keeps a starting balance", () => {
     expect(deleteTransaction(db, 9999)).toBe("no-transaction");
     const start = listTransactions(db, { limit: 50 })[0];
-    db.update(transactions).set({ starting: true }).where(eq(transactions.id, start.id)).run();
+    expect(start.payee).toBe("Starting balance");
     expect(deleteTransaction(db, start.id)).toBe("starting");
     expect(countTransactions(db).all).toBe(1);
+  });
+
+  it("keeps what the account held on its balance date when older history is deleted", () => {
+    // History from before 31 October, which the entered 1,000.00 already includes.
+    importTransactions(
+      db,
+      checking,
+      [
+        { date: "2026-10-05", amount: -4_000, payee: "Bookshop", note: null, raw: "o1" },
+        { date: "2026-10-20", amount: 30_000, payee: "Refund", note: null, raw: "o2" },
+      ],
+      "old",
+    );
+    expect(getAccounts(db)[0].balance).toBe(100_000);
+
+    const bookshop = listTransactions(db, { limit: 50 }).find((t) => t.payee === "Bookshop")!;
+    expect(deleteTransaction(db, bookshop.id)).toBe("deleted");
+    expect(getAccounts(db)[0].balance).toBe(100_000);
   });
 });

@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { getAccounts, getClosedAccounts } from "@/app/queries";
 import { AccountForm } from "@/components/accounts/account-form";
-import { getAccounts } from "@/app/queries";
+import { AccountRow } from "@/components/accounts/account-row";
+import { ClosedAccounts } from "@/components/accounts/closed-accounts";
 import { Hero, HeroFigure, HeroLead, HeroTitle, PageSkeleton } from "@/components/hero";
-import { accountTypeLabels } from "@/lib/account-types";
 import { getConfig } from "@/lib/config";
-import { formatAmount, formatMoney, formatMoneyParts } from "@/lib/money";
+import { today } from "@/lib/dates";
+import { formatAmount, formatMoney, formatMoneyParts, toInputValue } from "@/lib/money";
 
 export const metadata: Metadata = { title: "Accounts" };
 
@@ -18,9 +20,11 @@ export default function AccountsPage() {
 }
 
 async function Accounts() {
-  const accounts = await getAccounts();
+  const [accounts, closed] = await Promise.all([getAccounts(), getClosedAccounts()]);
   const { currency, locale } = getConfig();
   const total = accounts.reduce((sum, account) => sum + account.balance, 0);
+  const now = today();
+  const amountPlaceholder = formatAmount(0, currency, locale);
 
   return (
     <>
@@ -36,7 +40,9 @@ async function Accounts() {
         <section className="min-w-0 flex-1 self-stretch rounded-2xl border border-line bg-surface px-2.5 pt-1.5 pb-2.5">
           {accounts.length === 0 ? (
             <p className="max-w-xl px-3.5 py-5 text-muted">
-              No accounts yet. Add the accounts your money is in, with what is in them today.
+              {closed.length === 0
+                ? "No accounts yet. Add the accounts your money is in, with what is in them today."
+                : "All your accounts are closed."}
             </p>
           ) : (
             <table className="w-full border-collapse">
@@ -48,29 +54,41 @@ async function Accounts() {
                   <th scope="col" className="w-40 text-left font-medium">
                     Type
                   </th>
-                  <th scope="col" className="w-40 pr-3.5 text-right font-medium">
+                  <th scope="col" className="w-56 pr-3.5 text-right font-medium">
                     Balance
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {accounts.map((account) => (
-                  <tr key={account.id} className="data-row">
-                    <td className="h-[43px] pl-3.5 text-[15.5px] font-medium">{account.name}</td>
-                    <td className="text-muted">{accountTypeLabels[account.type]}</td>
-                    <td className="pr-3.5 text-right font-semibold tabular-nums">
-                      {formatMoney(account.balance, currency, locale)}
-                    </td>
-                  </tr>
+                  <AccountRow
+                    key={account.id}
+                    id={account.id}
+                    name={account.name}
+                    type={account.type}
+                    balance={formatMoney(account.balance, currency, locale)}
+                    startingBalance={toInputValue(account.startingBalance ?? 0, currency, locale)}
+                    balanceDate={account.balanceDate ?? now}
+                    transactionCount={account.transactionCount}
+                    amountPlaceholder={amountPlaceholder}
+                    today={now}
+                    locale={locale}
+                  />
                 ))}
               </tbody>
             </table>
           )}
+          {closed.length > 0 && <ClosedAccounts accounts={closed} />}
         </section>
 
-        <section className="w-80 shrink-0 rounded-2xl border border-line bg-surface p-5">
-          <h2 className="mb-4 font-semibold">Add an account</h2>
-          <AccountForm amountPlaceholder={formatAmount(0, currency, locale)} />
+        <section
+          aria-labelledby="add-account"
+          className="w-80 shrink-0 rounded-2xl border border-line bg-surface p-5"
+        >
+          <h2 id="add-account" className="mb-4 font-semibold">
+            Add an account
+          </h2>
+          <AccountForm amountPlaceholder={amountPlaceholder} today={now} />
         </section>
       </div>
     </>

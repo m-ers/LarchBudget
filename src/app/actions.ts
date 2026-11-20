@@ -4,11 +4,12 @@ import { randomUUID } from "node:crypto";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { getDb, type Db } from "@/db";
+import * as accounts from "@/db/accounts";
 import * as budget from "@/db/budget";
 import * as transactions from "@/db/transactions";
 import { accountTypes } from "@/lib/account-types";
 import { getConfig } from "@/lib/config";
-import { isMonth, today } from "@/lib/dates";
+import { isMonth, today, type IsoDate } from "@/lib/dates";
 import { delimiters, parseCsv } from "@/lib/import/csv";
 import {
   MAX_CELL_LENGTH,
@@ -154,11 +155,35 @@ export async function deleteGroupAction(groupId: number): Promise<ActionResult> 
 
 // ---- Accounts --------------------------------------------------------------
 
-const accountInput = z.object({
-  name,
-  type: z.enum(accountTypes),
-  startingBalance: z.string(),
-});
+const ACCOUNT_GONE = fail("That account no longer exists.");
+const accountNameTaken = (name: string) => fail(`You already have an account called "${name}".`);
+
+const accountType = z.enum(accountTypes);
+
+/** The day an entered balance is from: a real date, and not after today. */
+const balanceDate = z.iso
+  .date("That is not a date.")
+  .refine((date) => date <= today(), "The date cannot be in the future.")
+  .transform((date) => date as IsoDate);
+
+const balanceInput = z.object({ startingBalance: z.string(), balanceDate });
+
+/** Reads the "Balance" and "On" fields of a form. */
+function readBalance(
+  formData: FormData,
+): { ok: true; startingBalance: number; balanceDate: IsoDate } | Failure {
+  const parsed = balanceInput.safeParse({
+    startingBalance: formData.get("startingBalance") ?? "",
+    balanceDate: formData.get("balanceDate"),
+  });
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+
+  const startingBalance = parseAmount(parsed.data.startingBalance);
+  if (startingBalance === null) return fail("The balance is not an amount.");
+  return { ok: true, startingBalance, balanceDate: parsed.data.balanceDate };
+}
+
+const accountInput = z.object({ name, type: accountType });
 
 export async function createAccountAction(formData: FormData): Promise<ActionResult> {
   const db = await database();
@@ -166,19 +191,84 @@ export async function createAccountAction(formData: FormData): Promise<ActionRes
   const parsed = accountInput.safeParse({
     name: formData.get("name"),
     type: formData.get("type"),
-    startingBalance: formData.get("startingBalance") ?? "",
   });
   if (!parsed.success) return fail(parsed.error.issues[0].message);
+  const balance = readBalance(formData);
+  if (!balance.ok) return balance;
 
-  const startingBalance = parseAmount(parsed.data.startingBalance);
-  if (startingBalance === null) return fail("The starting balance is not an amount.");
-
-  budget.createAccount(db, {
-    name: parsed.data.name,
-    type: parsed.data.type,
-    startingBalance,
-    date: today(),
+  const result = accounts.createAccount(db, {
+    ...parsed.data,
+    startingBalance: balance.startingBalance,
+    balanceDate: balance.balanceDate,
   });
+  return result === "name-taken" ? accountNameTaken(parsed.data.name) : done();
+}
+
+export async function renameAccountAction(accountId: number, input: string): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  if (!id.safeParse(accountId).success) return UNEXPECTED;
+  const parsed = name.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+
+  return accounts.renameAccount(db, accountId, parsed.data)
+    ? done()
+    : accountNameTaken(parsed.data);
+}
+
+export async function setAccountTypeAction(accountId: number, type: string): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  const parsed = accountType.safeParse(type);
+  if (!id.safeParse(accountId).success || !parsed.success) return UNEXPECTED;
+
+  accounts.setAccountType(db, accountId, parsed.data);
+  return done();
+}
+
+export async function setAccountBalanceAction(
+  accountId: number,
+  formData: FormData,
+): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  if (!id.safeParse(accountId).success) return UNEXPECTED;
+  const balance = readBalance(formData);
+  if (!balance.ok) return balance;
+
+  const changed = accounts.setAccountBalance(db, accountId, {
+    startingBalance: balance.startingBalance,
+    balanceDate: balance.balanceDate,
+  });
+  return changed ? done() : ACCOUNT_GONE;
+}
+
+export async function closeAccountAction(accountId: number): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  if (!id.safeParse(accountId).success) return UNEXPECTED;
+
+  const result = accounts.closeAccount(db, accountId);
+  if (result === "not-empty") return fail("Only an account that holds nothing can be closed.");
+  return result === "gone" ? ACCOUNT_GONE : done();
+}
+
+export async function reopenAccountAction(accountId: number): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  if (!id.safeParse(accountId).success) return UNEXPECTED;
+
+  return accounts.reopenAccount(db, accountId)
+    ? done()
+    : fail("You already have an account with this name. Rename that one first.");
+}
+
+export async function deleteAccountAction(accountId: number): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  if (!id.safeParse(accountId).success) return UNEXPECTED;
+
+  accounts.deleteAccount(db, accountId);
   return done();
 }
 
@@ -203,7 +293,12 @@ const importRows = z
   .min(1)
   .max(MAX_ROWS);
 
-type ImportResult = { ok: true; imported: number; duplicates: number; batch: string } | Failure;
+/**
+ * What was imported. `beforeBalance`, `startingBalance` and `balanceDate`
+ * let the import page say which rows were filled in behind the balance
+ * entered for the account.
+ */
+type ImportResult = ({ ok: true; batch: string } & transactions.ImportOutcome) | Failure;
 
 /**
  * Reads the file a person chose into transactions, with the code the import

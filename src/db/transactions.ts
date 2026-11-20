@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { and, desc, eq, isNotNull, sql, type SQL } from "drizzle-orm";
 import { addMonths, monthStart, type IsoDate } from "../lib/dates";
 import type { Cursor, TransactionFilter } from "../lib/transactions-address";
+import { byName, syncStartingBalance } from "./accounts";
 import { UNGROUPED } from "./budget";
 import type { Db } from "./index";
 import { accounts, categories, categoryGroups, deletedImports, transactions } from "./schema";
@@ -35,6 +36,20 @@ function fingerprint(raw: string, occurrence: number): string {
   return `${createHash("sha256").update(raw).digest("hex").slice(0, 32)}:${occurrence}`;
 }
 
+export type ImportOutcome = {
+  imported: number;
+  duplicates: number;
+  /**
+   * How many of the imported rows are dated on or before the account's
+   * balance date. They are filled in behind the balance entered for that
+   * day, so they do not change what the account holds.
+   */
+  beforeBalance: number;
+  /** The account's entered balance and its date, as they stood for this import. */
+  startingBalance: number | null;
+  balanceDate: IsoDate | null;
+};
+
 /**
  * Adds a bank file's rows to an account. Rows that were imported before are
  * skipped, and so are rows that were deleted by hand, so files may overlap.
@@ -46,14 +61,15 @@ export function importTransactions(
   accountId: number,
   rows: ImportRow[],
   batch: string,
-): { imported: number; duplicates: number } | null {
+): ImportOutcome | null {
   return db.transaction((tx) => {
-    const account = tx
-      .select({ id: accounts.id })
+    const [account] = tx
+      .select({ startingBalance: accounts.startingBalance, balanceDate: accounts.balanceDate })
       .from(accounts)
       .where(and(eq(accounts.id, accountId), eq(accounts.archived, false)))
       .all();
-    if (account.length === 0) return null;
+    if (!account) return null;
+    const { startingBalance, balanceDate } = account;
 
     // Prepared once and run per row: a file can hold thousands of rows.
     const insert = tx
@@ -83,20 +99,30 @@ export function importTransactions(
 
     const seen = new Map<string, number>();
     let imported = 0;
+    let beforeBalance = 0;
     for (const row of rows) {
       const occurrence = (seen.get(row.raw) ?? 0) + 1;
       seen.set(row.raw, occurrence);
       const importId = fingerprint(row.raw, occurrence);
       if (deleted.has(importId)) continue;
-      imported += insert.run({
+      const added = insert.run({
         date: row.date,
         amount: row.amount,
         payee: row.payee,
         note: row.note,
         importId,
       }).changes;
+      imported += added;
+      if (added > 0 && balanceDate !== null && row.date <= balanceDate) beforeBalance += 1;
     }
-    return { imported, duplicates: rows.length - imported };
+    syncStartingBalance(tx, accountId);
+    return {
+      imported,
+      duplicates: rows.length - imported,
+      beforeBalance,
+      startingBalance,
+      balanceDate,
+    };
   });
 }
 
@@ -114,10 +140,16 @@ export function undoImport(db: Db, batch: string): { removed: number; sorted: nu
       .all().length;
     if (sorted > 0) return { removed: 0, sorted };
 
+    const affected = tx
+      .selectDistinct({ accountId: transactions.accountId })
+      .from(transactions)
+      .where(eq(transactions.importBatch, batch))
+      .all();
     const removed = tx
       .delete(transactions)
       .where(eq(transactions.importBatch, batch))
       .run().changes;
+    for (const { accountId } of affected) syncStartingBalance(tx, accountId);
     return { removed, sorted: 0 };
   });
 }
@@ -312,8 +344,9 @@ export function sortTransaction(db: Db, id: number, target: SortTarget): SortRes
  * same bank file again does not bring it back. A starting balance is not
  * deleted: it belongs to its account.
  *
- * The account's starting balance has to be worked out again after this,
- * since it depends on the transactions before its date: call that here.
+ * The account's starting balance is then worked out again: it depends on
+ * the transactions from before its date, so what the account held on that
+ * date stays as its owner entered it.
  */
 export function deleteTransaction(db: Db, id: number): "deleted" | "no-transaction" | "starting" {
   return db.transaction((tx) => {
@@ -336,6 +369,7 @@ export function deleteTransaction(db: Db, id: number): "deleted" | "no-transacti
         .run();
     }
     tx.delete(transactions).where(eq(transactions.id, id)).run();
+    syncStartingBalance(tx, found.accountId);
     return "deleted";
   });
 }
@@ -399,8 +433,8 @@ export function getImportAccounts(db: Db): ImportAccount[] {
     .select({ id: accounts.id, name: accounts.name, importMapping: accounts.importMapping })
     .from(accounts)
     .where(eq(accounts.archived, false))
-    .orderBy(accounts.name)
-    .all();
+    .all()
+    .sort(byName);
 }
 
 export function saveImportMapping(db: Db, accountId: number, mapping: string): void {
