@@ -283,4 +283,28 @@ test.describe("a budget longer than the window", () => {
       expect(field.y).toBeGreaterThanOrEqual(head.y + head.height);
     }
   });
+
+  test("shows what is left to assign above the columns once the page header is out of view", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const aboveColumns = page.getByTestId("table-head-ready").filter({ visible: true });
+    await expect(aboveColumns).toHaveCount(0);
+    await expect(page.getByRole("columnheader", { name: "Category" })).toHaveText("Category");
+
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    const figure = await headerFigure(page).innerText();
+    await expect(aboveColumns).toHaveText(`Ready to assign ${figure}`);
+    // Screen readers still hear the column's name.
+    await expect(page.getByRole("columnheader", { name: "Category" })).toBeVisible();
+
+    // It follows a new amount at once, like the page header.
+    const euros = (text: string) => Number(text.replace(/[^0-9.-]/g, ""));
+    const holiday = euros(await assignedField(page, "Holiday").inputValue());
+    await assign(page, "Holiday", String(holiday + 100));
+    const less = new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR" }).format(
+      euros(figure) - 100,
+    );
+    await expect(aboveColumns).toHaveText(`Ready to assign ${less}`);
+  });
 });

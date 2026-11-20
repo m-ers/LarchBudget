@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useOptimistic } from "react";
+import { useEffect, useOptimistic, useRef, useState } from "react";
 import type { BudgetMonth, GroupRow } from "@/db/budget";
 import type { Month } from "@/lib/dates";
-import { formatMoneyParts, formatMoneyRounded } from "@/lib/money";
+import { formatMoney, formatMoneyParts, formatMoneyRounded } from "@/lib/money";
 import { primaryButton } from "../form";
 import { Hero, HeroFigure, HeroLead } from "../hero";
 import { applyChange } from "./budget-changes";
@@ -36,13 +36,31 @@ function readyHeadline(ready: number, hasAccounts: boolean) {
     : ({ label: "Ready to assign", tone: "quiet" } as const);
 }
 
+type Headline = ReturnType<typeof readyHeadline>;
+
+/** Whether an element is at least partly in the window. True until known, as on the first paint. */
+function useInView(ref: React.RefObject<Element | null>): boolean {
+  const [inView, setInView] = useState(true);
+  useEffect(() => {
+    if (!ref.current) return;
+    const observer = new IntersectionObserver(([entry]) => setInView(entry.isIntersecting));
+    observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [ref]);
+  return inView;
+}
+
 // Every heading cell sticks, on a background so rows do not show through.
 // Its bottom line is drawn inside the cell, as a row's border would not
 // move along.
 const stuck = "sticky top-0 z-10 bg-surface shadow-[inset_0_-1px_0_var(--line)]";
 
-/** The column headings. They stay in view while the page scrolls. */
-function TableHead() {
+/**
+ * The column headings. They stay in view while the page scrolls, and once
+ * the page header is out of view they also show what is left to assign,
+ * in place of the word "Category".
+ */
+function TableHead({ ready }: { ready: (Headline & { amount: string }) | null }) {
   return (
     <thead>
       <tr className="text-[12.5px] text-muted">
@@ -50,7 +68,24 @@ function TableHead() {
           <span className="sr-only">Group colour</span>
         </th>
         <th scope="col" className={`text-left font-medium ${stuck}`}>
-          Category
+          {ready ? (
+            <>
+              <span className="sr-only">Category</span>
+              {/* Screen readers have the page header's figure already. */}
+              <span aria-hidden="true" data-testid="table-head-ready">
+                {ready.label}{" "}
+                <b
+                  className={`text-sm font-semibold tabular-nums ${
+                    ready.tone === "alert" ? "text-bad" : "text-ink"
+                  }`}
+                >
+                  {ready.amount}
+                </b>
+              </span>
+            </>
+          ) : (
+            "Category"
+          )}
         </th>
         <th scope="col" className={`w-32 text-right font-medium ${stuck}`}>
           Assigned
@@ -79,10 +114,13 @@ export function BudgetView({ budget: saved, month, currency, locale, daysLeft, m
   const [budget, show] = useOptimistic(saved, applyChange);
   const { spent, assigned } = budget.totals;
   const ready = budget.readyToAssign;
+  const headline = readyHeadline(ready, budget.hasAccounts);
+  const hero = useRef<HTMLElement>(null);
+  const heroInView = useInView(hero);
 
   return (
     <BudgetContext value={{ month, currency, locale, show }}>
-      <Hero>
+      <Hero ref={hero}>
         <div className="relative">
           {monthNav}
           {(spent > 0 || assigned !== 0) && (
@@ -103,10 +141,7 @@ export function BudgetView({ budget: saved, month, currency, locale, daysLeft, m
             </HeroLead>
           )}
         </div>
-        <HeroFigure
-          amount={formatMoneyParts(ready, currency, locale)}
-          {...readyHeadline(ready, budget.hasAccounts)}
-        />
+        <HeroFigure amount={formatMoneyParts(ready, currency, locale)} {...headline} />
       </Hero>
 
       <section className="flex-1 rounded-2xl border border-line bg-surface px-2.5 pt-1.5 pb-2.5">
@@ -124,7 +159,11 @@ export function BudgetView({ budget: saved, month, currency, locale, daysLeft, m
         )}
 
         <table className="w-full border-collapse">
-          <TableHead />
+          <TableHead
+            ready={
+              heroInView ? null : { ...headline, amount: formatMoney(ready, currency, locale) }
+            }
+          />
           {budget.groups.map((group) =>
             isGroup(group) ? (
               <GroupBody key={group.id} group={group} />
