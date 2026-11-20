@@ -50,7 +50,22 @@ describe("parseBankAmount", () => {
     expect(parseBankAmount("1.234", 2)).toBe(123400);
     expect(parseBankAmount("1,234", 2)).toBe(123400);
     expect(parseBankAmount("1.234.567", 2)).toBe(123456700);
+    expect(parseBankAmount("12.500", 2)).toBe(1250000);
+    expect(parseBankAmount("123,456", 2)).toBe(12345600);
+  });
+
+  it("reads three decimals as decimals unless 1 to 3 digits without a leading zero come before", () => {
     expect(parseBankAmount("1.234", 3)).toBe(1234);
+    expect(parseBankAmount("0.500", 2)).toBe(50);
+    expect(parseBankAmount("0,500", 2)).toBe(50);
+    expect(parseBankAmount(".500", 2)).toBe(50);
+    expect(parseBankAmount("1234.500", 2)).toBe(123450);
+    expect(parseBankAmount("01.500", 2)).toBe(150);
+  });
+
+  it("refuses three decimals that would lose a digit", () => {
+    expect(parseBankAmount("0.505", 2)).toBeNull();
+    expect(parseBankAmount("1234.567", 2)).toBeNull();
   });
 
   it("reads every way of writing a negative", () => {
@@ -59,6 +74,16 @@ describe("parseBankAmount", () => {
     expect(parseBankAmount("(12.50)", 2)).toBe(-1250);
     expect(parseBankAmount("+12,50", 2)).toBe(1250);
     expect(parseBankAmount("- 12,50", 2)).toBe(-1250);
+  });
+
+  it("reads the sign before or after the currency", () => {
+    expect(parseBankAmount("-$12.50", 2)).toBe(-1250);
+    expect(parseBankAmount("-€12,50", 2)).toBe(-1250);
+    expect(parseBankAmount("+$5.00", 2)).toBe(500);
+    expect(parseBankAmount("-EUR 12,50", 2)).toBe(-1250);
+    expect(parseBankAmount("€ -12,50", 2)).toBe(-1250);
+    expect(parseBankAmount("12,50-EUR", 2)).toBe(-1250);
+    expect(parseBankAmount("-€12,50-", 2)).toBeNull();
   });
 
   it("ignores currency symbols and spaces", () => {
