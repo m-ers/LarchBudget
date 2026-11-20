@@ -210,11 +210,17 @@ budget, and nothing more.
 - Importing transactions from a bank CSV file.
 - Sorting imported transactions into categories.
 
-**After 0.1.0**, features arrive one at a time, each in its own pull request:
+**Since 0.1.0:**
 
-- Moving money between categories.
-- Moving and reordering categories and groups.
-- Suggested categories for imported transactions.
+- Moving money between categories, and covering an overspent one.
+- Moving and reordering categories and groups, and restoring archived
+  categories.
+- Starting a month with what was assigned the month before.
+- Suggested categories for imported transactions, from where the same payee
+  went last time.
+
+**Later**, in no particular order:
+
 - Undo for changes.
 - Savings targets.
 - Several months side by side.
