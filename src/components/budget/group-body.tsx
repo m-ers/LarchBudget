@@ -10,9 +10,11 @@ import {
 import type { GroupRow } from "@/db/budget";
 import { groupColor } from "@/lib/group-colors";
 import { formatAmount, formatMoney } from "@/lib/money";
+import { ErrorText } from "../form";
 import { EmptyToken, MoreIcon, PlusIcon } from "../icons";
 import { InlineName, type InlineNameHandle } from "../inline-name";
 import { Menu, useMenu } from "../menu";
+import { useSave } from "../use-save";
 import { AddByNameField, useAddByName } from "./add-by-name";
 import { useBudget } from "./budget-context";
 import { CategoryRow, formatSpent } from "./category-row";
@@ -50,8 +52,10 @@ export function GroupBody({
   const showField = isEmpty || adding || adder.pending || adder.error;
   const menu = useMenu();
   const nameField = useRef<InlineNameHandle>(null);
+  // Moving the group; it reports a failure in the heading.
+  const mover = useSave();
 
-  // A failure of the heading's actions is reported next to the "new category" field.
+  // A failure is reported next to the "new category" field.
   function remove() {
     if (window.confirm(deleteQuestion(name, categories.length))) {
       adder.save(() => deleteGroupAction(id));
@@ -83,12 +87,12 @@ export function GroupBody({
             { label: "Rename", onSelect: () => nameField.current?.startEditing() },
             {
               label: "Move up",
-              onSelect: () => adder.save(() => moveGroupAction(id, "up")),
+              onSelect: () => mover.save(() => moveGroupAction(id, "up")),
               disabled: first,
             },
             {
               label: "Move down",
-              onSelect: () => adder.save(() => moveGroupAction(id, "down")),
+              onSelect: () => mover.save(() => moveGroupAction(id, "down")),
               disabled: last,
             },
             { label: "Delete group", onSelect: remove, destructive: true },
@@ -96,6 +100,11 @@ export function GroupBody({
         >
           <MoreIcon width={15} height={15} />
         </Menu>
+        <ErrorText
+          error={mover.error}
+          as="span"
+          className="text-xs font-normal tracking-normal normal-case"
+        />
       </GroupHeading>
 
       <CategoryRows group={group} />

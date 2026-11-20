@@ -8,6 +8,7 @@ import {
   headerFigure,
   menuButton,
   menuItem,
+  newCategoryField,
   openGroupMenu,
   openMenu,
 } from "./budget-page";
@@ -81,6 +82,8 @@ test("a group moves up and down", async ({ page }) => {
   await expect(menuItem(page, "Move down")).toHaveAttribute("aria-disabled", "true");
   await menuItem(page, "Move up").click();
   await expect.poll(() => groupNames(page)).toEqual(["Fixed costs", "Goals", "Everyday"]);
+  // Moving is not adding: the group's "new category" field stays closed.
+  await expect(newCategoryField(page, "Goals")).toHaveCount(0);
   // Its categories go with it.
   await expect.poll(() => categoriesIn(page, "Goals")).toEqual(["Holiday", "Emergency fund"]);
 
