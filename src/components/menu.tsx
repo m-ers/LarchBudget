@@ -104,8 +104,9 @@ export function Menu({
     menu.style.left = `${left - box.left}px`;
     menu.style.top = `${top - box.top}px`;
 
-    const items = choosable(menu);
-    (opened.focus === "menu" ? menu : items.at(opened.focus === "first" ? 0 : -1))?.focus();
+    const target =
+      opened.focus === "menu" ? menu : choosable(menu).at(opened.focus === "first" ? 0 : -1);
+    target?.focus();
   }, [opened]);
 
   function open(focus: Focus) {
