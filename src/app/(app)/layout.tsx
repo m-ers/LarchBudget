@@ -1,8 +1,19 @@
 import { Suspense } from "react";
+import { PageSkeleton } from "@/components/hero";
 import { LogoMark } from "@/components/icons";
 import { LogoutButton } from "@/components/logout-button";
 import { SidebarNav } from "@/components/sidebar-nav";
 import { ToSortBadge } from "@/components/to-sort-badge";
+
+/**
+ * Going from one page to another waits for the new page instead of showing
+ * a loading skeleton first. The server answers in a few milliseconds, and
+ * React keeps a skeleton on screen for at least 300 ms once it has shown
+ * one, so a skeleton per page made every first visit feel slow. The one
+ * loading boundary sits here, above the pages: it shows on a fresh page
+ * load, and stays out of the way when moving between pages.
+ */
+export const instant = false;
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -25,7 +36,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <LogoutButton />
         </Suspense>
       </aside>
-      <main className="flex min-w-0 flex-1 flex-col gap-3">{children}</main>
+      <main className="flex min-w-0 flex-1 flex-col gap-3">
+        <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
+      </main>
     </div>
   );
 }

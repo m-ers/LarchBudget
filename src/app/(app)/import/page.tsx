@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Suspense } from "react";
 import { getClosedAccounts, getImportAccounts } from "@/app/queries";
 import { primaryButton } from "@/components/form";
 import { Hero, HeroLead, HeroTitle } from "@/components/hero";
@@ -22,9 +21,7 @@ export default function ImportPage() {
         </div>
       </Hero>
       <section className="flex-1 rounded-2xl border border-line bg-surface p-6">
-        <Suspense fallback={<p className="text-muted">Loading…</p>}>
-          <Import />
-        </Suspense>
+        <Import />
       </section>
     </>
   );

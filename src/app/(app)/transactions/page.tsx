@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Suspense } from "react";
 import {
   getCategoryOptions,
   getFilterOptions,
@@ -31,43 +30,7 @@ const tab = (active: boolean) =>
     active ? "bg-ok-track text-ink" : "text-muted hover:bg-hover hover:text-ink"
   }`;
 
-export default function TransactionsPage({ searchParams }: PageProps<"/transactions">) {
-  return (
-    <Suspense fallback={<Loading />}>
-      <Transactions searchParams={searchParams} />
-    </Suspense>
-  );
-}
-
-/** What shows while the list loads: the page as it will be, with the rows still empty. */
-function Loading() {
-  return (
-    <>
-      <Hero>
-        <div className="relative">
-          <HeroTitle>Transactions</HeroTitle>
-          <HeroLead>{LEAD}</HeroLead>
-        </div>
-      </Hero>
-      <section
-        className="flex-1 rounded-2xl border border-line bg-surface px-2.5 pt-2.5 pb-2.5"
-        aria-hidden="true"
-      >
-        <div className="flex items-center gap-1 px-1 pb-2">
-          <span className={tab(true)}>To sort</span>
-          <span className={tab(false)}>All</span>
-        </div>
-        <div className="flex animate-pulse flex-col gap-2 px-1 pt-1">
-          {Array.from({ length: 8 }, (_, i) => (
-            <div key={i} className="h-[42px] rounded-[9px] bg-hover" />
-          ))}
-        </div>
-      </section>
-    </>
-  );
-}
-
-async function Transactions({ searchParams }: Pick<PageProps<"/transactions">, "searchParams">) {
+export default async function TransactionsPage({ searchParams }: PageProps<"/transactions">) {
   const { showAll, before, filter } = readAddress(await searchParams);
 
   const [counts, found, groups] = await Promise.all([

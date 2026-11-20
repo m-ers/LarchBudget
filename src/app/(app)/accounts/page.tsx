@@ -1,25 +1,16 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 import { getAccounts, getClosedAccounts } from "@/app/queries";
 import { AccountForm } from "@/components/accounts/account-form";
 import { AccountRow } from "@/components/accounts/account-row";
 import { ClosedAccounts } from "@/components/accounts/closed-accounts";
-import { Hero, HeroFigure, HeroLead, HeroTitle, PageSkeleton } from "@/components/hero";
+import { Hero, HeroFigure, HeroLead, HeroTitle } from "@/components/hero";
 import { getConfig } from "@/lib/config";
 import { today } from "@/lib/dates";
 import { formatAmount, formatMoney, formatMoneyParts, toInputValue } from "@/lib/money";
 
 export const metadata: Metadata = { title: "Accounts" };
 
-export default function AccountsPage() {
-  return (
-    <Suspense fallback={<PageSkeleton />}>
-      <Accounts />
-    </Suspense>
-  );
-}
-
-async function Accounts() {
+export default async function AccountsPage() {
   const [accounts, closed] = await Promise.all([getAccounts(), getClosedAccounts()]);
   const { currency, locale } = getConfig();
   const total = accounts.reduce((sum, account) => sum + account.balance, 0);

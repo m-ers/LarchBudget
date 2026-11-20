@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { connection } from "next/server";
-import { Suspense } from "react";
 import { getBudgetMonth } from "@/app/queries";
 import { BudgetView } from "@/components/budget/budget-view";
-import { HeroTitle, PageSkeleton } from "@/components/hero";
+import { HeroTitle } from "@/components/hero";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
 import { getConfig } from "@/lib/config";
 import {
@@ -15,21 +14,13 @@ import {
   type Month,
 } from "@/lib/dates";
 
-export default function BudgetPage({ searchParams }: PageProps<"/">) {
-  return (
-    <Suspense fallback={<PageSkeleton />}>
-      <Budget searchParams={searchParams} />
-    </Suspense>
-  );
-}
-
 const monthHref = (month: Month, thisMonth: Month) =>
   month === thisMonth ? "/" : `/?month=${month}`;
 
 const monthButton =
   "flex size-7 items-center justify-center rounded-[7px] border border-white/25 transition-colors hover:bg-white/10";
 
-async function Budget({ searchParams }: Pick<PageProps<"/">, "searchParams">) {
+export default async function BudgetPage({ searchParams }: PageProps<"/">) {
   const params = await searchParams;
   // "This month" depends on the clock, so wait for a real request first.
   await connection();
