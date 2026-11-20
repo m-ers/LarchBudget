@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import type { CategoryRow as Category } from "@/db/budget";
 import { explainAvailable } from "@/lib/gauge";
 import { formatAmount, formatMoney } from "@/lib/money";
+import { transactionsHref } from "@/lib/transactions-address";
 import { EnvelopeToken } from "../icons";
 import { useMenu } from "../menu";
 import { AssignedInput } from "./assigned-input";
@@ -33,7 +35,7 @@ export function CategoryRow({
   color: string;
   place: Place;
 }) {
-  const { currency, locale } = useBudget();
+  const { month, currency, locale } = useBudget();
   const { id, name, assigned, activity, available } = category;
   const availableLabel = formatMoney(available, currency, locale);
   const menu = useMenu();
@@ -53,7 +55,18 @@ export function CategoryRow({
           <AssignedInput categoryId={id} categoryName={name} value={assigned} />
         </td>
         <td className="text-right text-muted tabular-nums">
-          {formatSpent(activity, currency, locale)}
+          {activity === 0 ? (
+            formatSpent(activity, currency, locale)
+          ) : (
+            // The month's transactions behind the amount.
+            <Link
+              href={transactionsHref({ showAll: true, filter: { category: id, month } })}
+              title="See these transactions"
+              className="rounded-sm underline-offset-2 hover:text-ink hover:underline"
+            >
+              {formatSpent(activity, currency, locale)}
+            </Link>
+          )}
         </td>
         <td className="pr-3.5">
           <Gauge

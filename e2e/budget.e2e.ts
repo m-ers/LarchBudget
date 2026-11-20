@@ -131,6 +131,31 @@ test.describe("with transactions", () => {
   });
 });
 
+test.describe("a Spent amount", () => {
+  test.use({ app: { seed: true } });
+
+  test("leads to the category's transactions of that month", async ({ page }) => {
+    await page.goto("/");
+    const spent = categoryRow(page, "Groceries").getByRole("link");
+    await expect(spent).toHaveAttribute(
+      "href",
+      /^\/transactions\?show=all&category=\d+&month=\d{4}-\d{2}$/,
+    );
+    // It looks like the other amounts until it is hovered.
+    await expect(spent).toHaveCSS("text-decoration-line", "none");
+    await spent.hover();
+    await expect(spent).toHaveCSS("text-decoration-line", "underline");
+    // Nothing spent is not a link.
+    await expect(categoryRow(page, "Holiday").getByRole("link")).toHaveCount(0);
+
+    const amount = await spent.innerText();
+    await spent.click();
+    const picked = page.getByRole("combobox", { name: "Category", exact: true });
+    await expect(picked.locator("option:checked")).toHaveText("Groceries");
+    await expect(page.getByText(/ match(es)?\. Money in/)).toContainText(`money out €${amount}.`);
+  });
+});
+
 test("something that is not an amount is refused, and Escape clears it", async ({ page }) => {
   await addAccount(page, "Main account", "100");
   await page.goto("/");
