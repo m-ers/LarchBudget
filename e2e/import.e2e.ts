@@ -345,4 +345,28 @@ test.describe("with an account", () => {
     await chooseFile(page, "ing.csv");
     await expect(picked(page, "Into account")).toHaveText("Savings");
   });
+
+  test("when the separator was guessed wrong, it can be chosen", async ({ page }) => {
+    // Every line has three commas in its text, which look like the separator.
+    await chooseFile(page, "commas-in-text.csv");
+    await expect(
+      page.getByText("Choose which columns hold the date and the amount."),
+    ).toBeVisible();
+
+    await page.getByRole("combobox", { name: "Separator" }).selectOption({ label: "Semicolon" });
+    await expect(picked(page, "Date")).toHaveText("Date · 2026-11-01");
+    await expect(picked(page, "Amount")).toHaveText("Amount · -1100.00");
+    await expect(summary(page)).toContainText("5 transactions · Nov 1, 2026 to Nov 5, 2026");
+
+    await page.getByRole("button", { name: "Import 5 transactions into Checking" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Imported 5 transactions into Checking." }),
+    ).toBeVisible();
+    await page.getByRole("link", { name: /^Transactions/ }).click();
+    await expect(
+      page.getByRole("combobox", {
+        name: "Category for Shop, Main Street, Amsterdam, NL on Nov 2, 2026",
+      }),
+    ).toBeVisible();
+  });
 });

@@ -32,6 +32,12 @@ describe("parseCsv", () => {
     expect(parseCsv(semicolons)[1]).toEqual(["2026-11-03", "a;b;c", "-12.50"]);
   });
 
+  it("reads with the separator it is given, whatever the guess would be", () => {
+    const text = "a;b\n1;x,y,z\n2;x,y,z\n3;x,y,z\n4;x,y,z\n5;x,y,z";
+    expect(detectDelimiter(text)).toBe(",");
+    expect(parseCsv(text, ";")[1]).toEqual(["1", "x,y,z"]);
+  });
+
   it("looks at the whole sample, ignores quoted text and prefers more columns on a tie", () => {
     // Decimal commas are in every line, but the semicolon splits into more cells.
     expect(detectDelimiter("a;b;c\n1;2,5;3,5\n4;5,5;6,5")).toBe(";");

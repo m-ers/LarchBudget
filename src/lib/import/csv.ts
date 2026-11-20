@@ -1,7 +1,15 @@
 /** Reading bank export files: plain CSV parsing with no bank-specific knowledge. */
 
-export type Delimiter = "," | ";" | "\t" | "|";
-const DELIMITERS: Delimiter[] = ["\t", ";", "|", ","];
+/** The separators tried, in the order that wins a tie. */
+export const delimiters = ["\t", ";", "|", ","] as const;
+export type Delimiter = (typeof delimiters)[number];
+
+export const delimiterLabels: Record<Delimiter, string> = {
+  ",": "Comma",
+  ";": "Semicolon",
+  "\t": "Tab",
+  "|": "Pipe",
+};
 
 /** How many lines are looked at, and how many of them must agree. */
 const SAMPLE_LINES = 20;
@@ -22,7 +30,7 @@ export function detectDelimiter(text: string): Delimiter {
   let empty = true;
   const endLine = () => {
     if (!empty) {
-      for (const d of DELIMITERS) cells[d].push(line[d]);
+      for (const d of delimiters) cells[d].push(line[d]);
       lines++;
     }
     line = { ",": 1, ";": 1, "\t": 1, "|": 1 };
@@ -38,7 +46,7 @@ export function detectDelimiter(text: string): Delimiter {
   endLine();
 
   let best: { delimiter: Delimiter; width: number } | null = null;
-  for (const delimiter of DELIMITERS) {
+  for (const delimiter of delimiters) {
     const counts = cells[delimiter];
     const tally = new Map<number, number>();
     for (const n of counts) tally.set(n, (tally.get(n) ?? 0) + 1);
@@ -53,10 +61,9 @@ export function detectDelimiter(text: string): Delimiter {
 /**
  * Parses CSV text into rows of cells. Handles quoted cells, doubled quotes,
  * line breaks inside quotes and a leading byte-order mark. Empty lines are
- * dropped and cells are trimmed.
+ * dropped and cells are trimmed. The separator is guessed unless it is given.
  */
-export function parseCsv(text: string): string[][] {
-  const delimiter = detectDelimiter(text);
+export function parseCsv(text: string, delimiter: Delimiter = detectDelimiter(text)): string[][] {
   const input = text.replace(/^\ufeff/, "");
   const rows: string[][] = [];
   let row: string[] = [];

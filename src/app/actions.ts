@@ -9,7 +9,7 @@ import * as transactions from "@/db/transactions";
 import { accountTypes } from "@/lib/account-types";
 import { getConfig } from "@/lib/config";
 import { isMonth, today } from "@/lib/dates";
-import { parseCsv } from "@/lib/import/csv";
+import { delimiters, parseCsv } from "@/lib/import/csv";
 import {
   MAX_CELL_LENGTH,
   MAX_COLUMNS,
@@ -191,6 +191,8 @@ const importInput = z.object({
    * characters together, which a bank file of about 1 MB already does.
    */
   text: z.string().max(MAX_FILE_BYTES),
+  /** What separates the cells, as the person confirmed it on the import screen. */
+  delimiter: z.enum(delimiters),
   mapping: z.custom<Mapping>(isMapping),
 });
 
@@ -210,8 +212,8 @@ type ImportResult = { ok: true; imported: number; duplicates: number; batch: str
 function readImportFile(input: unknown) {
   const parsed = importInput.safeParse(input);
   if (!parsed.success) return null;
-  const { accountId, text, mapping } = parsed.data;
-  const parsedRows = importRows.safeParse(parseCsv(text));
+  const { accountId, text, delimiter, mapping } = parsed.data;
+  const parsedRows = importRows.safeParse(parseCsv(text, delimiter));
   if (!parsedRows.success) return null;
   const rows = parsedRows.data;
   const read = applyMapping(rows, mapping, minorUnitDigits(getConfig().currency));

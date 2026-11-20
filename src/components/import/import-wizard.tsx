@@ -5,7 +5,14 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { checkImportAction, importTransactionsAction, undoImportAction } from "@/app/actions";
 import type { ImportAccount } from "@/db/transactions";
 import { formatDate } from "@/lib/dates";
-import { decodeText, parseCsv } from "@/lib/import/csv";
+import {
+  decodeText,
+  delimiterLabels,
+  delimiters,
+  detectDelimiter,
+  parseCsv,
+  type Delimiter,
+} from "@/lib/import/csv";
 import { dateOrderLabels, isMonthFirstLocale, type DateOrder } from "@/lib/import/dates";
 import { MAX_CELL_LENGTH, MAX_COLUMNS, MAX_FILE_BYTES, MAX_ROWS } from "@/lib/import/limits";
 import {
@@ -30,7 +37,7 @@ import { VirtualList } from "./virtual-list";
 
 type Props = { accounts: ImportAccount[]; currency: string; locale: string };
 /** A chosen file: its text, which is what gets sent, and its rows, for the preview. */
-type LoadedFile = { name: string; text: string; rows: string[][] };
+type LoadedFile = { name: string; text: string; delimiter: Delimiter; rows: string[][] };
 type Done = { imported: number; duplicates: number; batch: string; account: string };
 
 /** The account of the last import in this browser, where the next file is most likely going. */
@@ -38,6 +45,22 @@ const LAST_ACCOUNT_KEY = "larchbudget.import.account";
 
 /** Wait for this long after the last change before asking the server what is new. */
 const CHECK_DELAY_MS = 300;
+
+/** The rows of a bank file, or what is wrong with it. */
+function readRows(text: string, delimiter: Delimiter): { rows: string[][] } | { problem: string } {
+  const rows = parseCsv(text, delimiter);
+  if (rows.length === 0) return { problem: "This file is empty." };
+  if (rows.length > MAX_ROWS) {
+    return { problem: "This file has too many rows. Export a shorter period from your bank." };
+  }
+  const oversized = rows.some(
+    (row) => row.length > MAX_COLUMNS || row.some((cell) => cell.length > MAX_CELL_LENGTH),
+  );
+  if (oversized) {
+    return { problem: "This does not look like a bank export: its rows are too wide or too long." };
+  }
+  return { rows };
+}
 
 /** The account of the last import, or null; storage may be unavailable (private windows). */
 function lastAccount(): string | null {
@@ -111,23 +134,28 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
     if (text.includes(String.fromCharCode(0))) {
       return setError("This is not a CSV file. Choose CSV when you download from your bank.");
     }
-    const rows = parseCsv(text);
-    if (rows.length === 0) return setError("This file is empty.");
-    if (rows.length > MAX_ROWS) {
-      return setError("This file has too many rows. Export a shorter period from your bank.");
-    }
-    const oversized = rows.some(
-      (row) => row.length > MAX_COLUMNS || row.some((cell) => cell.length > MAX_CELL_LENGTH),
-    );
-    if (oversized) {
-      return setError("This does not look like a bank export: its rows are too wide or too long.");
-    }
-    setFile({ name: chosen.name, text, rows });
+    const delimiter = detectDelimiter(text);
+    const read = readRows(text, delimiter);
+    if ("problem" in read) return setError(read.problem);
+    const { rows } = read;
+    setFile({ name: chosen.name, text, delimiter, rows });
     setEdited(false);
     setOrderChosen(false);
     const into = accountFor(rows);
     setAccountId(into.id);
     chooseMapping(rows, into);
+  }
+
+  /** For a file where the guessed separator is wrong. The columns are found anew. */
+  function changeDelimiter(delimiter: Delimiter) {
+    if (!file) return;
+    const read = readRows(file.text, delimiter);
+    if ("problem" in read) return setError(read.problem);
+    setError(null);
+    setFile({ ...file, delimiter, rows: read.rows });
+    setEdited(false);
+    setOrderChosen(false);
+    chooseMapping(read.rows, account);
   }
 
   /**
@@ -187,7 +215,13 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
     const timer = setTimeout(() => {
       latest.current = { result, accountId };
       saveCheck.current(
-        () => checkImportAction({ accountId, text: file.text, mapping }),
+        () =>
+          checkImportAction({
+            accountId,
+            text: file.text,
+            delimiter: file.delimiter,
+            mapping,
+          }),
         (response) => {
           if (latest.current?.result !== result || latest.current.accountId !== accountId) return;
           setAnswer({ result, accountId, known: new Set(response.known) });
@@ -217,7 +251,13 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
     if (!file || !mapping || !result) return;
     // The server reads the file itself, with the same mapping as the preview.
     save(
-      () => importTransactionsAction({ accountId, text: file.text, mapping }),
+      () =>
+        importTransactionsAction({
+          accountId,
+          text: file.text,
+          delimiter: file.delimiter,
+          mapping,
+        }),
       (response) => {
         finished.current = true;
         rememberAccount(accountId);
@@ -467,6 +507,20 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
           true,
         )}
         <div className="flex flex-col justify-end gap-2 text-sm">
+          <label className="flex items-center gap-2">
+            Separator
+            <select
+              value={file.delimiter}
+              onChange={(e) => changeDelimiter(e.target.value as Delimiter)}
+              className={`${field} w-auto py-1`}
+            >
+              {delimiters.map((delimiter) => (
+                <option key={delimiter} value={delimiter}>
+                  {delimiterLabels[delimiter]}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="flex items-center gap-2">
             <input
               type="checkbox"
