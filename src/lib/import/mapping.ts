@@ -1,6 +1,13 @@
 import { parseBankAmount } from "./amount";
 import type { IsoDate } from "../dates";
-import { dateOrders, detectDateOrder, looksLikeDate, parseBankDate, type DateOrder } from "./dates";
+import {
+  dateOrders,
+  detectDateOrder,
+  isDateOrderAmbiguous,
+  looksLikeDate,
+  parseBankDate,
+  type DateOrder,
+} from "./dates";
 import { MAX_COLUMNS } from "./limits";
 
 /** Which column of a bank file holds what. Column numbers start at 0; -1 or null means "none". */
@@ -9,7 +16,15 @@ export type Mapping = {
   hasHeader: boolean;
   date: number;
   dateOrder: DateOrder;
+  /** The amount; when `amountIn` is set, only the money out. */
   amount: number;
+  /**
+   * For files with one column for money out and one for money in (Debit and
+   * Credit, Af and Bij): the money in. A row uses whichever of the two cells
+   * is filled; `indicator` is not used then. Missing in mappings saved
+   * before this existed.
+   */
+  amountIn?: number | null;
   /** A column saying whether the amount is money out or in ("Af"/"Bij", "Debit"/"Credit"). */
   indicator: number | null;
   payee: number | null;
@@ -47,6 +62,7 @@ export function isMapping(value: unknown): value is Mapping {
     typeof m.invert === "boolean" &&
     column(m.date) &&
     column(m.amount) &&
+    (m.amountIn === undefined || optional(m.amountIn)) &&
     optional(m.indicator) &&
     optional(m.payee) &&
     optional(m.note) &&
@@ -105,6 +121,19 @@ const NAMES = {
   ],
 };
 
+/** Column names of a money-out and a money-in column that stand apart. Short names must match whole. */
+const OUT_NAMES = [
+  "bedrag af",
+  "debit",
+  "debet",
+  "withdrawal",
+  "paid out",
+  "money out",
+  "af",
+  "uit",
+];
+const IN_NAMES = ["bedrag bij", "credit", "deposit", "paid in", "money in", "bij", "in"];
+
 /** Column names that contain an amount word but are not the transaction amount. */
 const NOT_AMOUNT = ["saldo", "balance", "oorspr", "original", "koers", "rate"];
 
@@ -129,8 +158,28 @@ function findByName(header: string[], names: string[], exclude: number[] = []): 
 const share = (values: string[], test: (value: string) => boolean) =>
   values.length === 0 ? 0 : values.filter(test).length / values.length;
 
+const isOut = (value: string) => OUT.has(value.toLowerCase());
+const isIn = (value: string) => IN.has(value.toLowerCase());
+
+/** The values of a column that tell money out from money in: all are one or the other. */
+const isIndicator = (values: string[]) =>
+  values.length > 0 && values.every((v) => isOut(v) || isIn(v));
+
+/** The column whose name is one of `names`, whole or followed by more words ("debit eur"). */
+function findOutOrIn(header: string[], names: string[], exclude: number[]): number {
+  const cells = header.map(normalise);
+  for (const name of names) {
+    const found = cells.findIndex(
+      (cell, i) =>
+        !exclude.includes(i) && (cell === name || (name.length > 3 && cell.startsWith(`${name} `))),
+    );
+    if (found !== -1) return found;
+  }
+  return -1;
+}
+
 /** Guesses the mapping for a parsed file. Columns it cannot find are left at -1 or null. */
-export function detectMapping(rows: string[][], digits: number): Mapping {
+export function detectMapping(rows: string[][], digits: number, monthFirst = false): Mapping {
   const first = rows[0] ?? [];
   const width = columnCount(rows);
   // A header row names things; it holds no dates and no amounts with decimals.
@@ -141,11 +190,29 @@ export function detectMapping(rows: string[][], digits: number): Mapping {
   const body = rows.slice(hasHeader ? 1 : 0, 200);
   const column = (i: number) => body.map((row) => row[i] ?? "").filter((value) => value !== "");
   const columns = Array.from({ length: width }, (_, i) => column(i));
+  const holdsAmounts = (i: number) =>
+    columns[i].length > 0 && share(columns[i], (v) => parseBankAmount(v, digits) !== null) >= 0.8;
 
   let date = hasHeader ? findByName(first, NAMES.date) : -1;
   if (date === -1) date = columns.findIndex((values) => share(values, looksLikeDate) >= 0.8);
 
-  let amount = hasHeader ? findByName(first, NAMES.amount, [date]) : -1;
+  // A column named like "Af Bij" saying out or in, next to one amount column.
+  let indicator = hasHeader ? findByName(first, NAMES.indicator) : -1;
+  if (indicator !== -1 && !isIndicator(columns[indicator] ?? [])) indicator = -1;
+
+  // Two columns, one for money out and one for money in, found by their names.
+  let amount = -1;
+  let amountIn = -1;
+  if (hasHeader && indicator === -1) {
+    const out = findOutOrIn(first, OUT_NAMES, [date]);
+    const into = findOutOrIn(first, IN_NAMES, [date, out]);
+    if (out !== -1 && into !== -1 && holdsAmounts(out) && holdsAmounts(into)) {
+      amount = out;
+      amountIn = into;
+    }
+  }
+
+  if (amount === -1) amount = hasHeader ? findByName(first, NAMES.amount, [date]) : -1;
   if (amount === -1) {
     // Without a name to go on: the first column of numbers with decimals that is not the date.
     amount = columns.findIndex(
@@ -155,22 +222,29 @@ export function detectMapping(rows: string[][], digits: number): Mapping {
     );
   }
 
-  const isIndicator = (values: string[]) =>
-    values.length > 0 && values.every((v) => OUT.has(v.toLowerCase()) || IN.has(v.toLowerCase()));
-  let indicator: number | null = hasHeader ? findByName(first, NAMES.indicator) : -1;
-  if (indicator === -1 || !isIndicator(columns[indicator] ?? [])) {
-    indicator = columns.findIndex((values, i) => i !== date && i !== amount && isIndicator(values));
+  // Without a name, a column counts only when it has both money out and money
+  // in: a column of only "C" (Cleared) says nothing about the amount.
+  if (indicator === -1 && amountIn === -1) {
+    indicator = columns.findIndex(
+      (values, i) =>
+        i !== date &&
+        i !== amount &&
+        isIndicator(values) &&
+        values.some(isOut) &&
+        values.some(isIn),
+    );
   }
 
-  const taken = [date, amount, indicator];
+  const taken = [date, amount, amountIn, indicator];
   const payee = hasHeader ? findByName(first, NAMES.payee, taken) : -1;
   const note = hasHeader ? findByName(first, NAMES.note, [...taken, payee]) : -1;
 
   return {
     hasHeader,
     date,
-    dateOrder: detectDateOrder(date === -1 ? [] : columns[date]),
+    dateOrder: detectDateOrder(date === -1 ? [] : columns[date], monthFirst),
     amount,
+    amountIn: amountIn === -1 ? null : amountIn,
     indicator: indicator === -1 ? null : indicator,
     payee: payee === -1 ? null : payee,
     note: note === -1 ? null : note,
@@ -178,10 +252,35 @@ export function detectMapping(rows: string[][], digits: number): Mapping {
   };
 }
 
+/** True when the file's dates read equally well day first and month first, so the order was a guess. */
+export function isDateOrderGuess(rows: string[][], mapping: Mapping): boolean {
+  if (mapping.date < 0) return false;
+  const values = rows
+    .slice(mapping.hasHeader ? 1 : 0, 200)
+    .map((row) => row[mapping.date] ?? "")
+    .filter((value) => value !== "");
+  return isDateOrderAmbiguous(values);
+}
+
 /** Identifies a file layout, so a saved mapping is only reused on the same layout. */
 export function layoutSignature(rows: string[][], mapping: Pick<Mapping, "hasHeader">): string {
   const first = rows[0] ?? [];
   return mapping.hasHeader ? first.map(normalise).join("|") : `no-header:${first.length}`;
+}
+
+/**
+ * The amount of a row, null when unreadable. With separate columns for money
+ * out and in, whichever is filled counts, whatever its sign; both filled is
+ * money in minus money out.
+ */
+function readAmount(row: string[], mapping: Mapping, digits: number): number | null {
+  const first = row[mapping.amount] ?? "";
+  if (mapping.amountIn == null) return parseBankAmount(first, digits);
+  const second = row[mapping.amountIn] ?? "";
+  if (first === "" && second === "") return null;
+  const out = first === "" ? 0 : parseBankAmount(first, digits);
+  const into = second === "" ? 0 : parseBankAmount(second, digits);
+  return out === null || into === null ? null : Math.abs(into) - Math.abs(out);
 }
 
 /** Turns the file's rows into transactions using the mapping. Rows that cannot be read are listed, not guessed at. */
@@ -202,11 +301,11 @@ export function applyMapping(
     const date = parseBankDate(row[mapping.date] ?? "", mapping.dateOrder);
     if (!date) return void skipped.push({ line, reason: "No readable date" });
 
-    let amount = parseBankAmount(row[mapping.amount] ?? "", digits);
+    let amount = readAmount(row, mapping, digits);
     if (amount === null) return void skipped.push({ line, reason: "No readable amount" });
     if (amount === 0) return void skipped.push({ line, reason: "Amount is zero" });
 
-    if (mapping.indicator !== null) {
+    if (mapping.amountIn == null && mapping.indicator !== null) {
       const flag = (row[mapping.indicator] ?? "").toLowerCase();
       if (OUT.has(flag)) amount = -Math.abs(amount);
       else if (IN.has(flag)) amount = Math.abs(amount);

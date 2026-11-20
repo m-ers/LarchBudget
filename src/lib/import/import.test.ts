@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { parseBankAmount } from "./amount";
 import { detectDelimiter, parseCsv } from "./csv";
-import { detectDateOrder, parseBankDate } from "./dates";
+import { detectDateOrder, isDateOrderAmbiguous, isMonthFirstLocale, parseBankDate } from "./dates";
 import {
   applyMapping,
   detectMapping,
+  isDateOrderGuess,
   isMapping,
   layoutSignature,
   readSavedMapping,
   serializeMapping,
+  type Mapping,
 } from "./mapping";
 
 describe("parseCsv", () => {
@@ -148,8 +150,22 @@ describe("bank dates", () => {
     expect(detectDateOrder(["20261103", "20261104"])).toBe("ymd");
     expect(detectDateOrder(["03-11-2026", "25-11-2026"])).toBe("dmy");
     expect(detectDateOrder(["11/03/2026", "11/25/2026"])).toBe("mdy");
-    // Ambiguous: day-first wins.
+    // Ambiguous: day-first wins, unless the locale writes the month first.
     expect(detectDateOrder(["03-11-2026", "04-11-2026"])).toBe("dmy");
+    expect(detectDateOrder(["11/03/2026", "11/04/2026"], true)).toBe("mdy");
+    // What the file says beats the locale.
+    expect(detectDateOrder(["13/03/2026", "11/04/2026"], true)).toBe("dmy");
+    expect(detectDateOrder(["20261103", "20261104"], true)).toBe("ymd");
+  });
+
+  it("says when the order is only a guess", () => {
+    expect(isDateOrderAmbiguous(["11/03/2026", "11/04/2026"])).toBe(true);
+    expect(isDateOrderAmbiguous(["11/25/2026", "11/04/2026"])).toBe(false);
+    expect(isDateOrderAmbiguous(["20261103", "20261104"])).toBe(false);
+    expect(isDateOrderAmbiguous([])).toBe(false);
+    expect(isMonthFirstLocale("en-US")).toBe(true);
+    expect(isMonthFirstLocale("nl-NL")).toBe(false);
+    expect(isMonthFirstLocale("en-GB")).toBe(false);
   });
 });
 
@@ -235,6 +251,83 @@ describe("detectMapping and applyMapping", () => {
     ]);
   });
 
+  it("does not take a column of only C (Cleared) for money out or in", () => {
+    const rows = parseCsv(
+      "Date,Payee,Cleared,Amount\n2026-11-03,Shop,C,-12.50\n2026-11-04,Cafe,C,-3.50",
+    );
+    const mapping = detectMapping(rows, 2);
+    expect(mapping).toMatchObject({ amount: 3, indicator: null });
+    expect(applyMapping(rows, mapping, 2).rows.map((r) => r.amount)).toEqual([-1250, -350]);
+  });
+
+  it("still finds an unnamed column that holds both out and in values", () => {
+    const rows = parseCsv("2026-11-03;Shop;D;12,50\n2026-11-04;Pay;C;100,00");
+    expect(detectMapping(rows, 2)).toMatchObject({ hasHeader: false, amount: 3, indicator: 2 });
+  });
+
+  it("breaks a day-or-month tie with the locale", () => {
+    const rows = parseCsv("Date,Name,Amount\n11/03/2026,Shop,-12.50\n11/04/2026,Cafe,-3.50");
+    expect(detectMapping(rows, 2)).toMatchObject({ dateOrder: "dmy" });
+    const mapping = detectMapping(rows, 2, true);
+    expect(mapping.dateOrder).toBe("mdy");
+    expect(isDateOrderGuess(rows, mapping)).toBe(true);
+    expect(isDateOrderGuess(parseCsv("Date,Name,Amount\n11/25/2026,Shop,-12.50"), mapping)).toBe(
+      false,
+    );
+  });
+
+  describe("separate columns for money out and in", () => {
+    const layouts: Record<string, string> = {
+      "Debit/Credit":
+        "Date,Description,Debit,Credit\n2026-11-03,Shop,12.50,\n2026-11-01,Pay,,2850.00",
+      "Af/Bij": "Datum;Naam;Af;Bij\n20261103;Shop;12,50;\n20261101;Pay;;2850,00",
+      "Withdrawal/Deposit":
+        "Date,Memo,Withdrawal,Deposit\n2026-11-03,Shop,12.50,\n2026-11-01,Pay,,2850.00",
+      "Uit/In": "Datum;Naam;Uit;In\n20261103;Shop;12,50;\n20261101;Pay;;2850,00",
+      "Bedrag af/Bedrag bij":
+        "Datum;Naam;Bedrag af;Bedrag bij\n20261103;Shop;12,50;\n20261101;Pay;;2850,00",
+    };
+
+    for (const [name, text] of Object.entries(layouts)) {
+      it(`are found from the headers: ${name}`, () => {
+        const rows = parseCsv(text);
+        const mapping = detectMapping(rows, 2);
+        expect(mapping).toMatchObject({ amount: 2, amountIn: 3, indicator: null });
+        expect(applyMapping(rows, mapping, 2).rows.map((r) => r.amount)).toEqual([-1250, 285000]);
+      });
+    }
+
+    it("use whichever cell is filled, and in minus out when both are", () => {
+      const rows = parseCsv(
+        "Date,Name,Debit,Credit\n2026-11-03,A,-12.50,\n2026-11-04,B,,5.00\n2026-11-05,C,2.00,5.00\n2026-11-06,D,,\n2026-11-07,E,x,",
+      );
+      const mapping = { ...detectMapping(rows, 2), amount: 2, amountIn: 3 };
+      const result = applyMapping(rows, mapping, 2);
+      expect(result.rows.map((r) => r.amount)).toEqual([-1250, 500, 300]);
+      expect(result.skipped).toEqual([
+        { line: 5, reason: "No readable amount" },
+        { line: 6, reason: "No readable amount" },
+      ]);
+    });
+
+    it("are not taken when Af Bij is one column saying out or in", () => {
+      expect(detectMapping(parseCsv(ing), 2)).toMatchObject({
+        amount: 6,
+        amountIn: null,
+        indicator: 5,
+      });
+    });
+
+    it("can be chosen by hand and are saved with the mapping", () => {
+      const rows = parseCsv("a,b,c,d\n2026-11-03,Shop,12.50,\n2026-11-01,Pay,,2850.00");
+      const mapping = { ...detectMapping(rows, 2), amount: 2, amountIn: 3 };
+      expect(applyMapping(rows, mapping, 2).rows.map((r) => r.amount)).toEqual([-1250, 285000]);
+      expect(readSavedMapping(serializeMapping(rows, mapping), rows)).toEqual(mapping);
+      expect(isMapping({ ...mapping, amountIn: 999 })).toBe(false);
+      expect(isMapping({ ...mapping, amountIn: 1.5 })).toBe(false);
+    });
+  });
+
   it("can flip the sign for exports that list spending as positive", () => {
     const rows = parseCsv("Date,Merchant,Amount\n2026-11-03,Shop,12.50");
     const mapping = { ...detectMapping(rows, 2), invert: true };
@@ -294,6 +387,15 @@ describe("saved mappings", () => {
     expect(
       readSavedMapping(stored.replace('"dateOrder":"ymd"', '"dateOrder":"xyz"'), rows),
     ).toBeNull();
+  });
+
+  it("from before there was a money-in column are still read", () => {
+    const old: Partial<Mapping> = { ...mapping };
+    delete old.amountIn;
+    const stored = JSON.stringify({ signature: layoutSignature(rows, mapping), mapping: old });
+    const read = readSavedMapping(stored, rows);
+    expect(read).toEqual(old);
+    expect(applyMapping(rows, read!, 2).rows).toMatchObject(expected);
   });
 
   it("are checked for shape", () => {
