@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { checkImportAction, importTransactionsAction, undoImportAction } from "@/app/actions";
-import type { ImportAccount } from "@/db/transactions";
+import type { ImportAccount, ImportOutcome } from "@/db/transactions";
 import { formatDate } from "@/lib/dates";
 import {
   decodeText,
@@ -38,7 +38,7 @@ import { VirtualList } from "./virtual-list";
 type Props = { accounts: ImportAccount[]; currency: string; locale: string };
 /** A chosen file: its text, which is what gets sent, and its rows, for the preview. */
 type LoadedFile = { name: string; text: string; delimiter: Delimiter; rows: string[][] };
-type Done = { imported: number; duplicates: number; batch: string; account: string };
+type Done = ImportOutcome & { batch: string; account: string };
 
 /** The account of the last import in this browser, where the next file is most likely going. */
 const LAST_ACCOUNT_KEY = "larchbudget.import.account";
@@ -303,6 +303,20 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
                 and {done.duplicates === 1 ? "was" : "were"} skipped.
               </p>
             )}
+            {done.beforeBalance > 0 &&
+              done.balanceDate !== null &&
+              done.startingBalance !== null && (
+                <p className="mt-1 text-muted">
+                  {done.beforeBalance === done.imported
+                    ? done.imported === 1
+                      ? "It is"
+                      : "They are"
+                    : `${done.beforeBalance} of them ${done.beforeBalance === 1 ? "is" : "are"}`}{" "}
+                  from {formatDate(done.balanceDate, locale)} or earlier. The balance of{" "}
+                  {formatMoney(done.startingBalance, currency, locale)} you entered for that day
+                  already includes {done.beforeBalance === 1 ? "it" : "them"}.
+                </p>
+              )}
           </>
         )}
 

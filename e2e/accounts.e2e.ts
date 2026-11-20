@@ -56,6 +56,12 @@ test.describe("adding an account", () => {
   test("importing older history does not change the balance entered today", async ({ page }) => {
     await addAccount(page, "Checking", "1954.90");
     await importFile(page, "ing.csv", 6, "Checking");
+    // The import says why the balance did not move.
+    await expect(
+      page.getByText(
+        /^They are from .+ or earlier\. The balance of €1,954\.90 you entered for that day already includes them\.$/,
+      ),
+    ).toBeVisible();
 
     await page.getByRole("link", { name: "Accounts" }).click();
     await expectBalance(page, "Checking", "€1,954.90");
