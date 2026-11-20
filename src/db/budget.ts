@@ -56,8 +56,12 @@ export type BudgetMonth = {
   groups: GroupRow[];
   /** Over all visible categories. `spent` is the activity as a positive amount, never below zero. */
   totals: { assigned: number; spent: number; available: number };
-  /** Money in accounts that is not in any category, across all time. */
+  /** Money in accounts that is not in any category, across all time: `inAccounts - inCategories`. */
   readyToAssign: number;
+  /** All the money in all accounts. */
+  inAccounts: number;
+  /** What all visible categories hold together, over all time. */
+  inCategories: number;
   hasAccounts: boolean;
   /** Whether anything was assigned to a visible category in the month before. */
   assignedLastMonth: boolean;
@@ -156,6 +160,8 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
       available: list.reduce((sum, c) => sum + c.available, 0),
     },
     readyToAssign: moneyInAccounts - inCategories,
+    inAccounts: moneyInAccounts,
+    inCategories,
     hasAccounts: accountCount > 0,
     assignedLastMonth: assignedLastMonth === 1,
   };

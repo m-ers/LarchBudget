@@ -17,6 +17,7 @@ import {
   menuItem,
   openMenu,
   openNewCategory,
+  slowConnection,
 } from "./budget-page";
 import { expect, test } from "./fixtures";
 
@@ -67,6 +68,31 @@ test("money is divided over categories, and over-assigning is flagged", async ({
   await assign(page, "Groceries", "1305");
   await expect(headerFigure(page)).toHaveText("€0.00");
   await expect(page.getByText("Every cent is assigned")).toBeVisible();
+});
+
+test("Ready to assign explains how it adds up, also straight after a new amount", async ({
+  page,
+}) => {
+  await addAccount(page, "Main account", "7000");
+  await page.goto("/");
+  await addGroup(page, "Fixed costs");
+  await addCategories(page, "Fixed costs", ["Rent", "Water"]);
+  await assignAndSave(page, "Rent", "1300");
+  await assignAndSave(page, "Water", "92");
+  const explained = page.getByTitle(/ in your accounts /).filter({ visible: true });
+  await expect(explained).toHaveAttribute(
+    "title",
+    "€7,000.00 in your accounts − €1,392.00 in categories",
+  );
+
+  await slowConnection(page, 2_000);
+  await assign(page, "Water", "100");
+  await expect(explained).toHaveAttribute(
+    "title",
+    "€7,000.00 in your accounts − €1,400.00 in categories",
+    { timeout: 1_000 },
+  );
+  await expect(headerFigure(page)).toHaveText("€5,600.00");
 });
 
 test("a group's heading adds up what its categories got and spent, and what they hold", async ({

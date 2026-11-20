@@ -80,5 +80,6 @@ function assign(budget: BudgetMonth, categoryId: number, amount: number): Budget
       available: budget.totals.available + delta,
     },
     readyToAssign: budget.readyToAssign - delta,
+    inCategories: budget.inCategories + delta,
   };
 }

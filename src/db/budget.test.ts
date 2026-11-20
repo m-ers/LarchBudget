@@ -44,6 +44,10 @@ function expectEverythingAccountedFor() {
   const farFuture = getBudgetMonth(db, "2999-12");
   const inAccounts = getAccounts(db).reduce((sum, a) => sum + a.balance, 0);
   expect(farFuture.readyToAssign + farFuture.totals.available).toBe(inAccounts);
+  // The two parts Ready to assign is explained with, in any month.
+  const month = getBudgetMonth(db, "2026-10");
+  expect(month.inAccounts).toBe(inAccounts);
+  expect(month.inCategories).toBe(farFuture.totals.available);
 }
 
 beforeEach(() => {

@@ -39,6 +39,9 @@ const budget: BudgetMonth = {
   ],
   totals: { assigned: 102_000, spent: 5_000, available: 127_000 },
   readyToAssign: 50_000,
+  // What the categories above hold over all time, and 50.00 more.
+  inAccounts: 179_000,
+  inCategories: 129_000,
   hasAccounts: true,
   assignedLastMonth: false,
 };
@@ -67,6 +70,13 @@ describe("assigning, before the server confirms it", () => {
     });
     expect(after.totals).toEqual({ assigned: 122_000, spent: 5_000, available: 147_000 });
     expect(after.readyToAssign).toBe(30_000);
+  });
+
+  it("keeps Ready to assign explained: the money in accounts less what categories hold", () => {
+    const after = applyChange(budget, assign(10, 120_000));
+    expect(after.inAccounts).toBe(179_000);
+    expect(after.inCategories).toBe(149_000);
+    expect(after.inAccounts - after.inCategories).toBe(after.readyToAssign);
   });
 
   it("leaves other categories and groups as they are", () => {
