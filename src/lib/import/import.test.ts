@@ -17,6 +17,26 @@ describe("parseCsv", () => {
     expect(detectDelimiter('a;b;c\n1;"2,50";3')).toBe(";");
     expect(detectDelimiter("a\tb\tc\n1\t2,50\t3")).toBe("\t");
     expect(detectDelimiter('"Datum";"Bedrag"\n"20261103";"12,50"')).toBe(";");
+    expect(detectDelimiter("a|b|c\n1|2|3")).toBe("|");
+    expect(detectDelimiter("just one column\nanother line")).toBe(",");
+  });
+
+  it("is not thrown off by a stray tab or semicolon inside one cell", () => {
+    const tab = "Date,Description,Amount\n2026-11-03,SHOP\tAMSTERDAM,-12.50";
+    expect(detectDelimiter(tab)).toBe(",");
+    expect(parseCsv(tab)[1]).toEqual(["2026-11-03", "SHOP\tAMSTERDAM", "-12.50"]);
+    const semicolons = "Date,Description,Amount\n2026-11-03,a;b;c,-12.50";
+    expect(detectDelimiter(semicolons)).toBe(",");
+    expect(parseCsv(semicolons)[1]).toEqual(["2026-11-03", "a;b;c", "-12.50"]);
+  });
+
+  it("looks at the whole sample, ignores quoted text and prefers more columns on a tie", () => {
+    // Decimal commas are in every line, but the semicolon splits into more cells.
+    expect(detectDelimiter("a;b;c\n1;2,5;3,5\n4;5,5;6,5")).toBe(";");
+    expect(detectDelimiter('a;b\n"x;y;z";"1,5"')).toBe(";");
+    // One odd line among many does not matter.
+    const lines = Array.from({ length: 9 }, () => "1;2;3").concat("1;2;3,4,5");
+    expect(detectDelimiter(["a;b;c", ...lines].join("\n"))).toBe(";");
   });
 
   it("handles quotes, doubled quotes and line breaks inside cells", () => {
