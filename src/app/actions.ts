@@ -203,21 +203,28 @@ const importRows = z
 type ImportResult = { ok: true; imported: number; duplicates: number; batch: string } | Failure;
 
 /**
- * Imports a bank file into an account. The server reads the file with the
- * same code the import screen used for its preview, so what was shown is
- * what gets imported.
+ * Reads the file a person chose into transactions, with the code the import
+ * screen used for its preview: the file is sent as text, so the server reads
+ * the same file the same way.
  */
+function readImportFile(input: unknown) {
+  const parsed = importInput.safeParse(input);
+  if (!parsed.success) return null;
+  const { accountId, text, mapping } = parsed.data;
+  const parsedRows = importRows.safeParse(parseCsv(text));
+  if (!parsedRows.success) return null;
+  const rows = parsedRows.data;
+  const read = applyMapping(rows, mapping, minorUnitDigits(getConfig().currency));
+  return { accountId, mapping, rows, read };
+}
+
+/** Imports a bank file into an account. */
 export async function importTransactionsAction(input: unknown): Promise<ImportResult> {
   const db = await database();
   if (!db) return LOGGED_OUT;
-  const parsed = importInput.safeParse(input);
-  if (!parsed.success) return fail("This file could not be imported.");
-  const { accountId, text, mapping } = parsed.data;
-  const parsedRows = importRows.safeParse(parseCsv(text));
-  if (!parsedRows.success) return fail("This file could not be imported.");
-  const rows = parsedRows.data;
-
-  const read = applyMapping(rows, mapping, minorUnitDigits(getConfig().currency));
+  const file = readImportFile(input);
+  if (!file) return fail("This file could not be imported.");
+  const { accountId, mapping, rows, read } = file;
   if (read.rows.length === 0) return fail("No transactions could be read from this file.");
   if (read.rows.some((row) => Math.abs(row.amount) > MAX_AMOUNT)) {
     return fail("This file holds an amount that is too large to be real.");
@@ -239,6 +246,21 @@ export async function importTransactionsAction(input: unknown): Promise<ImportRe
   transactions.saveImportMapping(db, accountId, serializeMapping(rows, mapping));
   refresh();
   return { ok: true, ...result, batch };
+}
+
+type CheckResult = { ok: true; known: number[] } | Failure;
+
+/**
+ * Says which of a file's readable rows the account has already, so the
+ * import screen can show what is new before anything is imported. `known`
+ * holds positions in the list of readable rows, which keeps the answer small.
+ */
+export async function checkImportAction(input: unknown): Promise<CheckResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  const file = readImportFile(input);
+  if (!file) return fail("This file could not be checked.");
+  return { ok: true, known: transactions.findKnownRows(db, file.accountId, file.read.rows) };
 }
 
 type UndoResult = { ok: true; removed: number } | Failure;

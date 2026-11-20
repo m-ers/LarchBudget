@@ -1,11 +1,14 @@
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { IsoDate } from "../lib/dates";
 import * as budget from "./budget";
 import { archiveCategory, createAccount, getAccounts, getBudgetMonth, setAssigned } from "./budget";
 import { openDb, type Db } from "./index";
 import { created } from "./created";
+import { deletedImports, transactions } from "./schema";
 import {
   countTransactions,
+  findKnownRows,
   getCategoryOptions,
   getImportAccounts,
   importTransactions,
@@ -137,6 +140,45 @@ describe("importing", () => {
   it("counts income and unsorted spending towards ready to assign straight away", () => {
     importTransactions(db, checking, november, "a");
     expect(getBudgetMonth(db, "2026-11").readyToAssign).toBe(100_000 + 285_000 - 4_510 - 700);
+  });
+});
+
+describe("finding rows that are known already", () => {
+  it("finds nothing in an account that has imported nothing", () => {
+    expect(findKnownRows(db, checking, november)).toEqual([]);
+    expect(findKnownRows(db, checking, [])).toEqual([]);
+  });
+
+  it("finds the rows an earlier import brought in, telling identical rows apart", () => {
+    importTransactions(db, checking, november.slice(0, 3), "a");
+    // The file has two identical coffees; only the first was imported.
+    expect(findKnownRows(db, checking, november)).toEqual([0, 1, 2]);
+    importTransactions(db, checking, november, "b");
+    expect(findKnownRows(db, checking, november)).toEqual([0, 1, 2, 3]);
+  });
+
+  it("knows only the rows of the account asked about", () => {
+    const savings = createAccount(db, {
+      name: "Savings",
+      type: "savings",
+      startingBalance: 0,
+      date: "2026-10-31",
+    });
+    importTransactions(db, checking, november, "a");
+    expect(findKnownRows(db, savings, november)).toEqual([]);
+  });
+
+  it("counts rows that were imported and then deleted by hand", () => {
+    importTransactions(db, checking, november.slice(0, 2), "a");
+    const [gone] = db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.payee, "Fresh Market"))
+      .all();
+    db.delete(transactions).where(eq(transactions.id, gone.id)).run();
+    expect(findKnownRows(db, checking, november)).toEqual([0]);
+    db.insert(deletedImports).values({ accountId: checking, importId: gone.importId! }).run();
+    expect(findKnownRows(db, checking, november)).toEqual([0, 1]);
   });
 });
 

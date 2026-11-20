@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import type { IsoDate } from "../lib/dates";
 import { UNGROUPED } from "./budget";
 import type { Db } from "./index";
-import { accounts, categories, categoryGroups, transactions } from "./schema";
+import { accounts, categories, categoryGroups, deletedImports, transactions } from "./schema";
 
 /**
  * Importing bank transactions and sorting them into categories.
@@ -233,4 +233,37 @@ export function getImportAccounts(db: Db): ImportAccount[] {
 
 export function saveImportMapping(db: Db, accountId: number, mapping: string): void {
   db.update(accounts).set({ importMapping: mapping }).where(eq(accounts.id, accountId)).run();
+}
+
+/**
+ * Which rows of a bank file the account has already, as positions in `rows`:
+ * rows that an earlier import brought in, and rows that were imported and
+ * then deleted by hand, which an import does not bring back. It tells apart
+ * identical rows the way `importTransactions` does.
+ */
+export function findKnownRows(db: Db, accountId: number, rows: { raw: string }[]): number[] {
+  if (rows.length === 0) return [];
+  const known = new Set<string>([
+    ...db
+      .select({ importId: transactions.importId })
+      .from(transactions)
+      .where(and(eq(transactions.accountId, accountId), isNotNull(transactions.importId)))
+      .all()
+      .map((row) => row.importId!),
+    ...db
+      .select({ importId: deletedImports.importId })
+      .from(deletedImports)
+      .where(eq(deletedImports.accountId, accountId))
+      .all()
+      .map((row) => row.importId),
+  ]);
+
+  const seen = new Map<string, number>();
+  const found: number[] = [];
+  rows.forEach((row, index) => {
+    const occurrence = (seen.get(row.raw) ?? 0) + 1;
+    seen.set(row.raw, occurrence);
+    if (known.has(fingerprint(row.raw, occurrence))) found.push(index);
+  });
+  return found;
 }
