@@ -401,7 +401,7 @@ test.describe("finding transactions", () => {
     await expect(page).toHaveURL(/q=COFFEE/);
     await expect(rowsShown(page)).toHaveCount(2);
     await expect(
-      page.getByText("2 transactions match. Money in +€0.00, money out -€7.00."),
+      page.getByText("2 transactions match. Money in €0.00, money out €7.00."),
     ).toBeVisible();
 
     // The note is searched too, and Enter applies it at once.
@@ -411,7 +411,7 @@ test.describe("finding transactions", () => {
     await expect(page).toHaveURL(/q=huur/);
     await expect(rowsShown(page)).toHaveCount(1);
     await expect(
-      page.getByText("1 transaction matches. Money in +€0.00, money out -€1,100.00."),
+      page.getByText("1 transaction matches. Money in €0.00, money out €1,100.00."),
     ).toBeVisible();
 
     // A search for nothing says so; the address can be shared.
@@ -433,7 +433,7 @@ test.describe("finding transactions", () => {
       .selectOption({ label: "Groceries" });
     await expect(rowsShown(page)).toHaveCount(1);
     await expect(
-      page.getByText("1 transaction matches. Money in +€0.00, money out -€45.10."),
+      page.getByText("1 transaction matches. Money in €0.00, money out €45.10."),
     ).toBeVisible();
 
     // The address the budget page links to.

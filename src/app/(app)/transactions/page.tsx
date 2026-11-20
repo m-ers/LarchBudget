@@ -139,11 +139,11 @@ async function Transactions({ searchParams }: Pick<PageProps<"/transactions">, "
               {summary.count === 1 ? "transaction" : "transactions"}
               {narrowed && (summary.count === 1 ? " matches" : " match")}. Money in{" "}
               <span className="font-medium text-ink tabular-nums">
-                +{formatMoney(summary.moneyIn, currency, locale)}
+                {formatMoney(summary.moneyIn, currency, locale)}
               </span>
               , money out{" "}
               <span className="font-medium text-ink tabular-nums">
-                {formatMoney(summary.moneyOut, currency, locale)}
+                {formatMoney(-summary.moneyOut, currency, locale)}
               </span>
               .
             </p>

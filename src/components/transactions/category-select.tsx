@@ -67,7 +67,10 @@ export function CategorySelect({
     // The next row with something to sort. This row may leave the list once saved.
     let row = cell.current?.closest("tr")?.nextElementSibling;
     while (row) {
-      const control = row.querySelector<HTMLElement>("[data-sort-control]");
+      // Its suggestion first, so a list can be worked through with Enter alone.
+      const control =
+        row.querySelector<HTMLElement>("[data-sort-suggestion]") ??
+        row.querySelector<HTMLElement>("[data-sort-control]");
       if (control) return control.focus();
       row = row.nextElementSibling;
     }
@@ -108,18 +111,6 @@ export function CategorySelect({
   return (
     <span ref={cell} className="flex flex-col">
       <span className="flex items-center gap-1.5">
-        {toSort && suggestion && (
-          <button
-            type="button"
-            data-sort-control
-            aria-label={`Sort ${describedAs} into ${suggestion.category ?? "No category"}, as last time`}
-            title="Same as last time"
-            onClick={() => save(suggested, true)}
-            className="max-w-32 truncate rounded-[9px] border border-brand/50 px-2.5 py-1.5 text-[14.5px] font-medium text-brand transition-colors hover:bg-ok-track focus-visible:border-brand focus-visible:outline-none"
-          >
-            {suggestion.category ?? "No category"}
-          </button>
-        )}
         <select
           data-sort-control
           aria-label={`Category for ${describedAs}, ${amount}`}
@@ -176,6 +167,18 @@ export function CategorySelect({
                 <option value={shown}>{nameOf(shown)}</option>
               )}
         </select>
+        {toSort && suggestion && (
+          <button
+            type="button"
+            data-sort-suggestion
+            aria-label={`Sort ${describedAs} into ${suggestion.category ?? "No category"}, as last time`}
+            title="Same as last time"
+            onClick={() => save(suggested, true)}
+            className="max-w-32 truncate rounded-[9px] border border-brand/50 px-2.5 py-1.5 text-[14.5px] font-medium text-brand transition-colors hover:bg-ok-track focus-visible:border-brand focus-visible:outline-none"
+          >
+            {suggestion.category ?? "No category"}
+          </button>
+        )}
       </span>
       <ErrorText error={error} as="span" className="mt-1 text-xs" />
     </span>
