@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { IsoDate } from "../lib/dates";
-import { syncStartingBalance } from "./accounts";
+import { byName, syncStartingBalance } from "./accounts";
 import { UNGROUPED } from "./budget";
 import type { Db } from "./index";
 import { accounts, categories, categoryGroups, transactions } from "./schema";
@@ -259,8 +259,8 @@ export function getImportAccounts(db: Db): ImportAccount[] {
     .select({ id: accounts.id, name: accounts.name, importMapping: accounts.importMapping })
     .from(accounts)
     .where(eq(accounts.archived, false))
-    .orderBy(accounts.name)
-    .all();
+    .all()
+    .sort(byName);
 }
 
 export function saveImportMapping(db: Db, accountId: number, mapping: string): void {

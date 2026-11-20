@@ -124,6 +124,15 @@ test("accounts are renamed in place, and names are unique ignoring case", async 
   await expect(alert(page, 'You already have an account called "SAVINGS".')).toBeVisible();
 });
 
+test("accounts are listed alphabetically, ignoring case", async ({ page }) => {
+  await addAccount(page, "Visa", "0");
+  await addAccount(page, "savings", "0");
+  await addAccount(page, "Checking", "0");
+  await expect(
+    page.getByRole("button", { name: /^(Checking|savings|Visa)$/ }).filter({ visible: true }),
+  ).toHaveText(["Checking", "savings", "Visa"]);
+});
+
 test("an account's type is picked in its row", async ({ page }) => {
   await addAccount(page, "Visa", "-250");
   const type = page.getByRole("combobox", { name: "Type of Visa" });

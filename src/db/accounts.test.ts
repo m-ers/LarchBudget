@@ -166,6 +166,18 @@ describe("accounts", () => {
     expect(renameAccount(db, savings, "Epargne")).toBe(true);
   });
 
+  it("are listed alphabetically, ignoring case, here and on the import page", () => {
+    for (const name of ["savings", "Visa", "Checking", "Épargne", "cash"]) {
+      addAccount(0, "2026-11-01", name);
+    }
+    const sorted = ["cash", "Checking", "Épargne", "savings", "Visa"];
+    expect(getAccounts(db).map((a) => a.name)).toEqual(sorted);
+    expect(getImportAccounts(db).map((a) => a.name)).toEqual(sorted);
+
+    for (const account of getAccounts(db)) closeAccount(db, account.id);
+    expect(getClosedAccounts(db).map((a) => a.name)).toEqual(sorted);
+  });
+
   it("can change type", () => {
     const card = addAccount(-25_000, "2026-11-01", "Visa");
     setAccountType(db, card, "credit");

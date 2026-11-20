@@ -24,6 +24,9 @@ const STARTING_PAYEE = "Starting balance";
 /** Compares account names ignoring case, but not accents: "savings" is "Savings", "Cafe" is not "Café". */
 const names = new Intl.Collator(undefined, { sensitivity: "accent" });
 
+/** Sorts accounts alphabetically, ignoring case: "savings" comes before "Visa". */
+export const byName = (a: { name: string }, b: { name: string }) => names.compare(a.name, b.name);
+
 /** What an account holds: the sum of its transactions. */
 const balance = sql<number>`coalesce(sum(${transactions.amount}), 0)`.mapWith(Number);
 
@@ -59,8 +62,8 @@ export function getAccounts(db: Db): AccountRow[] {
     .leftJoin(transactions, eq(transactions.accountId, accounts.id))
     .where(eq(accounts.archived, false))
     .groupBy(accounts.id)
-    .orderBy(accounts.name)
-    .all();
+    .all()
+    .sort(byName);
 }
 
 /** Accounts that were closed, which can be reopened. */
@@ -69,8 +72,8 @@ export function getClosedAccounts(db: Db): { id: number; name: string }[] {
     .select({ id: accounts.id, name: accounts.name })
     .from(accounts)
     .where(eq(accounts.archived, true))
-    .orderBy(accounts.name)
-    .all();
+    .all()
+    .sort(byName);
 }
 
 /** True when an open account other than `exceptId` already uses this name, ignoring case. */
