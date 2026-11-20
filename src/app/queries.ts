@@ -4,6 +4,7 @@ import { getDb, type Db } from "@/db";
 import * as budget from "@/db/budget";
 import * as transactions from "@/db/transactions";
 import type { Month } from "@/lib/dates";
+import type { TransactionFilter } from "@/lib/transactions-address";
 import { requireLogin } from "./session";
 
 /**
@@ -28,8 +29,22 @@ export async function getAccounts() {
   return budget.getAccounts(await database());
 }
 
-export async function getTransactions(options: { only?: "to-sort"; limit: number }) {
+export async function getTransactions(
+  options: Parameters<typeof transactions.listTransactions>[1],
+) {
   return transactions.listTransactions(await database(), options);
+}
+
+export async function getTransactionSummary(filter: TransactionFilter) {
+  return transactions.summarizeTransactions(await database(), filter);
+}
+
+export async function getSuggestions(payees: string[]) {
+  return transactions.suggestCategories(await database(), payees);
+}
+
+export async function getFilterOptions() {
+  return transactions.getFilterOptions(await database());
 }
 
 /** Asked for by both the navigation and the transactions page; answered once per request. */

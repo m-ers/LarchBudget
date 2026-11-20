@@ -8,13 +8,17 @@ import { created } from "./created";
 import { deletedImports, transactions } from "./schema";
 import {
   countTransactions,
+  deleteTransaction,
   findKnownRows,
   getCategoryOptions,
+  getFilterOptions,
   getImportAccounts,
   importTransactions,
   listTransactions,
   saveImportMapping,
   sortTransaction,
+  suggestCategories,
+  summarizeTransactions,
   undoImport,
   type ImportRow,
 } from "./transactions";
@@ -206,7 +210,7 @@ describe("sorting", () => {
   it("moves spending into the category and out of ready to assign", () => {
     setAssigned(db, groceries, "2026-11", 30_000);
     const before = getBudgetMonth(db, "2026-11").readyToAssign;
-    expect(sortTransaction(db, market, groceries)).toBe(true);
+    expect(sortTransaction(db, market, groceries)).toBe("sorted");
 
     const budget = getBudgetMonth(db, "2026-11");
     expect(budget.groups[0].categories[0]).toMatchObject({ activity: -4_510, available: 25_490 });
@@ -216,7 +220,7 @@ describe("sorting", () => {
 
   it("can mark income as sorted without a category", () => {
     const before = getBudgetMonth(db, "2026-11").readyToAssign;
-    expect(sortTransaction(db, salary, "ready")).toBe(true);
+    expect(sortTransaction(db, salary, "ready")).toBe("sorted");
     expect(getBudgetMonth(db, "2026-11").readyToAssign).toBe(before);
     expect(countTransactions(db).toSort).toBe(3);
     expect(listTransactions(db, { limit: 50 }).find((t) => t.id === salary)).toMatchObject({
@@ -249,11 +253,12 @@ describe("sorting", () => {
     });
   });
 
-  it("refuses a category that is archived or does not exist", () => {
-    expect(sortTransaction(db, market, 9999)).toBe(false);
+  it("says which is missing: the category or the transaction", () => {
+    expect(sortTransaction(db, market, 9999)).toBe("no-category");
     archiveCategory(db, groceries);
-    expect(sortTransaction(db, market, groceries)).toBe(false);
-    expect(sortTransaction(db, 9999, "ready")).toBe(false);
+    expect(sortTransaction(db, market, groceries)).toBe("no-category");
+    expect(sortTransaction(db, 9999, "ready")).toBe("no-transaction");
+    expect(sortTransaction(db, 9999, groceries)).toBe("no-transaction");
     expect(countTransactions(db).toSort).toBe(4);
   });
 });
@@ -276,5 +281,258 @@ describe("options and saved mappings", () => {
     ]);
     saveImportMapping(db, checking, '{"date":0}');
     expect(getImportAccounts(db)[0].importMapping).toBe('{"date":0}');
+  });
+});
+
+describe("paging", () => {
+  it("continues after the last row of the previous page, also within one day", () => {
+    importTransactions(db, checking, november, "a");
+    const first = listTransactions(db, { limit: 3 });
+    expect(first.map((t) => t.payee)).toEqual(["Coffee Bar", "Coffee Bar", "Fresh Market"]);
+
+    const last = first[2];
+    const second = listTransactions(db, { before: { date: last.date, id: last.id }, limit: 3 });
+    expect(second.map((t) => t.payee)).toEqual(["Acme Corp", "Starting balance"]);
+
+    // A cursor in the middle of a day keeps the rows of that day that come after it.
+    const coffee = first[1];
+    expect(
+      listTransactions(db, { before: { date: coffee.date, id: coffee.id }, limit: 1 })[0].id,
+    ).toBeLessThan(coffee.id);
+  });
+
+  it("pages through the list that is to sort", () => {
+    importTransactions(db, checking, november, "a");
+    const [newest] = listTransactions(db, { only: "to-sort", limit: 1 });
+    expect(
+      listTransactions(db, {
+        only: "to-sort",
+        before: { date: newest.date, id: newest.id },
+        limit: 10,
+      }).map((t) => t.payee),
+    ).toEqual(["Coffee Bar", "Fresh Market", "Acme Corp"]);
+  });
+});
+
+describe("finding transactions", () => {
+  let savings: number;
+
+  beforeEach(() => {
+    savings = createAccount(db, {
+      name: "Savings",
+      type: "savings",
+      startingBalance: 0,
+      date: "2026-10-31",
+    });
+    importTransactions(db, checking, november, "a");
+    importTransactions(
+      db,
+      savings,
+      [
+        row("2026-10-30", -2_000, "Bakery", "Bread for 50% off"),
+        row("2026-12-01", 10_000, "Interest", "Quarter_1"),
+      ],
+      "b",
+    );
+    const market = listTransactions(db, { limit: 50 }).find((t) => t.payee === "Fresh Market")!;
+    sortTransaction(db, market.id, groceries);
+    // Creating an account does not mark its starting balance yet; do it as the app does.
+    db.update(transactions)
+      .set({ starting: true })
+      .where(eq(transactions.payee, "Starting balance"))
+      .run();
+  });
+
+  const payees = (filter: Parameters<typeof summarizeTransactions>[1]) =>
+    listTransactions(db, { filter, limit: 50 }).map((t) => t.payee);
+
+  it("searches payee and note, ignoring case", () => {
+    expect(payees({ q: "coffee" })).toEqual(["Coffee Bar", "Coffee Bar"]);
+    expect(payees({ q: "SALARY" })).toEqual(["Acme Corp"]);
+    expect(payees({ q: "nothing like it" })).toEqual([]);
+  });
+
+  it("takes % and _ in a search as plain characters", () => {
+    expect(payees({ q: "50%" })).toEqual(["Bakery"]);
+    expect(payees({ q: "%" })).toEqual(["Bakery"]);
+    expect(payees({ q: "Quarter_1" })).toEqual(["Interest"]);
+    expect(payees({ q: "Quarter?1" })).toEqual([]);
+    expect(payees({ q: "_" })).toEqual(["Interest"]);
+  });
+
+  it("narrows to an account, a category, or no category", () => {
+    expect(payees({ accountId: savings })).toEqual(["Interest", "Bakery"]);
+    expect(payees({ category: groceries })).toEqual(["Fresh Market"]);
+    expect(payees({ category: "none" })).toEqual([
+      "Interest",
+      "Coffee Bar",
+      "Coffee Bar",
+      "Acme Corp",
+      "Bakery",
+    ]);
+  });
+
+  it("does not count a starting balance as having no category", () => {
+    expect(payees({ category: "none" })).not.toContain("Starting balance");
+  });
+
+  it("narrows to a month, from its first to its last day", () => {
+    importTransactions(db, checking, [row("2026-11-30", -100, "Last day")], "c");
+    expect(payees({ month: "2026-11" })).toEqual([
+      "Last day",
+      "Coffee Bar",
+      "Coffee Bar",
+      "Fresh Market",
+      "Acme Corp",
+    ]);
+    expect(payees({ month: "2026-12" })).toEqual(["Interest"]);
+  });
+
+  it("combines filters and pages through the result", () => {
+    const filter = { month: "2026-11", category: "none" } as const;
+    expect(payees(filter)).toEqual(["Coffee Bar", "Coffee Bar", "Acme Corp"]);
+    const [newest] = listTransactions(db, { filter, limit: 1 });
+    expect(
+      listTransactions(db, {
+        filter,
+        before: { date: newest.date, id: newest.id },
+        limit: 10,
+      }).map((t) => t.payee),
+    ).toEqual(["Coffee Bar", "Acme Corp"]);
+  });
+
+  it("sums everything that matches, not one page", () => {
+    expect(summarizeTransactions(db, { month: "2026-11" })).toEqual({
+      count: 4,
+      moneyIn: 285_000,
+      moneyOut: -4_510 - 700,
+    });
+    expect(summarizeTransactions(db, { q: "nothing like it" })).toEqual({
+      count: 0,
+      moneyIn: 0,
+      moneyOut: 0,
+    });
+  });
+
+  it("does not count a starting balance as money in", () => {
+    const all = summarizeTransactions(db, {});
+    expect(all.count).toBe(7);
+    expect(all.moneyIn).toBe(285_000 + 10_000);
+  });
+
+  it("lists every account and category to choose from, archived ones too", () => {
+    const old = createCategory(db, "Old", createGroup(db, "Goals"));
+    archiveCategory(db, old);
+    expect(getFilterOptions(db)).toEqual({
+      accounts: [
+        { id: checking, name: "Checking" },
+        { id: savings, name: "Savings" },
+      ],
+      categories: [
+        { id: groceries, name: "Groceries", archived: false },
+        { id: old, name: "Old", archived: true },
+      ],
+    });
+  });
+});
+
+describe("suggesting a category", () => {
+  let rent: number;
+
+  beforeEach(() => {
+    rent = createCategory(db, "Rent", createGroup(db, "Fixed"));
+  });
+
+  const sortedLike = (
+    date: IsoDate,
+    payee: string,
+    target: Parameters<typeof sortTransaction>[2],
+  ) => {
+    importTransactions(db, checking, [row(date, -100, payee)], `batch ${date} ${payee}`);
+    const [added] = listTransactions(db, { limit: 50 }).filter(
+      (t) => t.payee === payee && t.date === date,
+    );
+    sortTransaction(db, added.id, target);
+  };
+
+  it("suggests where the latest sorted transaction with that payee went", () => {
+    sortedLike("2026-09-01", "Corner Shop", groceries);
+    sortedLike("2026-10-01", "Corner Shop", rent);
+    expect(suggestCategories(db, ["Corner Shop"]).get("Corner Shop")).toEqual({
+      categoryId: rent,
+      category: "Rent",
+    });
+  });
+
+  it("ignores case and surrounding spaces, and answers for the payee as given", () => {
+    sortedLike("2026-09-01", "corner shop", groceries);
+    const suggestions = suggestCategories(db, ["  CORNER SHOP", "Corner Shop "]);
+    expect(suggestions.get("  CORNER SHOP")?.category).toBe("Groceries");
+    expect(suggestions.get("Corner Shop ")?.category).toBe("Groceries");
+  });
+
+  it("can suggest no category", () => {
+    sortedLike("2026-09-01", "Employer", "ready");
+    expect(suggestCategories(db, ["Employer"]).get("Employer")).toEqual({
+      categoryId: null,
+      category: null,
+    });
+  });
+
+  it("suggests nothing for a payee not sorted yet, or whose category was archived", () => {
+    sortedLike("2026-09-01", "Corner Shop", groceries);
+    importTransactions(db, checking, [row("2026-09-02", -100, "Unsorted Co")], "u");
+    archiveCategory(db, groceries);
+    expect(suggestCategories(db, ["Corner Shop", "Unsorted Co", "Nobody"]).size).toBe(0);
+  });
+
+  it("does not suggest from a starting balance or from another payee", () => {
+    db.update(transactions)
+      .set({ starting: true, toSort: false, categoryId: rent })
+      .where(eq(transactions.payee, "Starting balance"))
+      .run();
+    sortedLike("2026-09-01", "Corner Shop Two", groceries);
+    expect(suggestCategories(db, ["Starting balance", "Corner Shop"]).size).toBe(0);
+  });
+
+  it("answers for no payees", () => {
+    expect(suggestCategories(db, []).size).toBe(0);
+  });
+});
+
+describe("deleting", () => {
+  it("removes a transaction and what it did to the balance", () => {
+    importTransactions(db, checking, november, "a");
+    const market = listTransactions(db, { limit: 50 }).find((t) => t.payee === "Fresh Market")!;
+    expect(deleteTransaction(db, market.id)).toBe("deleted");
+    expect(countTransactions(db)).toEqual({ all: 4, toSort: 3 });
+    expect(getAccounts(db)[0].balance).toBe(100_000 + 285_000 - 700);
+  });
+
+  it("keeps a deleted import from coming back with the next file", () => {
+    importTransactions(db, checking, november, "a");
+    const coffees = listTransactions(db, { limit: 50 }).filter((t) => t.payee === "Coffee Bar");
+    deleteTransaction(db, coffees[0].id);
+
+    // The same file again: the deleted row is skipped and counted as a duplicate.
+    expect(importTransactions(db, checking, november, "b")).toEqual({ imported: 0, duplicates: 4 });
+    expect(countTransactions(db).all).toBe(4);
+
+    // Other rows and other accounts are not affected.
+    const savings = createAccount(db, {
+      name: "Savings",
+      type: "savings",
+      startingBalance: 0,
+      date: "2026-10-31",
+    });
+    expect(importTransactions(db, savings, november, "c")?.imported).toBe(4);
+  });
+
+  it("says when the transaction is gone, and keeps a starting balance", () => {
+    expect(deleteTransaction(db, 9999)).toBe("no-transaction");
+    const start = listTransactions(db, { limit: 50 })[0];
+    db.update(transactions).set({ starting: true }).where(eq(transactions.id, start.id)).run();
+    expect(deleteTransaction(db, start.id)).toBe("starting");
+    expect(countTransactions(db).all).toBe(1);
   });
 });
