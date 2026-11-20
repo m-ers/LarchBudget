@@ -1,4 +1,4 @@
-import type { BudgetMonth } from "@/db/budget";
+import type { BudgetMonth, GroupRow, MoneyEnd } from "@/db/budget";
 
 /**
  * A change the budget page shows before the server has confirmed it.
@@ -24,6 +24,27 @@ export function applyChange(budget: BudgetMonth, change: BudgetChange): BudgetMo
     case "assign":
       return assign(budget, change.categoryId, change.amount);
   }
+}
+
+/**
+ * Moving money, as the changes it makes: a new Assigned amount for the
+ * category at each end. Ready to assign follows from those, as it does
+ * when an amount is typed, so it stays put when both ends are categories.
+ */
+export function moveChanges(
+  groups: GroupRow[],
+  { from, to, amount }: { from: MoneyEnd; to: MoneyEnd; amount: number },
+): BudgetChange[] {
+  const categories = groups.flatMap((g) => g.categories);
+  return [
+    { end: from, delta: -amount },
+    { end: to, delta: amount },
+  ].flatMap(({ end, delta }) => {
+    const category = categories.find((c) => c.id === end);
+    return category
+      ? [{ type: "assign" as const, categoryId: category.id, amount: category.assigned + delta }]
+      : [];
+  });
 }
 
 /** Assigning moves money between Ready to assign and one category. */

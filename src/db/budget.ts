@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { addMonths, monthStart, type Month } from "../lib/dates";
 import { groupColors } from "../lib/group-colors";
 import type { Db } from "./index";
@@ -168,21 +168,70 @@ export function setAssigned(db: Db, categoryId: number, month: Month, amount: nu
       .where(and(eq(categories.id, categoryId), eq(categories.archived, false)))
       .all();
     if (category.length === 0) return false;
-
-    if (amount === 0) {
-      tx.delete(assignments)
-        .where(and(eq(assignments.categoryId, categoryId), eq(assignments.month, month)))
-        .run();
-    } else {
-      tx.insert(assignments)
-        .values({ categoryId, month, amount })
-        .onConflictDoUpdate({
-          target: [assignments.categoryId, assignments.month],
-          set: { amount },
-        })
-        .run();
-    }
+    writeAssigned(tx, categoryId, month, amount);
     return true;
+  });
+}
+
+/** Stores what is assigned to a category in a month; nothing is stored for 0. */
+function writeAssigned(db: Db, categoryId: number, month: Month, amount: number): void {
+  if (amount === 0) {
+    db.delete(assignments)
+      .where(and(eq(assignments.categoryId, categoryId), eq(assignments.month, month)))
+      .run();
+  } else {
+    db.insert(assignments)
+      .values({ categoryId, month, amount })
+      .onConflictDoUpdate({
+        target: [assignments.categoryId, assignments.month],
+        set: { amount },
+      })
+      .run();
+  }
+}
+
+/** One end of moving money: a category, or "ready" for Ready to assign. */
+export type MoneyEnd = number | "ready";
+
+/**
+ * Moves money in one month. The giving category's Assigned amount goes
+ * down by `amount` and the receiving one's goes up, so Ready to assign
+ * stays as it is. With Ready to assign at one end, only the category at
+ * the other end changes, and Ready to assign moves the other way.
+ *
+ * Refuses an amount that is not above zero, a move to the same place, and
+ * archived or income categories, which hold no money to move.
+ */
+export function moveMoney(
+  db: Db,
+  { from, to, month, amount }: { from: MoneyEnd; to: MoneyEnd; month: Month; amount: number },
+): "moved" | "no-category" | "not-positive" | "same" {
+  if (!Number.isSafeInteger(amount) || amount <= 0) return "not-positive";
+  if (from === to) return "same";
+  return db.transaction((tx) => {
+    const ends = [from, to].filter((end) => end !== "ready");
+    const found = tx
+      .select({ id: categories.id })
+      .from(categories)
+      .where(
+        and(
+          inArray(categories.id, ends),
+          eq(categories.archived, false),
+          eq(categories.income, false),
+        ),
+      )
+      .all();
+    if (found.length !== ends.length) return "no-category";
+
+    const assigned = (categoryId: number) =>
+      tx
+        .select({ amount: assignments.amount })
+        .from(assignments)
+        .where(and(eq(assignments.categoryId, categoryId), eq(assignments.month, month)))
+        .all()[0]?.amount ?? 0;
+    if (from !== "ready") writeAssigned(tx, from, month, assigned(from) - amount);
+    if (to !== "ready") writeAssigned(tx, to, month, assigned(to) + amount);
+    return "moved";
   });
 }
 

@@ -27,9 +27,12 @@ const GAP = 4;
  */
 export function useMenu() {
   const [opened, setOpened] = useState<Opened | null>(null);
+  const button = useRef<HTMLButtonElement>(null);
   return {
     opened,
     setOpened,
+    /** The menu's button, for giving it the focus back after an action. */
+    button,
 
     /**
      * For the row's `onContextMenu`: opens the menu where the pointer is.
@@ -71,8 +74,7 @@ export function Menu({
   /** What the button shows. */
   children: React.ReactNode;
 }) {
-  const { opened, setOpened } = state;
-  const button = useRef<HTMLButtonElement>(null);
+  const { opened, setOpened, button } = state;
   const list = useRef<HTMLDivElement>(null);
   const id = useId();
 

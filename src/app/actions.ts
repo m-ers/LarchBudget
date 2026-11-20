@@ -54,6 +54,7 @@ const groupNameTaken = (name: string) => fail(`You already have a group called "
 
 const id = z.number().int().positive();
 const direction = z.enum(["up", "down"]);
+const moneyEnd = z.union([id, z.literal("ready")]);
 const name = z
   .string()
   .trim()
@@ -86,6 +87,28 @@ export async function setAssignedAction(
   if (amount === null) return fail("That is not an amount.");
 
   return budget.setAssigned(db, categoryId, month, amount) ? done() : CATEGORY_GONE;
+}
+
+export async function moveMoneyAction(
+  from: budget.MoneyEnd,
+  to: budget.MoneyEnd,
+  month: string,
+  input: string,
+): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  if (!moneyEnd.safeParse(from).success || !moneyEnd.safeParse(to).success || !isMonth(month)) {
+    return UNEXPECTED;
+  }
+
+  const amount = parseAmount(String(input));
+  if (amount === null) return fail("That is not an amount.");
+
+  const result = budget.moveMoney(db, { from, to, month, amount });
+  if (result === "not-positive") return fail("Enter an amount above zero.");
+  if (result === "no-category") return CATEGORY_GONE;
+  if (result === "same") return UNEXPECTED;
+  return done();
 }
 
 export async function createCategoryAction(groupId: number, input: string): Promise<ActionResult> {

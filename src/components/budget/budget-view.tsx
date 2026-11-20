@@ -68,7 +68,7 @@ export function BudgetView({ budget: saved, month, currency, locale, daysLeft, m
   const groupCount = budget.groups.filter(isGroup).length;
 
   return (
-    <BudgetContext value={{ month, currency, locale, groups: budget.groups, show }}>
+    <BudgetContext value={{ month, currency, locale, figures: budget, show }}>
       <Hero ref={hero}>
         <div className="relative">
           {monthNav}

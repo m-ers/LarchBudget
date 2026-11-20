@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BudgetMonth } from "@/db/budget";
-import { applyChange, type BudgetChange } from "./budget-changes";
+import { applyChange, moveChanges, type BudgetChange } from "./budget-changes";
 
 /**
  * Two groups. Rent has 300.00 left from earlier months and 50.00 spent this
@@ -101,5 +101,35 @@ describe("assigning, before the server confirms it", () => {
 
   it("changes nothing for a category that is not on the page", () => {
     expect(applyChange(budget, assign(99, 5_000))).toBe(budget);
+  });
+});
+
+describe("moving money, before the server confirms it", () => {
+  const move = (from: number | "ready", to: number | "ready", amount: number) =>
+    moveChanges(budget.groups, { from, to, amount }).reduce(applyChange, budget);
+
+  it("between two categories moves it between them, and leaves Ready to assign", () => {
+    const after = move(10, 20, 30_000);
+    expect(after.groups[0].categories[0]).toMatchObject({ assigned: 70_000, available: 95_000 });
+    expect(after.groups[1].categories[0]).toMatchObject({ assigned: 30_000, available: 30_000 });
+    expect(after.groups.map((g) => g.available)).toEqual([97_000, 30_000]);
+    expect(after.totals).toEqual(budget.totals);
+    expect(after.readyToAssign).toBe(50_000);
+  });
+
+  it("with Ready to assign at one end changes only the category and Ready to assign", () => {
+    const covered = move("ready", 11, 5_000);
+    expect(covered.groups[0].categories[1]).toMatchObject({ assigned: 7_000, available: 7_000 });
+    expect(covered.readyToAssign).toBe(45_000);
+
+    const freed = move(10, "ready", 100_000);
+    expect(freed.groups[0].categories[0]).toMatchObject({ assigned: 0, available: 25_000 });
+    expect(freed.readyToAssign).toBe(150_000);
+  });
+
+  it("does not count twice once the server's figures already hold the move", () => {
+    const once = move(10, 20, 30_000);
+    const changes = moveChanges(budget.groups, { from: 10, to: 20, amount: 30_000 });
+    expect(changes.reduce(applyChange, once)).toEqual(once);
   });
 });
