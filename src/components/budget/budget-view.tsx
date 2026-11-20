@@ -65,9 +65,10 @@ export function BudgetView({ budget: saved, month, currency, locale, daysLeft, m
   const headline = readyHeadline(ready, budget.hasAccounts);
   const hero = useRef<HTMLElement>(null);
   const heroInView = useInView(hero);
+  const groupCount = budget.groups.filter(isGroup).length;
 
   return (
-    <BudgetContext value={{ month, currency, locale, show }}>
+    <BudgetContext value={{ month, currency, locale, groups: budget.groups, show }}>
       <Hero ref={hero}>
         <div className="relative">
           {monthNav}
@@ -118,9 +119,15 @@ export function BudgetView({ budget: saved, month, currency, locale, daysLeft, m
                   }
             }
           />
-          {budget.groups.map((group) =>
+          {budget.groups.map((group, i) =>
             isGroup(group) ? (
-              <GroupBody key={group.id} group={group} />
+              <GroupBody
+                key={group.id}
+                group={group}
+                first={i === 0}
+                // Categories without a group come after every group.
+                last={i === groupCount - 1}
+              />
             ) : (
               <UngroupedBody key="ungrouped" group={group} />
             ),

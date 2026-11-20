@@ -54,6 +54,18 @@ export const available = (page: Page, name: string) =>
 /** A group's heading row. Its cells hold the group's Assigned, Spent and Available totals. */
 export const groupRow = (page: Page, name: string) => groupHeading(page, name).locator("xpath=..");
 
+/** The names of a group's categories, top to bottom, read from their Assigned fields. */
+export const categoriesIn = (page: Page, group: string) =>
+  groupRow(page, group)
+    .locator("xpath=..")
+    .getByRole("textbox", { name: /^Assigned to / })
+    .evaluateAll((fields) =>
+      fields.map((field) => field.getAttribute("aria-label")!.replace(/^Assigned to /, "")),
+    );
+
+/** The names of the groups, top to bottom, as typed (the headings show them in capitals). */
+export const groupNames = (page: Page) => page.getByRole("rowheader").allTextContents();
+
 /** What a group's categories hold together, at the end of its heading row. */
 export const groupTotal = (page: Page, name: string) =>
   groupRow(page, name).getByRole("cell").last();

@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { addMonths, monthStart, type Month } from "../lib/dates";
 import { groupColors } from "../lib/group-colors";
 import type { Db } from "./index";
@@ -236,6 +236,126 @@ export function renameCategory(db: Db, id: number, name: string): boolean {
  */
 export function archiveCategory(db: Db, id: number): void {
   db.update(categories).set({ archived: true }).where(eq(categories.id, id)).run();
+}
+
+/** Which way a category or group moves in its list. */
+export type Direction = "up" | "down";
+
+/** What came of moving something up or down: moved, not there, or already first or last. */
+export type MoveResult = "moved" | "gone" | "at-edge";
+
+/**
+ * The order of `ids` once `id` has swapped places with its neighbour, or
+ * null when it has no neighbour that way.
+ */
+function swapped(ids: number[], id: number, direction: Direction): number[] | null {
+  const at = ids.indexOf(id);
+  const other = at + (direction === "up" ? -1 : 1);
+  if (other < 0 || other >= ids.length) return null;
+  const order = [...ids];
+  [order[at], order[other]] = [order[other], order[at]];
+  return order;
+}
+
+/**
+ * Swaps a category with the visible category above or below it in the same
+ * group. The group's categories are then numbered 1, 2, 3…, so two that
+ * shared a place (possible in a hand-edited database) still change places.
+ */
+export function moveCategory(db: Db, id: number, direction: Direction): MoveResult {
+  return db.transaction((tx) => {
+    const [category] = tx
+      .select({ groupId: categories.groupId, income: categories.income })
+      .from(categories)
+      .where(and(eq(categories.id, id), eq(categories.archived, false)))
+      .all();
+    if (!category) return "gone";
+
+    const inGroup = tx
+      .select({ id: categories.id })
+      .from(categories)
+      .where(
+        and(
+          category.groupId === null
+            ? isNull(categories.groupId)
+            : eq(categories.groupId, category.groupId),
+          eq(categories.income, category.income),
+          eq(categories.archived, false),
+        ),
+      )
+      .orderBy(categories.sortOrder, categories.id)
+      .all();
+    const order = swapped(
+      inGroup.map((c) => c.id),
+      id,
+      direction,
+    );
+    if (!order) return "at-edge";
+    order.forEach((categoryId, i) =>
+      tx
+        .update(categories)
+        .set({ sortOrder: i + 1 })
+        .where(eq(categories.id, categoryId))
+        .run(),
+    );
+    return "moved";
+  });
+}
+
+/** Swaps a group with the one above or below it, like `moveCategory`. */
+export function moveGroup(db: Db, id: number, direction: Direction): MoveResult {
+  return db.transaction((tx) => {
+    const groups = tx
+      .select({ id: categoryGroups.id })
+      .from(categoryGroups)
+      .orderBy(categoryGroups.sortOrder, categoryGroups.id)
+      .all();
+    if (!groups.some((g) => g.id === id)) return "gone";
+    const order = swapped(
+      groups.map((g) => g.id),
+      id,
+      direction,
+    );
+    if (!order) return "at-edge";
+    order.forEach((groupId, i) =>
+      tx
+        .update(categoryGroups)
+        .set({ sortOrder: i + 1 })
+        .where(eq(categoryGroups.id, groupId))
+        .run(),
+    );
+    return "moved";
+  });
+}
+
+/**
+ * Puts a category at the end of another group. Its assignments and
+ * transactions stay with it, so nothing changes in the figures but the
+ * groups' totals.
+ */
+export function moveCategoryToGroup(
+  db: Db,
+  id: number,
+  groupId: number,
+): "moved" | "no-category" | "no-group" {
+  return db.transaction((tx) => {
+    const category = tx
+      .select({ id: categories.id })
+      .from(categories)
+      .where(
+        and(eq(categories.id, id), eq(categories.archived, false), eq(categories.income, false)),
+      )
+      .all();
+    if (category.length === 0) return "no-category";
+    const group = tx.select().from(categoryGroups).where(eq(categoryGroups.id, groupId)).all();
+    if (group.length === 0) return "no-group";
+
+    const [{ next }] = tx.all<{ next: number }>(
+      sql`SELECT coalesce(max(sort_order), 0) + 1 AS next FROM categories`,
+    );
+    tx.update(categories).set({ groupId, sortOrder: next }).where(eq(categories.id, id)).run();
+    return "moved";
+  });
 }
 
 /**

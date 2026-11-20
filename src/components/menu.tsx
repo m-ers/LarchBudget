@@ -149,8 +149,13 @@ export function Menu({
       role="menuitem"
       tabIndex={-1}
       aria-disabled={disabled || undefined}
-      onMouseEnter={(e) => {
-        if (!disabled) e.currentTarget.focus();
+      onPointerMove={(e) => {
+        // Only a pointer that really moves takes the focus, not one resting
+        // where the menu happens to open. On an item that cannot be chosen,
+        // nothing is marked.
+        if (e.movementX === 0 && e.movementY === 0) return;
+        const target = disabled ? e.currentTarget.parentElement : e.currentTarget;
+        if (document.activeElement !== target) target?.focus();
       }}
       onClick={(e) => {
         if (disabled) return;

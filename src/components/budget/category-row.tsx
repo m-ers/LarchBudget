@@ -7,7 +7,7 @@ import { EnvelopeToken } from "../icons";
 import { useMenu } from "../menu";
 import { AssignedInput } from "./assigned-input";
 import { useBudget } from "./budget-context";
-import { CategoryName } from "./category-name";
+import { CategoryName, type Place } from "./category-name";
 import { Gauge } from "./gauge";
 
 /** The Spent column: spending as a positive amount, a net refund with a plus sign. */
@@ -19,7 +19,15 @@ export function formatSpent(activity: number, currency: string, locale: string):
 }
 
 /** One category in the budget table: its name and actions, Assigned, Spent and Available. */
-export function CategoryRow({ category, color }: { category: Category; color: string }) {
+export function CategoryRow({
+  category,
+  color,
+  place,
+}: {
+  category: Category;
+  color: string;
+  place: Place;
+}) {
   const { currency, locale } = useBudget();
   const { id, name, assigned, activity, available, balance } = category;
   const availableLabel = formatMoney(available, currency, locale);
@@ -31,7 +39,7 @@ export function CategoryRow({ category, color }: { category: Category; color: st
         <EnvelopeToken color={color} />
       </td>
       <td>
-        <CategoryName id={id} name={name} balance={balance} menu={menu} />
+        <CategoryName id={id} name={name} balance={balance} place={place} menu={menu} />
       </td>
       <td>
         <AssignedInput categoryId={id} categoryName={name} value={assigned} />

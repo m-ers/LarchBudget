@@ -1,7 +1,12 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { createCategoryAction, deleteGroupAction, renameGroupAction } from "@/app/actions";
+import {
+  createCategoryAction,
+  deleteGroupAction,
+  moveGroupAction,
+  renameGroupAction,
+} from "@/app/actions";
 import type { GroupRow } from "@/db/budget";
 import { groupColor } from "@/lib/group-colors";
 import { formatAmount, formatMoney } from "@/lib/money";
@@ -26,7 +31,16 @@ function deleteQuestion(name: string, categoryCount: number): string {
  * One group in the budget table: its heading (rename, add category, and a
  * menu with the rest), its category rows and the inline "new category" field.
  */
-export function GroupBody({ group }: { group: GroupRow & { id: number } }) {
+export function GroupBody({
+  group,
+  first,
+  last,
+}: {
+  group: GroupRow & { id: number };
+  /** Whether it is the first or the last group, which cannot move further that way. */
+  first: boolean;
+  last: boolean;
+}) {
   const { id, name, categories } = group;
   const isEmpty = categories.length === 0;
   // True while the "new category" field is in use.
@@ -37,8 +51,8 @@ export function GroupBody({ group }: { group: GroupRow & { id: number } }) {
   const menu = useMenu();
   const nameField = useRef<InlineNameHandle>(null);
 
+  // A failure of the heading's actions is reported next to the "new category" field.
   function remove() {
-    // A failure is reported next to the "new category" field.
     if (window.confirm(deleteQuestion(name, categories.length))) {
       adder.save(() => deleteGroupAction(id));
     }
@@ -67,6 +81,16 @@ export function GroupBody({ group }: { group: GroupRow & { id: number } }) {
           buttonClassName={rowActionLook("head")}
           items={[
             { label: "Rename", onSelect: () => nameField.current?.startEditing() },
+            {
+              label: "Move up",
+              onSelect: () => adder.save(() => moveGroupAction(id, "up")),
+              disabled: first,
+            },
+            {
+              label: "Move down",
+              onSelect: () => adder.save(() => moveGroupAction(id, "down")),
+              disabled: last,
+            },
             { label: "Delete group", onSelect: remove, destructive: true },
           ]}
         >
@@ -154,7 +178,13 @@ function GroupHeading({
 
 function CategoryRows({ group }: { group: GroupRow }) {
   const color = groupColor(group.colorSlot);
-  return group.categories.map((category) => (
-    <CategoryRow key={category.id} category={category} color={color} />
+  const { categories } = group;
+  return categories.map((category, i) => (
+    <CategoryRow
+      key={category.id}
+      category={category}
+      color={color}
+      place={{ groupId: group.id, first: i === 0, last: i === categories.length - 1 }}
+    />
   ));
 }

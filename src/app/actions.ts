@@ -47,11 +47,13 @@ const done = (): ActionResult => {
 const LOGGED_OUT = fail("Your session has ended. Reload the page to log in again.");
 const UNEXPECTED = fail("Something went wrong. Reload the page and try again.");
 const CATEGORY_GONE = fail("That category no longer exists.");
+const GROUP_GONE = fail("That group no longer exists.");
 const TRANSACTION_GONE = fail("That transaction no longer exists. Reload the page.");
 const categoryNameTaken = (name: string) => fail(`You already have a category called "${name}".`);
 const groupNameTaken = (name: string) => fail(`You already have a group called "${name}".`);
 
 const id = z.number().int().positive();
+const direction = z.enum(["up", "down"]);
 const name = z
   .string()
   .trim()
@@ -94,7 +96,7 @@ export async function createCategoryAction(groupId: number, input: string): Prom
   if (!parsed.success) return fail(parsed.error.issues[0].message);
 
   const result = budget.createCategory(db, parsed.data, groupId);
-  if (result === "no-group") return fail("That group no longer exists.");
+  if (result === "no-group") return GROUP_GONE;
   if (result === "name-taken") return categoryNameTaken(parsed.data);
   return done();
 }
@@ -123,6 +125,32 @@ export async function archiveCategoryAction(categoryId: number): Promise<ActionR
   return done();
 }
 
+export async function moveCategoryAction(
+  categoryId: number,
+  to: budget.Direction,
+): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  if (!id.safeParse(categoryId).success || !direction.safeParse(to).success) return UNEXPECTED;
+
+  // Already first or last: nothing to do, and the page shows the order as it is.
+  return budget.moveCategory(db, categoryId, to) === "gone" ? CATEGORY_GONE : done();
+}
+
+export async function moveCategoryToGroupAction(
+  categoryId: number,
+  groupId: number,
+): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  if (!id.safeParse(categoryId).success || !id.safeParse(groupId).success) return UNEXPECTED;
+
+  const result = budget.moveCategoryToGroup(db, categoryId, groupId);
+  if (result === "no-category") return CATEGORY_GONE;
+  if (result === "no-group") return GROUP_GONE;
+  return done();
+}
+
 export async function createGroupAction(input: string): Promise<ActionResult> {
   const db = await database();
   if (!db) return LOGGED_OUT;
@@ -142,6 +170,17 @@ export async function renameGroupAction(groupId: number, input: string): Promise
   if (!parsed.success) return fail(parsed.error.issues[0].message);
 
   return budget.renameGroup(db, groupId, parsed.data) ? done() : groupNameTaken(parsed.data);
+}
+
+export async function moveGroupAction(
+  groupId: number,
+  to: budget.Direction,
+): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  if (!id.safeParse(groupId).success || !direction.safeParse(to).success) return UNEXPECTED;
+
+  return budget.moveGroup(db, groupId, to) === "gone" ? GROUP_GONE : done();
 }
 
 export async function deleteGroupAction(groupId: number): Promise<ActionResult> {

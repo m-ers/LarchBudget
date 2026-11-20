@@ -6,12 +6,15 @@ import {
   archiveCategory,
   deleteGroup,
   getBudgetMonth,
+  moveCategory,
+  moveCategoryToGroup,
+  moveGroup,
   renameCategory,
   renameGroup,
   setAssigned,
 } from "./budget";
 import { openDb, type Db } from "./index";
-import { transactions } from "./schema";
+import { categories, transactions } from "./schema";
 import { created } from "./created";
 
 let db: Db;
@@ -333,5 +336,113 @@ describe("groups", () => {
     expect(renameGroup(db, goals, "EVERYDAY")).toBe(false);
     expect(renameGroup(db, goals, "goals")).toBe(true);
     expect(getBudgetMonth(db, "2026-10").groups.map((g) => g.name)).toEqual(["Everyday", "goals"]);
+  });
+});
+
+describe("reordering", () => {
+  /** The names in each group, in the order the budget page shows them. */
+  const layout = () =>
+    Object.fromEntries(
+      getBudgetMonth(db, "2026-10").groups.map((g) => [g.name, g.categories.map((c) => c.name)]),
+    );
+
+  it("swaps a category with its neighbour in the same group", () => {
+    const goals = createGroup(db, "Goals");
+    createCategory(db, "Rent");
+    const water = createCategory(db, "Water");
+    createCategory(db, "Holiday", goals);
+    createCategory(db, "Phone");
+
+    expect(moveCategory(db, water, "up")).toBe("moved");
+    expect(layout()).toEqual({ Everyday: ["Water", "Rent", "Phone"], Goals: ["Holiday"] });
+    expect(moveCategory(db, water, "down")).toBe("moved");
+    expect(moveCategory(db, water, "down")).toBe("moved");
+    expect(layout()).toEqual({ Everyday: ["Rent", "Phone", "Water"], Goals: ["Holiday"] });
+  });
+
+  it("does nothing for the first category going up or the last going down", () => {
+    const rent = createCategory(db, "Rent");
+    const water = createCategory(db, "Water");
+    expect(moveCategory(db, rent, "up")).toBe("at-edge");
+    expect(moveCategory(db, water, "down")).toBe("at-edge");
+    expect(layout()).toEqual({ Everyday: ["Rent", "Water"] });
+  });
+
+  it("skips archived categories, and refuses to move one", () => {
+    createCategory(db, "Rent");
+    const old = createCategory(db, "Old");
+    const water = createCategory(db, "Water");
+    archiveCategory(db, old);
+    expect(moveCategory(db, water, "up")).toBe("moved");
+    expect(layout()).toEqual({ Everyday: ["Water", "Rent"] });
+    expect(moveCategory(db, old, "up")).toBe("gone");
+    expect(moveCategory(db, 9999, "up")).toBe("gone");
+  });
+
+  it("still swaps two categories that share a place", () => {
+    const rent = createCategory(db, "Rent");
+    createCategory(db, "Water");
+    db.update(categories).set({ sortOrder: 0 }).run();
+    expect(moveCategory(db, rent, "down")).toBe("moved");
+    expect(layout()).toEqual({ Everyday: ["Water", "Rent"] });
+  });
+
+  it("swaps a group with its neighbour", () => {
+    const goals = createGroup(db, "Goals");
+    createGroup(db, "Fixed");
+    expect(moveGroup(db, goals, "up")).toBe("moved");
+    expect(Object.keys(layout())).toEqual(["Goals", "Everyday", "Fixed"]);
+    expect(moveGroup(db, goals, "up")).toBe("at-edge");
+    expect(moveGroup(db, goals, "down")).toBe("moved");
+    expect(moveGroup(db, goals, "down")).toBe("moved");
+    expect(moveGroup(db, goals, "down")).toBe("at-edge");
+    expect(Object.keys(layout())).toEqual(["Everyday", "Fixed", "Goals"]);
+    expect(moveGroup(db, 9999, "up")).toBe("gone");
+  });
+
+  it("keeps a new group or category at the end after reordering", () => {
+    const goals = createGroup(db, "Goals");
+    const rent = createCategory(db, "Rent");
+    createCategory(db, "Water");
+    moveGroup(db, goals, "up");
+    moveCategory(db, rent, "down");
+    createGroup(db, "Fixed");
+    createCategory(db, "Phone");
+    expect(layout()).toEqual({ Goals: [], Everyday: ["Water", "Rent", "Phone"], Fixed: [] });
+  });
+});
+
+describe("moving a category to another group", () => {
+  it("puts it at the end of that group, with its money and history", () => {
+    const goals = createGroup(db, "Goals");
+    const holiday = createCategory(db, "Holiday");
+    createCategory(db, "Groceries");
+    createCategory(db, "Car", goals);
+    setAssigned(db, holiday, "2026-10", 30_000);
+    spend(holiday, "2026-10-12", -4_000);
+    const before = getBudgetMonth(db, "2026-10");
+
+    expect(moveCategoryToGroup(db, holiday, goals)).toBe("moved");
+    const after = getBudgetMonth(db, "2026-10");
+    expect(after.groups.map((g) => [g.name, g.categories.map((c) => c.name), g.available])).toEqual(
+      [
+        ["Everyday", ["Groceries"], 0],
+        ["Goals", ["Car", "Holiday"], 26_000],
+      ],
+    );
+    expect(after.groups[1].categories[1]).toEqual(before.groups[0].categories[0]);
+    expect(after.readyToAssign).toBe(before.readyToAssign);
+    expectEverythingAccountedFor();
+  });
+
+  it("refuses a category or group that is not there", () => {
+    const goals = createGroup(db, "Goals");
+    const old = createCategory(db, "Old");
+    archiveCategory(db, old);
+    expect(moveCategoryToGroup(db, old, goals)).toBe("no-category");
+    expect(moveCategoryToGroup(db, 9999, goals)).toBe("no-category");
+    const rent = createCategory(db, "Rent");
+    expect(moveCategoryToGroup(db, rent, 9999)).toBe("no-group");
+    expect(getBudgetMonth(db, "2026-10").groups[0].categories.map((c) => c.name)).toEqual(["Rent"]);
   });
 });

@@ -1,7 +1,12 @@
 "use client";
 
 import { useRef } from "react";
-import { archiveCategoryAction, renameCategoryAction } from "@/app/actions";
+import {
+  archiveCategoryAction,
+  moveCategoryAction,
+  moveCategoryToGroupAction,
+  renameCategoryAction,
+} from "@/app/actions";
 import { formatMoney } from "@/lib/money";
 import { ErrorText } from "../form";
 import { MoreIcon } from "../icons";
@@ -11,11 +16,15 @@ import { useSave } from "../use-save";
 import { useBudget } from "./budget-context";
 import { rowActionLook } from "./row-action";
 
+/** Where a category is: its group, and whether it is that group's first or last. */
+export type Place = { groupId: number | null; first: boolean; last: boolean };
+
 type Props = {
   id: number;
   name: string;
   /** What the category holds over all time: what archiving gives back. */
   balance: number;
+  place: Place;
   /** The row's menu, which a right-click on the row opens too. */
   menu: ReturnType<typeof useMenu>;
 };
@@ -24,8 +33,8 @@ type Props = {
  * Category name: click to rename. The category's actions are in a menu
  * beside it, whose button shows on row hover.
  */
-export function CategoryName({ id, name, balance, menu }: Props) {
-  const { currency, locale } = useBudget();
+export function CategoryName({ id, name, balance, place, menu }: Props) {
+  const { currency, locale, groups } = useBudget();
   const { error, pending, save } = useSave();
   const nameField = useRef<InlineNameHandle>(null);
 
@@ -56,6 +65,26 @@ export function CategoryName({ id, name, balance, menu }: Props) {
         buttonClassName={rowActionLook("row")}
         items={[
           { label: "Rename", onSelect: () => nameField.current?.startEditing() },
+          {
+            label: "Move up",
+            onSelect: () => save(() => moveCategoryAction(id, "up")),
+            disabled: place.first,
+          },
+          {
+            label: "Move down",
+            onSelect: () => save(() => moveCategoryAction(id, "down")),
+            disabled: place.last,
+          },
+          ...groups.flatMap(({ id: groupId, name: groupName }) =>
+            groupId === null || groupId === place.groupId
+              ? []
+              : [
+                  {
+                    label: `Move to ${groupName}`,
+                    onSelect: () => save(() => moveCategoryToGroupAction(id, groupId)),
+                  },
+                ],
+          ),
           { label: "Archive", onSelect: archive, destructive: true },
         ]}
       >
