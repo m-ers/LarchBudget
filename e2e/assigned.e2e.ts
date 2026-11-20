@@ -11,6 +11,7 @@ import {
   countAnswers,
   groupTotal,
   headerFigure,
+  newGroupField,
   slowConnection,
   spentLine,
 } from "./budget-page";
@@ -171,4 +172,43 @@ test("a save while LarchBudget cannot be reached puts the old amount back, and k
   await page.keyboard.press("Escape");
   await expect(alert(page, "Could not reach LarchBudget")).toHaveCount(0);
   await expect(assignedField(page, "Groceries")).toHaveValue("40.00");
+});
+
+test("Tab and the arrow keys go down and up the column; Shift+Tab reaches the buttons", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await addGroup(page, "Fixed costs");
+  await addCategories(page, "Fixed costs", ["Rent", "Utilities"]);
+  await addGroup(page, "Everyday");
+  await addCategories(page, "Everyday", ["Groceries"]);
+  await clickAway(page);
+
+  await assignedField(page, "Rent").click();
+  await page.keyboard.type("1100");
+  await page.keyboard.press("Tab");
+  await expect(assignedField(page, "Utilities")).toBeFocused();
+  await page.keyboard.type("95");
+  // Also into the next group.
+  await page.keyboard.press("Tab");
+  await expect(assignedField(page, "Groceries")).toBeFocused();
+  await expect(assignedField(page, "Rent")).toHaveValue("1,100.00");
+  await expect(assignedField(page, "Utilities")).toHaveValue("95.00");
+
+  await page.keyboard.press("ArrowUp");
+  await expect(assignedField(page, "Utilities")).toBeFocused();
+  await page.keyboard.press("ArrowUp");
+  await expect(assignedField(page, "Rent")).toBeFocused();
+  await page.keyboard.press("ArrowUp");
+  await expect(assignedField(page, "Rent")).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(assignedField(page, "Utilities")).toBeFocused();
+
+  await page.keyboard.press("Shift+Tab");
+  await expect(page.getByRole("button", { name: "Archive Utilities" })).toBeFocused();
+
+  // From the last field, Tab leaves the table.
+  await assignedField(page, "Groceries").click();
+  await page.keyboard.press("Tab");
+  await expect(newGroupField(page)).toBeFocused();
 });

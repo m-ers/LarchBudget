@@ -16,8 +16,22 @@ type Props = {
 };
 
 /**
+ * The Assigned field `step` rows up (-1) or down (1) from this one, if any.
+ * Only in this table: Next.js can keep other visited pages mounted but hidden.
+ */
+function nearbyField(field: HTMLInputElement, step: number): HTMLInputElement | undefined {
+  const table = field.closest("table");
+  const fields = Array.from(
+    table?.querySelectorAll<HTMLInputElement>("input[data-assigned]") ?? [],
+  );
+  return fields[fields.indexOf(field) + step];
+}
+
+/**
  * The amount assigned to one category this month. Shows a formatted number
- * until focused; saves on blur or Enter (Enter also jumps to the next row).
+ * until focused; saves when it is left. Enter, Tab and the arrow keys move
+ * down or up the column, so amounts can be typed one after another;
+ * Shift+Tab stays the browser's own, to reach the buttons in between.
  *
  * Leaving the field shows the new amount straight away, and every figure it
  * moves; the save follows. If the save fails, the old amount comes back with
@@ -105,19 +119,21 @@ export function AssignedInput({ categoryId, categoryName, value }: Props) {
           if (!windowLostFocus(e)) commit();
         }}
         onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            // Only this table: Next.js can keep other visited pages mounted but hidden.
-            const table = e.currentTarget.closest("table");
-            const inputs = Array.from(
-              table?.querySelectorAll<HTMLInputElement>("input[data-assigned]") ?? [],
-            );
-            const next = inputs[inputs.indexOf(e.currentTarget) + 1];
-            if (next) next.focus();
-            else e.currentTarget.blur();
-          } else if (e.key === "Escape") {
-            cancel(e.currentTarget);
+          // Keys that pick a character from an input method are not ours.
+          if (e.nativeEvent.isComposing) return;
+          const field = e.currentTarget;
+          if (e.key === "Escape") {
+            cancel(field);
+            return;
           }
+          const down =
+            e.key === "Enter" || e.key === "ArrowDown" || (e.key === "Tab" && !e.shiftKey);
+          if (!down && e.key !== "ArrowUp") return;
+          const next = nearbyField(field, down ? 1 : -1);
+          // On the last field, Tab leaves the table and Enter just saves.
+          if (next || e.key === "Enter") e.preventDefault();
+          if (next) next.focus();
+          else if (e.key === "Enter") field.blur();
         }}
         className={`w-28 rounded-md border bg-transparent px-2 py-[3px] text-right text-[15px] tabular-nums transition-colors placeholder:text-muted/40 focus:bg-surface focus:outline-none ${
           error ? "border-bad" : "border-transparent hover:border-line focus:border-brand"
