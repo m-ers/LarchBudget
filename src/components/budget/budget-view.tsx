@@ -10,6 +10,7 @@ import { Hero, HeroFigure, HeroLead } from "../hero";
 import { ArchivedCategories } from "./archived-categories";
 import { applyChange } from "./budget-changes";
 import { BudgetContext } from "./budget-context";
+import { CopyLastMonth } from "./copy-last-month";
 import { GroupBody, UngroupedBody } from "./group-body";
 import { NewGroup } from "./new-group";
 import { TableHead } from "./table-head";
@@ -117,6 +118,11 @@ export function BudgetView({
             </Link>
           </div>
         )}
+
+        {budget.assignedLastMonth &&
+          budget.groups.every((g) => g.categories.every((c) => c.assigned === 0)) && (
+            <CopyLastMonth />
+          )}
 
         <table className="w-full border-collapse">
           <TableHead

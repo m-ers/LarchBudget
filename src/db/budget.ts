@@ -59,6 +59,8 @@ export type BudgetMonth = {
   /** Money in accounts that is not in any category, across all time. */
   readyToAssign: number;
   hasAccounts: boolean;
+  /** Whether anything was assigned to a visible category in the month before. */
+  assignedLastMonth: boolean;
 };
 
 export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
@@ -97,13 +99,16 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
     ORDER BY c.sort_order, c.id
   `);
 
-  const [{ total: moneyInAccounts, count: accountCount }] = db.all<{
+  const [{ total: moneyInAccounts, count: accountCount, assignedLastMonth }] = db.all<{
     total: number;
     count: number;
+    assignedLastMonth: number;
   }>(sql`
     SELECT
       coalesce((SELECT sum(amount) FROM transactions), 0) AS total,
-      (SELECT count(*) FROM accounts) AS count
+      (SELECT count(*) FROM accounts) AS count,
+      EXISTS (SELECT 1 FROM assignments a JOIN categories c ON c.id = a.category_id
+              WHERE c.archived = 0 AND a.month = ${addMonths(month, -1)}) AS assignedLastMonth
   `);
 
   const byGroup = new Map<number | null, CategoryRow[]>();
@@ -152,6 +157,7 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
     },
     readyToAssign: moneyInAccounts - inCategories,
     hasAccounts: accountCount > 0,
+    assignedLastMonth: assignedLastMonth === 1,
   };
 }
 
@@ -188,6 +194,24 @@ function writeAssigned(db: Db, categoryId: number, month: Month, amount: number)
       })
       .run();
   }
+}
+
+/**
+ * Gives every visible category that has nothing assigned in month `to` what
+ * it had assigned in month `from`. Returns how many it filled in.
+ */
+export function copyAssignments(db: Db, from: Month, to: Month): number {
+  return db.transaction((tx) => {
+    const copies = tx.all<{ categoryId: number; amount: number }>(sql`
+      SELECT a.category_id AS categoryId, a.amount
+      FROM assignments a JOIN categories c ON c.id = a.category_id
+      WHERE a.month = ${from} AND c.archived = 0 AND c.income = 0
+        AND NOT EXISTS (SELECT 1 FROM assignments b
+                        WHERE b.category_id = a.category_id AND b.month = ${to})
+    `);
+    for (const { categoryId, amount } of copies) writeAssigned(tx, categoryId, to, amount);
+    return copies.length;
+  });
 }
 
 /** One end of moving money: a category, or "ready" for Ready to assign. */

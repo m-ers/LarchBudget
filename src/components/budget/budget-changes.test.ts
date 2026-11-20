@@ -40,6 +40,7 @@ const budget: BudgetMonth = {
   totals: { assigned: 102_000, spent: 5_000, available: 127_000 },
   readyToAssign: 50_000,
   hasAccounts: true,
+  assignedLastMonth: false,
 };
 
 const assign = (categoryId: number, amount: number): BudgetChange => ({

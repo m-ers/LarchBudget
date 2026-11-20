@@ -5,6 +5,7 @@ import { createAccount, getAccounts } from "./accounts";
 import * as budget from "./budget";
 import {
   archiveCategory,
+  copyAssignments,
   deleteGroup,
   getArchivedCategories,
   getBudgetMonth,
@@ -594,5 +595,45 @@ describe("archived categories", () => {
     const rent = createCategory(db, "Rent");
     expect(restoreCategory(db, rent)).toBe("restored");
     expect(rows("2026-10").map((c) => c.name)).toEqual(["Rent"]);
+  });
+});
+
+describe("starting a month from the one before", () => {
+  it("is offered once something was assigned to a visible category in the month before", () => {
+    const fun = createCategory(db, "Fun");
+    expect(getBudgetMonth(db, "2026-11").assignedLastMonth).toBe(false);
+    setAssigned(db, fun, "2026-10", 5_000);
+    expect(getBudgetMonth(db, "2026-11").assignedLastMonth).toBe(true);
+    expect(getBudgetMonth(db, "2026-12").assignedLastMonth).toBe(false);
+    archiveCategory(db, fun);
+    expect(getBudgetMonth(db, "2026-11").assignedLastMonth).toBe(false);
+  });
+
+  it("copies what each visible category got, unless it already has an amount", () => {
+    const rent = createCategory(db, "Rent");
+    const water = createCategory(db, "Water");
+    const fun = createCategory(db, "Fun");
+    const old = createCategory(db, "Old");
+    createCategory(db, "New");
+    setAssigned(db, rent, "2026-10", 50_000);
+    setAssigned(db, water, "2026-10", 2_000);
+    setAssigned(db, fun, "2026-10", 3_000);
+    setAssigned(db, old, "2026-10", 1_000);
+    archiveCategory(db, old);
+    setAssigned(db, water, "2026-11", 2_500);
+    const before = getBudgetMonth(db, "2026-11").readyToAssign;
+
+    expect(copyAssignments(db, "2026-10", "2026-11")).toBe(2);
+    expect(rows("2026-11").map((c) => [c.name, c.assigned])).toEqual([
+      ["Rent", 50_000],
+      ["Water", 2_500],
+      ["Fun", 3_000],
+      ["New", 0],
+    ]);
+    expect(getBudgetMonth(db, "2026-11").readyToAssign).toBe(before - 53_000);
+    expectEverythingAccountedFor();
+
+    // A second time there is nothing left to fill in.
+    expect(copyAssignments(db, "2026-10", "2026-11")).toBe(0);
   });
 });

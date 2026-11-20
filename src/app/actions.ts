@@ -9,7 +9,7 @@ import * as budget from "@/db/budget";
 import * as transactions from "@/db/transactions";
 import { accountTypes } from "@/lib/account-types";
 import { getConfig } from "@/lib/config";
-import { isMonth, today, type IsoDate } from "@/lib/dates";
+import { addMonths, isMonth, today, type IsoDate } from "@/lib/dates";
 import { delimiters, parseCsv } from "@/lib/import/csv";
 import {
   MAX_CELL_LENGTH,
@@ -87,6 +87,16 @@ export async function setAssignedAction(
   if (amount === null) return fail("That is not an amount.");
 
   return budget.setAssigned(db, categoryId, month, amount) ? done() : CATEGORY_GONE;
+}
+
+/** Starts a month with what each category got the month before, where it has nothing yet. */
+export async function copyLastMonthAction(month: string): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  if (!isMonth(month)) return UNEXPECTED;
+
+  budget.copyAssignments(db, addMonths(month, -1), month);
+  return done();
 }
 
 export async function moveMoneyAction(
