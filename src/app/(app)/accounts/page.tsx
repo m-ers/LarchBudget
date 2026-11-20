@@ -5,6 +5,7 @@ import { getAccounts } from "@/app/queries";
 import { Hero, HeroFigure, HeroLead, HeroTitle, PageSkeleton } from "@/components/hero";
 import { accountTypeLabels } from "@/lib/account-types";
 import { getConfig } from "@/lib/config";
+import { today } from "@/lib/dates";
 import { formatAmount, formatMoney, formatMoneyParts } from "@/lib/money";
 
 export const metadata: Metadata = { title: "Accounts" };
@@ -68,9 +69,14 @@ async function Accounts() {
           )}
         </section>
 
-        <section className="w-80 shrink-0 rounded-2xl border border-line bg-surface p-5">
-          <h2 className="mb-4 font-semibold">Add an account</h2>
-          <AccountForm amountPlaceholder={formatAmount(0, currency, locale)} />
+        <section
+          aria-labelledby="add-account"
+          className="w-80 shrink-0 rounded-2xl border border-line bg-surface p-5"
+        >
+          <h2 id="add-account" className="mb-4 font-semibold">
+            Add an account
+          </h2>
+          <AccountForm amountPlaceholder={formatAmount(0, currency, locale)} today={today()} />
         </section>
       </div>
     </>

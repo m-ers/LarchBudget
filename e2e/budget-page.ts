@@ -49,7 +49,7 @@ export const clickAway = (page: Page) => page.getByRole("heading", { level: 1 })
 export async function addAccount(page: Page, name: string, balanceToday: string) {
   await page.goto("/accounts");
   await page.getByRole("textbox", { name: "Name" }).fill(name);
-  await page.getByRole("textbox", { name: "Balance today" }).fill(balanceToday);
+  await page.getByRole("textbox", { name: /^Balance\b/ }).fill(balanceToday);
   await page.getByRole("button", { name: "Add account" }).click();
   // The first cell of a row: the type column can read the same, e.g. "Checking".
   await expect(

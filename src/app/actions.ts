@@ -9,7 +9,7 @@ import * as budget from "@/db/budget";
 import * as transactions from "@/db/transactions";
 import { accountTypes } from "@/lib/account-types";
 import { getConfig } from "@/lib/config";
-import { isMonth, today } from "@/lib/dates";
+import { isMonth, today, type IsoDate } from "@/lib/dates";
 import { parseCsv } from "@/lib/import/csv";
 import {
   MAX_CELL_LENGTH,
@@ -154,10 +154,17 @@ export async function deleteGroupAction(groupId: number): Promise<ActionResult> 
 
 // ---- Accounts --------------------------------------------------------------
 
+/** The day an entered balance is from: a real date, and not after today. */
+const balanceDate = z.iso
+  .date("That is not a date.")
+  .refine((date) => date <= today(), "The date cannot be in the future.")
+  .transform((date) => date as IsoDate);
+
 const accountInput = z.object({
   name,
   type: z.enum(accountTypes),
   startingBalance: z.string(),
+  balanceDate,
 });
 
 export async function createAccountAction(formData: FormData): Promise<ActionResult> {
@@ -167,18 +174,14 @@ export async function createAccountAction(formData: FormData): Promise<ActionRes
     name: formData.get("name"),
     type: formData.get("type"),
     startingBalance: formData.get("startingBalance") ?? "",
+    balanceDate: formData.get("balanceDate"),
   });
   if (!parsed.success) return fail(parsed.error.issues[0].message);
 
   const startingBalance = parseAmount(parsed.data.startingBalance);
-  if (startingBalance === null) return fail("The starting balance is not an amount.");
+  if (startingBalance === null) return fail("The balance is not an amount.");
 
-  accounts.createAccount(db, {
-    name: parsed.data.name,
-    type: parsed.data.type,
-    startingBalance,
-    balanceDate: today(),
-  });
+  accounts.createAccount(db, { ...parsed.data, startingBalance });
   return done();
 }
 
