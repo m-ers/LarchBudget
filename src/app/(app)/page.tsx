@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { connection } from "next/server";
-import { getBudgetMonth } from "@/app/queries";
+import { getArchivedCategories, getBudgetMonth } from "@/app/queries";
 import { BudgetView } from "@/components/budget/budget-view";
 import { HeroTitle } from "@/components/hero";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
@@ -27,7 +27,7 @@ export default async function BudgetPage({ searchParams }: PageProps<"/">) {
   const thisMonth = currentMonth();
   const month = isMonth(params.month) ? params.month : thisMonth;
 
-  const budget = await getBudgetMonth(month);
+  const [budget, archived] = await Promise.all([getBudgetMonth(month), getArchivedCategories()]);
   const { currency, locale } = getConfig();
 
   return (
@@ -35,6 +35,7 @@ export default async function BudgetPage({ searchParams }: PageProps<"/">) {
     <BudgetView
       key={month}
       budget={budget}
+      archived={archived}
       month={month}
       currency={currency}
       locale={locale}

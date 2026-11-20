@@ -6,6 +6,7 @@ import * as budget from "./budget";
 import {
   archiveCategory,
   deleteGroup,
+  getArchivedCategories,
   getBudgetMonth,
   moveCategory,
   moveCategoryToGroup,
@@ -13,6 +14,7 @@ import {
   moveMoney,
   renameCategory,
   renameGroup,
+  restoreCategory,
   setAssigned,
 } from "./budget";
 import { openDb, type Db } from "./index";
@@ -526,5 +528,71 @@ describe("moving money", () => {
     }
     expect(rows("2026-10").find((c) => c.name === "Groceries")?.assigned).toBe(30_000);
     expectEverythingAccountedFor();
+  });
+});
+
+describe("archived categories", () => {
+  it("are listed by name with what they hold over all time", () => {
+    const water = createCategory(db, "water");
+    const fun = createCategory(db, "Fun");
+    createCategory(db, "Rent");
+    setAssigned(db, water, "2026-10", 5_000);
+    setAssigned(db, water, "2026-12", 2_000);
+    spend(fun, "2026-10-04", -3_000);
+    archiveCategory(db, water);
+    archiveCategory(db, fun);
+    expect(getArchivedCategories(db)).toEqual([
+      { id: fun, name: "Fun", balance: -3_000 },
+      { id: water, name: "water", balance: 7_000 },
+    ]);
+  });
+
+  it("come back at the end of their group, with their history and balance", () => {
+    const goals = createGroup(db, "Goals");
+    const holiday = createCategory(db, "Holiday", goals);
+    createCategory(db, "Car", goals);
+    setAssigned(db, holiday, "2026-10", 16_000);
+    spend(holiday, "2026-10-20", -1_000);
+    archiveCategory(db, holiday);
+    expect(getBudgetMonth(db, "2026-10").readyToAssign).toBe(99_000);
+
+    expect(restoreCategory(db, holiday)).toBe("restored");
+    const month = getBudgetMonth(db, "2026-10");
+    expect(month.groups[1].categories.map((c) => [c.name, c.assigned, c.available])).toEqual([
+      ["Car", 0, 0],
+      ["Holiday", 16_000, 15_000],
+    ]);
+    // Its balance leaves Ready to assign again.
+    expect(month.readyToAssign).toBe(84_000);
+    expect(getArchivedCategories(db)).toEqual([]);
+    expectEverythingAccountedFor();
+  });
+
+  it("come back in the first group when theirs was deleted", () => {
+    const goals = createGroup(db, "Goals");
+    const holiday = createCategory(db, "Holiday", goals);
+    deleteGroup(db, goals);
+    expect(restoreCategory(db, holiday)).toBe("restored");
+    expect(getBudgetMonth(db, "2026-10").groups.map((g) => [g.name, g.categories.length])).toEqual([
+      ["Everyday", 1],
+    ]);
+  });
+
+  it("are not restored while a visible category has their name, or when there is no group", () => {
+    const fun = createCategory(db, "Fun");
+    archiveCategory(db, fun);
+    const newFun = createCategory(db, "FUN");
+    expect(restoreCategory(db, fun)).toBe("name-taken");
+    archiveCategory(db, newFun);
+    deleteGroup(db, group);
+    expect(restoreCategory(db, fun)).toBe("no-group");
+    expect(getArchivedCategories(db).map((c) => c.name)).toEqual(["Fun", "FUN"]);
+    expect(restoreCategory(db, 9999)).toBe("no-category");
+  });
+
+  it("restoring a visible category changes nothing", () => {
+    const rent = createCategory(db, "Rent");
+    expect(restoreCategory(db, rent)).toBe("restored");
+    expect(rows("2026-10").map((c) => c.name)).toEqual(["Rent"]);
   });
 });

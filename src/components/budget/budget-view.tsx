@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useOptimistic, useRef, useState } from "react";
-import type { BudgetMonth, GroupRow } from "@/db/budget";
+import type { ArchivedCategory, BudgetMonth, GroupRow } from "@/db/budget";
 import type { Month } from "@/lib/dates";
 import { formatMoney, formatMoneyParts, formatMoneyRounded } from "@/lib/money";
 import { primaryButton } from "../form";
 import { Hero, HeroFigure, HeroLead } from "../hero";
+import { ArchivedCategories } from "./archived-categories";
 import { applyChange } from "./budget-changes";
 import { BudgetContext } from "./budget-context";
 import { GroupBody, UngroupedBody } from "./group-body";
@@ -16,6 +17,8 @@ import { TableHead } from "./table-head";
 type Props = {
   /** The month as the server worked it out. */
   budget: BudgetMonth;
+  /** Archived categories, which can be restored from under the table. */
+  archived: ArchivedCategory[];
   month: Month;
   currency: string;
   locale: string;
@@ -58,7 +61,15 @@ function useInView(ref: React.RefObject<Element | null>): boolean {
  * moves show at once. Parts below reach the month, the formatting and `show`
  * through `useBudget`.
  */
-export function BudgetView({ budget: saved, month, currency, locale, daysLeft, monthNav }: Props) {
+export function BudgetView({
+  budget: saved,
+  archived,
+  month,
+  currency,
+  locale,
+  daysLeft,
+  monthNav,
+}: Props) {
   const [budget, show] = useOptimistic(saved, applyChange);
   const { spent, assigned } = budget.totals;
   const ready = budget.readyToAssign;
@@ -147,6 +158,8 @@ export function BudgetView({ budget: saved, month, currency, locale, daysLeft, m
             placeholder={budget.groups.length === 0 ? "Name your first group" : "New group"}
           />
         </div>
+
+        {archived.length > 0 && <ArchivedCategories categories={archived} />}
       </section>
     </BudgetContext>
   );

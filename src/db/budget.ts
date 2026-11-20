@@ -407,6 +407,62 @@ export function moveCategoryToGroup(
   });
 }
 
+export type ArchivedCategory = {
+  id: number;
+  name: string;
+  /** What it holds over all time: what restoring takes out of Ready to assign again. */
+  balance: number;
+};
+
+/** Archived categories, by name, with what each would bring back. */
+export function getArchivedCategories(db: Db): ArchivedCategory[] {
+  return db.all<ArchivedCategory>(sql`
+    SELECT
+      c.id,
+      c.name,
+      coalesce((SELECT sum(a.amount) FROM assignments a WHERE a.category_id = c.id), 0)
+        + coalesce((SELECT sum(t.amount) FROM transactions t WHERE t.category_id = c.id), 0)
+        AS balance
+    FROM categories c
+    WHERE c.archived = 1
+    ORDER BY lower(c.name), c.id
+  `);
+}
+
+/**
+ * Brings an archived category back, with its history and balance, at the
+ * end of the group it was in, or of the first group when that one is gone.
+ * Refused when a visible category has its name, or when there is no group.
+ */
+export function restoreCategory(
+  db: Db,
+  id: number,
+): "restored" | "no-category" | "name-taken" | "no-group" {
+  return db.transaction((tx) => {
+    const [category] = tx.select().from(categories).where(eq(categories.id, id)).all();
+    if (!category) return "no-category";
+    if (!category.archived) return "restored";
+    if (categoryNameTaken(tx, category.name)) return "name-taken";
+
+    const groups = tx
+      .select({ id: categoryGroups.id })
+      .from(categoryGroups)
+      .orderBy(categoryGroups.sortOrder, categoryGroups.id)
+      .all();
+    const group = groups.find((g) => g.id === category.groupId) ?? groups[0];
+    if (!group) return "no-group";
+
+    const [{ next }] = tx.all<{ next: number }>(
+      sql`SELECT coalesce(max(sort_order), 0) + 1 AS next FROM categories`,
+    );
+    tx.update(categories)
+      .set({ archived: false, groupId: group.id, sortOrder: next })
+      .where(eq(categories.id, id))
+      .run();
+    return "restored";
+  });
+}
+
 /**
  * Creates a group and gives it the first palette colour no other group uses.
  * Returns its id, or "name-taken".

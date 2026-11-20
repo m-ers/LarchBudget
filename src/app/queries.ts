@@ -26,6 +26,10 @@ export async function getBudgetMonth(month: Month) {
   return budget.getBudgetMonth(await database(), month);
 }
 
+export async function getArchivedCategories() {
+  return budget.getArchivedCategories(await database());
+}
+
 export async function getAccounts() {
   return accounts.getAccounts(await database());
 }

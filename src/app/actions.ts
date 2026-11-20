@@ -174,6 +174,20 @@ export async function moveCategoryToGroupAction(
   return done();
 }
 
+export async function restoreCategoryAction(categoryId: number): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  if (!id.safeParse(categoryId).success) return UNEXPECTED;
+
+  const result = budget.restoreCategory(db, categoryId);
+  if (result === "no-category") return CATEGORY_GONE;
+  if (result === "name-taken") {
+    return fail("Another category already has this name. Rename that one first.");
+  }
+  if (result === "no-group") return fail("There is no group to put it back in. Add a group first.");
+  return done();
+}
+
 export async function createGroupAction(input: string): Promise<ActionResult> {
   const db = await database();
   if (!db) return LOGGED_OUT;
