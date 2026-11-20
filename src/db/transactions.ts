@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { and, desc, eq, sql } from "drizzle-orm";
 import type { IsoDate } from "../lib/dates";
+import { syncStartingBalance } from "./accounts";
 import { UNGROUPED } from "./budget";
 import type { Db } from "./index";
 import { accounts, categories, categoryGroups, transactions } from "./schema";
@@ -34,6 +35,20 @@ function fingerprint(raw: string, occurrence: number): string {
   return `${createHash("sha256").update(raw).digest("hex").slice(0, 32)}:${occurrence}`;
 }
 
+export type ImportOutcome = {
+  imported: number;
+  duplicates: number;
+  /**
+   * How many of the imported rows are dated on or before the account's
+   * balance date. They are filled in behind the balance entered for that
+   * day, so they do not change what the account holds.
+   */
+  beforeBalance: number;
+  /** The account's entered balance and its date, as they stood for this import. */
+  startingBalance: number | null;
+  balanceDate: IsoDate | null;
+};
+
 /**
  * Adds a bank file's rows to an account. Rows that were imported before are
  * skipped, so files may overlap. New rows are marked "to sort". Returns null,
@@ -44,14 +59,15 @@ export function importTransactions(
   accountId: number,
   rows: ImportRow[],
   batch: string,
-): { imported: number; duplicates: number } | null {
+): ImportOutcome | null {
   return db.transaction((tx) => {
-    const account = tx
-      .select({ id: accounts.id })
+    const [account] = tx
+      .select({ startingBalance: accounts.startingBalance, balanceDate: accounts.balanceDate })
       .from(accounts)
       .where(and(eq(accounts.id, accountId), eq(accounts.archived, false)))
       .all();
-    if (account.length === 0) return null;
+    if (!account) return null;
+    const { startingBalance, balanceDate } = account;
 
     // Prepared once and run per row: a file can hold thousands of rows.
     const insert = tx
@@ -71,18 +87,28 @@ export function importTransactions(
 
     const seen = new Map<string, number>();
     let imported = 0;
+    let beforeBalance = 0;
     for (const row of rows) {
       const occurrence = (seen.get(row.raw) ?? 0) + 1;
       seen.set(row.raw, occurrence);
-      imported += insert.run({
+      const added = insert.run({
         date: row.date,
         amount: row.amount,
         payee: row.payee,
         note: row.note,
         importId: fingerprint(row.raw, occurrence),
       }).changes;
+      imported += added;
+      if (added > 0 && balanceDate !== null && row.date <= balanceDate) beforeBalance += 1;
     }
-    return { imported, duplicates: rows.length - imported };
+    syncStartingBalance(tx, accountId);
+    return {
+      imported,
+      duplicates: rows.length - imported,
+      beforeBalance,
+      startingBalance,
+      balanceDate,
+    };
   });
 }
 
@@ -100,10 +126,16 @@ export function undoImport(db: Db, batch: string): { removed: number; sorted: nu
       .all().length;
     if (sorted > 0) return { removed: 0, sorted };
 
+    const affected = tx
+      .selectDistinct({ accountId: transactions.accountId })
+      .from(transactions)
+      .where(eq(transactions.importBatch, batch))
+      .all();
     const removed = tx
       .delete(transactions)
       .where(eq(transactions.importBatch, batch))
       .run().changes;
+    for (const { accountId } of affected) syncStartingBalance(tx, accountId);
     return { removed, sorted: 0 };
   });
 }

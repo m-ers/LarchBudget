@@ -1,11 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { IsoDate, Month } from "../lib/dates";
+import { createAccount, getAccounts } from "./accounts";
 import * as budget from "./budget";
 import {
   archiveCategory,
-  createAccount,
   deleteGroup,
-  getAccounts,
   getBudgetMonth,
   renameCategory,
   renameGroup,
@@ -46,7 +45,7 @@ beforeEach(() => {
     name: "Checking",
     type: "checking",
     startingBalance: 100_000,
-    date: "2026-10-01",
+    balanceDate: "2026-10-01",
   });
 });
 
@@ -89,7 +88,7 @@ describe("ready to assign", () => {
       name: "Savings",
       type: "savings",
       startingBalance: 0,
-      date: "2026-10-01",
+      balanceDate: "2026-10-01",
     });
     spend(null, "2026-10-10", -20_000, checking);
     spend(null, "2026-10-10", 20_000, savings);
@@ -305,19 +304,5 @@ describe("groups", () => {
     expect(renameGroup(db, goals, "EVERYDAY")).toBe(false);
     expect(renameGroup(db, goals, "goals")).toBe(true);
     expect(getBudgetMonth(db, "2026-10").groups.map((g) => g.name)).toEqual(["Everyday", "goals"]);
-  });
-});
-
-describe("accounts", () => {
-  it("derive their balance from the ledger", () => {
-    spend(null, "2026-10-03", -2_500);
-    expect(getAccounts(db)).toEqual([
-      { id: checking, name: "Checking", type: "checking", balance: 97_500 },
-    ]);
-  });
-
-  it("can start empty", () => {
-    createAccount(db, { name: "Cash", type: "cash", startingBalance: 0, date: "2026-10-01" });
-    expect(getAccounts(db).find((a) => a.name === "Cash")?.balance).toBe(0);
   });
 });

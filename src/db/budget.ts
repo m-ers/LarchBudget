@@ -1,9 +1,8 @@
 import { and, eq, sql } from "drizzle-orm";
-import type { AccountType } from "../lib/account-types";
-import { addMonths, monthStart, type IsoDate, type Month } from "../lib/dates";
+import { addMonths, monthStart, type Month } from "../lib/dates";
 import { groupColors } from "../lib/group-colors";
 import type { Db } from "./index";
-import { accounts, assignments, categories, categoryGroups, transactions } from "./schema";
+import { assignments, categories, categoryGroups } from "./schema";
 
 /**
  * Budget maths. Everything here is derived from two facts: the ledger
@@ -271,48 +270,5 @@ export function deleteGroup(db: Db, id: number): void {
       .where(eq(categories.groupId, id))
       .run();
     tx.delete(categoryGroups).where(eq(categoryGroups.id, id)).run();
-  });
-}
-
-type AccountRow = { id: number; name: string; type: AccountType; balance: number };
-
-export function getAccounts(db: Db): AccountRow[] {
-  return db
-    .select({
-      id: accounts.id,
-      name: accounts.name,
-      type: accounts.type,
-      balance: sql<number>`coalesce(sum(${transactions.amount}), 0)`.mapWith(Number),
-    })
-    .from(accounts)
-    .leftJoin(transactions, eq(transactions.accountId, accounts.id))
-    .where(eq(accounts.archived, false))
-    .groupBy(accounts.id)
-    .orderBy(accounts.name)
-    .all();
-}
-
-/** Creates an account. A starting balance is recorded as its first transaction. */
-export function createAccount(
-  db: Db,
-  input: { name: string; type: AccountType; startingBalance: number; date: IsoDate },
-): number {
-  return db.transaction((tx) => {
-    const { id } = tx
-      .insert(accounts)
-      .values({ name: input.name, type: input.type })
-      .returning()
-      .get();
-    if (input.startingBalance !== 0) {
-      tx.insert(transactions)
-        .values({
-          accountId: id,
-          date: input.date,
-          amount: input.startingBalance,
-          payee: "Starting balance",
-        })
-        .run();
-    }
-    return id;
   });
 }

@@ -4,7 +4,8 @@
  * mix fake rows into real ones.
  */
 import { databasePath, getDb } from "../src/db";
-import { createAccount, createCategory, createGroup, setAssigned } from "../src/db/budget";
+import { createAccount } from "../src/db/accounts";
+import { createCategory, createGroup, setAssigned } from "../src/db/budget";
 import { accounts, transactions } from "../src/db/schema";
 import { created } from "../src/db/created";
 import { importTransactions } from "../src/db/transactions";
@@ -35,18 +36,23 @@ const money = (major: number) => Math.round(major * unit);
 const months = [-2, -1, 0].map((offset) => addMonths(currentMonth(), offset));
 const day = (month: Month, n: number) => `${month}-${pad(n)}` as IsoDate;
 
+// The accounts' balances are from the day before the demo history starts,
+// so all of that history adds on top of them.
+const [firstYear, firstMonth] = months[0].split("-").map(Number);
+const balanceDate = today(new Date(firstYear, firstMonth - 1, 0));
+
 db.transaction((tx) => {
   const checking = createAccount(tx, {
     name: "Checking",
     type: "checking",
     startingBalance: money(1200),
-    date: day(months[0], 1),
+    balanceDate,
   });
   createAccount(tx, {
     name: "Savings",
     type: "savings",
     startingBalance: money(5000),
-    date: day(months[0], 1),
+    balanceDate,
   });
 
   const plan = [

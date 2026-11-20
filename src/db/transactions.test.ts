@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { IsoDate } from "../lib/dates";
+import { createAccount, getAccounts } from "./accounts";
 import * as budget from "./budget";
-import { archiveCategory, createAccount, getAccounts, getBudgetMonth, setAssigned } from "./budget";
+import { archiveCategory, getBudgetMonth, setAssigned } from "./budget";
 import { openDb, type Db } from "./index";
 import { created } from "./created";
 import {
@@ -51,14 +52,17 @@ beforeEach(() => {
     name: "Checking",
     type: "checking",
     startingBalance: 100_000,
-    date: "2026-10-31",
+    balanceDate: "2026-10-31",
   });
   groceries = createCategory(db, "Groceries", createGroup(db, "Everyday"));
 });
 
 describe("importing", () => {
   it("adds the rows and marks them to sort", () => {
-    expect(importTransactions(db, checking, november, "a")).toEqual({ imported: 4, duplicates: 0 });
+    expect(importTransactions(db, checking, november, "a")).toMatchObject({
+      imported: 4,
+      duplicates: 0,
+    });
     expect(countTransactions(db)).toEqual({ all: 5, toSort: 4 });
     expect(getAccounts(db)[0].balance).toBe(100_000 + 285_000 - 4_510 - 700);
   });
@@ -72,7 +76,7 @@ describe("importing", () => {
   it("skips rows that were imported before, so files may overlap", () => {
     importTransactions(db, checking, november, "a");
     const overlapping = [...november.slice(1), row("2026-11-09", -1_200, "Bakery")];
-    expect(importTransactions(db, checking, overlapping, "b")).toEqual({
+    expect(importTransactions(db, checking, overlapping, "b")).toMatchObject({
       imported: 1,
       duplicates: 3,
     });
@@ -84,7 +88,7 @@ describe("importing", () => {
       name: "Savings",
       type: "savings",
       startingBalance: 0,
-      date: "2026-10-31",
+      balanceDate: "2026-10-31",
     });
     importTransactions(db, checking, november, "a");
     expect(importTransactions(db, savings, november, "b")?.imported).toBe(4);
@@ -115,7 +119,7 @@ describe("importing", () => {
       payee: "NL01BANK0123456789",
       note: null,
     }));
-    expect(importTransactions(db, checking, readDifferently, "b")).toEqual({
+    expect(importTransactions(db, checking, readDifferently, "b")).toMatchObject({
       imported: 0,
       duplicates: 4,
     });

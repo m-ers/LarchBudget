@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { getDb, type Db } from "@/db";
+import * as accounts from "@/db/accounts";
 import * as budget from "@/db/budget";
 import * as transactions from "@/db/transactions";
 import { accountTypes } from "@/lib/account-types";
@@ -172,11 +173,11 @@ export async function createAccountAction(formData: FormData): Promise<ActionRes
   const startingBalance = parseAmount(parsed.data.startingBalance);
   if (startingBalance === null) return fail("The starting balance is not an amount.");
 
-  budget.createAccount(db, {
+  accounts.createAccount(db, {
     name: parsed.data.name,
     type: parsed.data.type,
     startingBalance,
-    date: today(),
+    balanceDate: today(),
   });
   return done();
 }
@@ -200,7 +201,12 @@ const importRows = z
   .min(1)
   .max(MAX_ROWS);
 
-type ImportResult = { ok: true; imported: number; duplicates: number; batch: string } | Failure;
+/**
+ * What was imported. `beforeBalance`, `startingBalance` and `balanceDate`
+ * let the import page say which rows were filled in behind the balance
+ * entered for the account.
+ */
+type ImportResult = ({ ok: true; batch: string } & transactions.ImportOutcome) | Failure;
 
 /**
  * Imports a bank file into an account. The server reads the file with the
