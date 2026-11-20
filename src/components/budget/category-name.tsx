@@ -1,22 +1,38 @@
 "use client";
 
 import { archiveCategoryAction, renameCategoryAction } from "@/app/actions";
+import { formatMoney } from "@/lib/money";
 import { ErrorText } from "../form";
 import { ArchiveIcon } from "../icons";
 import { InlineName } from "../inline-name";
 import { useSave } from "../use-save";
+import { useBudget } from "./budget-context";
 import { RowAction } from "./row-action";
 
-type Props = { id: number; name: string; available: string; hasBalance: boolean };
+type Props = {
+  id: number;
+  name: string;
+  /** What the category holds over all time: what archiving gives back. */
+  balance: number;
+};
 
-/** Category name: click to rename. The archive button shows on row hover. */
-export function CategoryName({ id, name, available, hasBalance }: Props) {
+/**
+ * Category name: click to rename. The category's actions sit beside it and
+ * show on row hover; for now that is archiving.
+ */
+export function CategoryName({ id, name, balance }: Props) {
+  const { currency, locale } = useBudget();
   const { error, pending, save } = useSave();
 
   function archive() {
-    const message = hasBalance
-      ? `Archive "${name}"? Its balance of ${available} goes back to Ready to assign.`
-      : `Archive "${name}"?`;
+    const question = `Archive "${name}"?`;
+    const money = formatMoney(Math.abs(balance), currency, locale);
+    const message =
+      balance > 0
+        ? `${question} Its ${money} goes back to Ready to assign.`
+        : balance < 0
+          ? `${question} It is overspent by ${money}, which then comes out of Ready to assign.`
+          : question;
     if (window.confirm(message)) save(() => archiveCategoryAction(id));
   }
 

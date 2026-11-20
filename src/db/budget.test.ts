@@ -120,6 +120,7 @@ describe("category balances", () => {
       assigned: 30_000,
       activity: -10_000,
       available: 20_000,
+      balance: 20_000,
     });
   });
 
@@ -143,6 +144,22 @@ describe("category balances", () => {
       activity: 0,
       available: 45_000,
     });
+  });
+
+  it("tell their balance over all time, which a later month can change", () => {
+    const holiday = createCategory(db, "Holiday");
+    setAssigned(db, holiday, "2026-10", 30_000);
+    setAssigned(db, holiday, "2026-11", 20_000);
+    spend(holiday, "2026-12-01", -5_000);
+
+    const [october] = rows("2026-10");
+    expect(october.available).toBe(30_000);
+    expect(october.balance).toBe(45_000);
+
+    // That balance is what archiving gives back.
+    const before = getBudgetMonth(db, "2026-10").readyToAssign;
+    archiveCategory(db, holiday);
+    expect(getBudgetMonth(db, "2026-10").readyToAssign).toBe(before + october.balance);
   });
 
   it("roll overspending over as a negative balance", () => {
@@ -230,7 +247,7 @@ describe("categories", () => {
 });
 
 describe("groups", () => {
-  it("list their categories and add up what they hold", () => {
+  it("list their categories and add up what was assigned, spent and is held", () => {
     const goals = createGroup(db, "Goals");
     const groceries = createCategory(db, "Groceries");
     const holiday = createCategory(db, "Holiday", goals);
@@ -241,9 +258,17 @@ describe("groups", () => {
     spend(holiday, "2026-10-12", -4_000);
 
     const { groups } = getBudgetMonth(db, "2026-10");
-    expect(groups.map((g) => [g.name, g.categories.map((e) => e.name), g.available])).toEqual([
-      ["Everyday", ["Groceries"], 30_000],
-      ["Goals", ["Holiday", "Car"], 21_000],
+    expect(
+      groups.map((g) => [
+        g.name,
+        g.categories.map((e) => e.name),
+        g.assigned,
+        g.activity,
+        g.available,
+      ]),
+    ).toEqual([
+      ["Everyday", ["Groceries"], 30_000, 0, 30_000],
+      ["Goals", ["Holiday", "Car"], 25_000, -4_000, 21_000],
     ]);
   });
 

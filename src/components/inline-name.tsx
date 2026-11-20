@@ -3,7 +3,7 @@
 import { MAX_NAME_LENGTH } from "@/lib/limits";
 import type { ActionResult } from "@/lib/result";
 import { ErrorText } from "./form";
-import { useInlineEdit, windowLostFocus } from "./use-inline-edit";
+import { useInlineEdit } from "./use-inline-edit";
 
 type Props = {
   value: string;
@@ -51,9 +51,7 @@ export function InlineName({ value, label, onSave, className = "" }: Props) {
           e.currentTarget.dataset.selected = "true";
           e.currentTarget.select();
         }}
-        onBlur={(e) => {
-          if (!windowLostFocus(e)) edit.commit();
-        }}
+        onBlur={edit.commit}
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();
           if (e.key === "Escape") edit.cancel(e.currentTarget);

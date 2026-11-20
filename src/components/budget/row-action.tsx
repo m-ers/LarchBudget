@@ -1,4 +1,7 @@
-/** A small icon button that appears when its table row, or the group heading it sits in, is hovered. */
+/**
+ * A small icon button in a table row or group heading. It is either always
+ * shown, in muted grey, or appears when its row or heading is hovered.
+ */
 export function RowAction({
   label,
   title,
@@ -11,8 +14,11 @@ export function RowAction({
   label: string;
   title: string;
   onClick: () => void;
-  /** Which ancestor's hover reveals it: a `group/row` row or a `group/head` heading. */
-  revealOn: "row" | "head";
+  /**
+   * Which ancestor's hover reveals it: a `group/row` row or a `group/head`
+   * heading. Leave out to always show it.
+   */
+  revealOn?: "row" | "head";
   /**
    * Clicking leaves focus where it is, so a field someone is typing in does
    * not save what it holds first.
@@ -20,8 +26,11 @@ export function RowAction({
   keepFocus?: boolean;
   children: React.ReactNode;
 }) {
-  const reveal =
-    revealOn === "row" ? "group-hover/row:opacity-100" : "group-hover/head:opacity-100";
+  const reveal = {
+    row: "opacity-0 transition-opacity focus-visible:opacity-100 group-hover/row:opacity-100",
+    head: "opacity-0 transition-opacity focus-visible:opacity-100 group-hover/head:opacity-100",
+    always: "",
+  }[revealOn ?? "always"];
   return (
     <button
       type="button"
@@ -29,7 +38,7 @@ export function RowAction({
       onMouseDown={keepFocus ? (e) => e.preventDefault() : undefined}
       aria-label={label}
       title={title}
-      className={`rounded-md p-1.5 text-muted opacity-0 transition-opacity hover:bg-hover hover:text-ink focus-visible:opacity-100 ${reveal}`}
+      className={`rounded-md p-1.5 text-muted hover:bg-hover hover:text-ink focus-visible:text-ink ${reveal}`}
     >
       {children}
     </button>

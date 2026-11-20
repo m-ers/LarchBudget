@@ -33,19 +33,26 @@ export type CategoryRow = {
   activity: number;
   /** Balance at the end of the viewed month, including earlier months. */
   available: number;
+  /**
+   * Balance over all time, including later months: what archiving the
+   * category gives back to Ready to assign.
+   */
+  balance: number;
 };
 
-type GroupRow = {
+export type GroupRow = {
   /** Null for the fallback section holding categories without a group. */
   id: number | null;
   name: string;
   colorSlot: number | null;
   categories: CategoryRow[];
-  /** Sum of what its categories hold at the end of the viewed month. */
+  /** Sums over its categories, with the same meaning as theirs. */
+  assigned: number;
+  activity: number;
   available: number;
 };
 
-type BudgetMonth = {
+export type BudgetMonth = {
   groups: GroupRow[];
   /** Over all visible categories. `spent` is the activity as a positive amount, never below zero. */
   totals: { assigned: number; spent: number; available: number };
@@ -107,6 +114,7 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
       assigned: r.assigned,
       activity: r.activity,
       available: r.assigned_through + r.activity_through,
+      balance: r.assigned_total + r.activity_total,
     };
     byGroup.set(r.group_id, [...(byGroup.get(r.group_id) ?? []), row]);
     return row;
@@ -119,6 +127,8 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
       name,
       colorSlot,
       categories: members,
+      assigned: members.reduce((sum, c) => sum + c.assigned, 0),
+      activity: members.reduce((sum, c) => sum + c.activity, 0),
       available: members.reduce((sum, c) => sum + c.available, 0),
     };
   };

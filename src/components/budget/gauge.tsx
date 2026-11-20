@@ -8,6 +8,8 @@ type Props = {
   activity: number;
   /** `available` formatted as money. */
   label: string;
+  /** How `available` adds up, shown on hover. */
+  explanation: string;
 };
 
 const tracks = { over: "bg-bad-track", empty: "bg-empty-track", ok: "bg-ok-track" };
@@ -20,15 +22,12 @@ const tracks = { over: "bg-bad-track", empty: "bg-empty-track", ok: "bg-ok-track
  * mark when overspent, grey when empty. The amount itself always stays in
  * the normal text colour.
  */
-export function Gauge({ available, activity, label }: Props) {
+export function Gauge({ available, activity, label, explanation }: Props) {
   const { state, left } = gaugeLevel(available, activity);
-  const hint = { over: "Overspent", empty: "Nothing left", ok: `${Math.round(left * 100)}% left` }[
-    state
-  ];
 
   return (
     <span
-      title={hint}
+      title={explanation}
       className={`relative ml-auto block h-7 w-33 overflow-hidden rounded-[7px] ${tracks[state]}`}
     >
       {state === "ok" && (

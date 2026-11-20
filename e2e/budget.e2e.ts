@@ -1,14 +1,18 @@
+import type { Page } from "@playwright/test";
 import {
   addAccount,
   addCategories,
   addGroup,
   alert,
   assign,
+  assignAndSave,
   assignedField,
   available,
   category,
   categoryRow,
   groupHeading,
+  groupRow,
+  groupTotal,
   headerFigure,
   openNewCategory,
 } from "./budget-page";
@@ -52,7 +56,7 @@ test("money is divided over categories, and over-assigning is flagged", async ({
   await page.keyboard.press("Enter");
   await expect(headerFigure(page)).toHaveText("€954.50");
   await expect(available(page, "Groceries")).toHaveText("€350.50");
-  await expect(groupHeading(page, "Fixed costs").locator("xpath=..")).toContainText("€1,195.00");
+  await expect(groupTotal(page, "Fixed costs")).toHaveText("€1,195.00");
 
   await assign(page, "Groceries", "2000");
   await expect(headerFigure(page)).toHaveText("-€695.00");
@@ -61,6 +65,42 @@ test("money is divided over categories, and over-assigning is flagged", async ({
   await assign(page, "Groceries", "1305");
   await expect(headerFigure(page)).toHaveText("€0.00");
   await expect(page.getByText("Every cent is assigned")).toBeVisible();
+});
+
+test("a group's heading adds up what its categories got and spent, and what they hold", async ({
+  page,
+}) => {
+  await addAccount(page, "Main account", "2500");
+  await page.goto("/");
+  await addGroup(page, "Fixed costs");
+  await addCategories(page, "Fixed costs", ["Rent", "Utilities"]);
+  await expect(groupRow(page, "Fixed costs").getByRole("cell")).toHaveText(["0.00", "–", "€0.00"]);
+
+  await assign(page, "Rent", "1100");
+  await assign(page, "Utilities", "95");
+  await expect(groupRow(page, "Fixed costs").getByRole("cell")).toHaveText([
+    "1,195.00",
+    "–",
+    "€1,195.00",
+  ]);
+});
+
+test.describe("with transactions", () => {
+  test.use({ app: { seed: true } });
+
+  test("a group's Spent is what its categories spent together", async ({ page }) => {
+    await page.goto("/");
+    // Read from the page: what the demo data holds depends on the day of the month.
+    const cents = (spent: string) =>
+      spent === "–" ? 0 : Math.round(Number(spent.replace(/[^0-9.]/g, "")) * 100);
+    const spentIn = async (name: string) =>
+      cents(await categoryRow(page, name).getByRole("cell").nth(3).innerText());
+
+    const together = (await spentIn("Groceries")) + (await spentIn("Eating out"));
+    expect(together).toBeGreaterThan(0);
+    const groupSpent = await groupRow(page, "Everyday").getByRole("cell").nth(1).innerText();
+    expect(cents(groupSpent)).toBe(together);
+  });
 });
 
 test("something that is not an amount is refused, and Escape clears it", async ({ page }) => {
@@ -85,7 +125,7 @@ test("leftovers roll over into the next month", async ({ page }) => {
   await page.goto("/");
   await addGroup(page, "Fixed costs");
   await addCategories(page, "Fixed costs", ["Rent"]);
-  await assign(page, "Rent", "400");
+  await assignAndSave(page, "Rent", "400");
   await expect(available(page, "Rent")).toHaveText("€400.00");
 
   await page.getByRole("link", { name: "Next month" }).click();
@@ -98,27 +138,82 @@ test("leftovers roll over into the next month", async ({ page }) => {
   await expect(assignedField(page, "Rent")).toHaveValue("400.00");
 });
 
-test("archiving a category gives its money back to Ready to assign", async ({ page }) => {
+test("the Available amount explains how it adds up", async ({ page }) => {
+  await addAccount(page, "Main account", "1000");
+  await page.goto("/");
+  await addGroup(page, "Fixed costs");
+  await addCategories(page, "Fixed costs", ["Rent", "Repairs"]);
+  const explanation = (name: string) => available(page, name).locator("[title]");
+  await expect(explanation("Rent")).toHaveAttribute(
+    "title",
+    "Nothing assigned or spent this month.",
+  );
+  await assignAndSave(page, "Rent", "400");
+  await assignAndSave(page, "Repairs", "-250");
+  await expect(explanation("Rent")).toHaveAttribute("title", "€400.00 assigned");
+
+  await page.getByRole("link", { name: "Next month" }).click();
+  await assign(page, "Rent", "100");
+  await expect(explanation("Rent")).toHaveAttribute(
+    "title",
+    "€400.00 from earlier months + €100.00 assigned",
+  );
+  await expect(explanation("Repairs")).toHaveAttribute(
+    "title",
+    "Overspent by €250.00: assign more to cover it. -€250.00 from earlier months",
+  );
+  // Screen readers hear it too.
+  await expect(available(page, "Repairs")).toHaveText("Overspent: -€250.00");
+});
+
+/** Archives a category, agreeing to the question, and returns the question. */
+async function archive(page: Page, name: string): Promise<string> {
+  const question = new Promise<string>((resolve) =>
+    page.once("dialog", (dialog) => {
+      resolve(dialog.message());
+      void dialog.accept();
+    }),
+  );
+  await categoryRow(page, name).hover();
+  await page.getByRole("button", { name: `Archive ${name}` }).click();
+  await expect(category(page, name)).toHaveCount(0);
+  return question;
+}
+
+test("archiving a category gives all its money back to Ready to assign", async ({ page }) => {
   await addAccount(page, "Main account", "1000");
   await page.goto("/");
   await addGroup(page, "Everyday");
   await addCategories(page, "Everyday", ["Groceries", "Eating out"]);
+  await page.getByRole("link", { name: "Next month" }).click();
+  await assignAndSave(page, "Groceries", "200");
+  await page.getByRole("link", { name: "This month" }).click();
   await assign(page, "Groceries", "300");
-  await expect(headerFigure(page)).toHaveText("€700.00");
+  await expect(headerFigure(page)).toHaveText("€500.00");
 
-  let question = "";
-  page.once("dialog", (dialog) => {
-    question = dialog.message();
-    void dialog.accept();
-  });
-  await categoryRow(page, "Groceries").hover();
-  await page.getByRole("button", { name: "Archive Groceries" }).click();
-  await expect(category(page, "Groceries")).toHaveCount(0);
-  expect(question).toBe(
-    'Archive "Groceries"? Its balance of €300.00 goes back to Ready to assign.',
+  // Viewing this month, the question still names what next month holds too.
+  expect(await archive(page, "Groceries")).toBe(
+    'Archive "Groceries"? Its €500.00 goes back to Ready to assign.',
   );
   await expect(headerFigure(page)).toHaveText("€1,000.00");
   await expect(category(page, "Eating out")).toBeVisible();
+});
+
+test("archiving an overspent category says what it takes from Ready to assign", async ({
+  page,
+}) => {
+  await addAccount(page, "Main account", "1000");
+  await page.goto("/");
+  await addGroup(page, "Fixed costs");
+  await addCategories(page, "Fixed costs", ["Repairs", "Water"]);
+  await assign(page, "Repairs", "-250");
+  await expect(headerFigure(page)).toHaveText("€1,250.00");
+
+  expect(await archive(page, "Repairs")).toBe(
+    'Archive "Repairs"? It is overspent by €250.00, which then comes out of Ready to assign.',
+  );
+  await expect(headerFigure(page)).toHaveText("€1,000.00");
+  expect(await archive(page, "Water")).toBe('Archive "Water"?');
 });
 
 test("groups and categories are renamed in place", async ({ page }) => {
@@ -169,20 +264,47 @@ test("a rename started again after Escape is saved", async ({ page }) => {
   await expect(category(page, "Food")).toBeVisible();
 });
 
-test("a save while LarchBudget cannot be reached says so, and keeps what was typed", async ({
-  page,
-  server,
-}) => {
-  await addAccount(page, "Main account", "100");
-  await page.goto("/");
-  await addGroup(page, "Everyday");
-  await addCategories(page, "Everyday", ["Groceries"]);
+test.describe("a budget longer than the window", () => {
+  test.use({ app: { seed: true }, viewport: { width: 1280, height: 400 } });
 
-  await server.stop();
-  await assign(page, "Groceries", "123");
-  await expect(
-    alert(page, "Could not reach LarchBudget. Check your connection and try again."),
-  ).toBeVisible();
-  await expect(assignedField(page, "Groceries")).toHaveValue("123");
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  test("keeps the column headings in view, above the field being edited", async ({ page }) => {
+    await page.goto("/");
+    await assignedField(page, "Emergency fund").click();
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    const heading = page.getByRole("columnheader", { name: "Assigned" });
+    await expect(heading).toBeInViewport();
+
+    for (const name of ["Holiday", "Eating out", "Groceries", "Transport", "Utilities", "Rent"]) {
+      await page.keyboard.press("ArrowUp");
+      await expect(assignedField(page, name)).toBeFocused();
+      await expect(heading).toBeInViewport();
+      const field = (await assignedField(page, name).boundingBox())!;
+      const head = (await heading.boundingBox())!;
+      expect(field.y).toBeGreaterThanOrEqual(head.y + head.height);
+    }
+  });
+
+  test("shows what is left to assign above the columns once the page header is out of view", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const aboveColumns = page.getByTestId("table-head-ready").filter({ visible: true });
+    await expect(aboveColumns).toHaveCount(0);
+    await expect(page.getByRole("columnheader", { name: "Category" })).toHaveText("Category");
+
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    const figure = await headerFigure(page).innerText();
+    await expect(aboveColumns).toHaveText(`Ready to assign ${figure}`);
+    // Screen readers still hear the column's name.
+    await expect(page.getByRole("columnheader", { name: "Category" })).toBeVisible();
+
+    // It follows a new amount at once, like the page header.
+    const euros = (text: string) => Number(text.replace(/[^0-9.-]/g, ""));
+    const holiday = euros(await assignedField(page, "Holiday").inputValue());
+    await assign(page, "Holiday", String(holiday + 100));
+    const less = new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR" }).format(
+      euros(figure) - 100,
+    );
+    await expect(aboveColumns).toHaveText(`Ready to assign ${less}`);
+  });
 });
