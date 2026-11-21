@@ -43,6 +43,7 @@ Settings go in a file called `.env.local`; `.env.example` lists them, and
 | --------------------- | ----------------------------------------------------------- |
 | `npm run dev`         | Start the development server.                               |
 | `npm run lint`        | Lint.                                                       |
+| `npm run check:i18n`  | List text written in the code instead of `en.json`.         |
 | `npm run typecheck`   | Type check.                                                 |
 | `npm test`            | Run the unit tests.                                         |
 | `npm run build`       | Production build.                                           |
@@ -128,6 +129,42 @@ sorting in `src/db/transactions.ts`.
 - **Pictures** in `docs/images` are taken from the demo data by
   `e2e/readme.shots.ts`. Take them again with `npm run screenshots` when a
   screen they show has changed, and for a release.
+
+## Translations
+
+Every text people read is in `src/i18n/messages/en.json`; other languages
+have a file of their own next to it ([Add your
+language](../CONTRIBUTING.md#add-your-language)). The files use the i18next
+format, which translation tools know.
+
+- **Read texts with `t`:** `const t = await getT()` from `@/i18n/server` in
+  Server Components, `generateMetadata` and Server Actions, and
+  `const t = useT()` from `@/i18n/client` in Client Components. A key that
+  is not in en.json fails the type check.
+- **Keys say what a text is for:** `area.component.role` in camelCase, at
+  most four levels, never the English text itself. When in doubt, give a
+  text its own key: the same English word can need different words in
+  another language.
+- **Whole sentences only.** One key per sentence, with `{{name}}` for what
+  varies; never a sentence put together from pieces. A text that depends on
+  a number has a key per plural form (`rows_one`, `rows_other`), read with
+  `t("…rows", { count })`. Numbers are written in the budget's number format.
+- **Parts that look different** get named tags in the text,
+  `"Money in <b>{{in}}</b>"`, drawn with `richText` from `@/i18n/rich`.
+- **Ids, not displayed text.** Never compare or sort on a displayed text.
+  `src/lib` and `src/db` return ids or numbers, and the screen turns them
+  into text.
+- **Data stays as it is:** names you give things, payees, notes, and the
+  name LarchBudget.
+- The language is the one chosen in this browser, else the browser's own,
+  else English (`src/i18n/server.ts`). Amounts keep the format of the
+  LOCALE setting.
+- `npm run check:i18n` lists text written in the code instead of en.json,
+  and texts in en.json that nothing uses. `npm test` checks every language
+  file against en.json.
+- In development, the cookie `language=en-XA` shows a made-up language that
+  stretches and accents every text: text without accents is not translated
+  yet, and text that gets cut off will not fit in a longer language.
 
 ## Design
 
