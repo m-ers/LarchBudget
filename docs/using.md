@@ -84,8 +84,12 @@ pointing at Received says how much of it came in during the month before.
 Type an amount in the **Assigned** column. Tab and the arrow keys go down and
 up the column, so a whole month can be filled in from the keyboard.
 
-- Point at **Ready to assign** or at an **Available** amount to see how it
-  adds up.
+- Click **Ready to assign** to see how it adds up: what was left over from
+  the month before, plus what came in for this month, less what you assigned
+  in it. Money without a category, amounts assigned in later months and
+  money that is already in for a later month get a line of their own when
+  there is any.
+- Point at an **Available** amount to see how it adds up.
 - The bar behind Available empties as you spend. It turns red when a category
   is overspent.
 - When you assign more than you have, Ready to assign turns red and says so.

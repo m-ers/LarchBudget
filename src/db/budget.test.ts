@@ -1,6 +1,7 @@
 import { eq, isNull } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { IsoDate, Month } from "../lib/dates";
+import { addMonths, type IsoDate, type Month } from "../lib/dates";
+import { readyLines } from "../lib/ready";
 import { createAccount, getAccounts } from "./accounts";
 import * as budget from "./budget";
 import {
@@ -44,15 +45,37 @@ function spend(categoryId: number | null, date: IsoDate, amount: number, account
   db.insert(transactions).values({ accountId, categoryId, date, amount }).run();
 }
 
+/**
+ * The lines Ready to assign is explained with add up to it in `month`, and
+ * say the same as the month's other figures. Returns its parts.
+ */
+function expectReadyAddsUp(month: Month) {
+  const figures = getBudgetMonth(db, month);
+  const { readyBreakdown } = figures;
+  const lines = readyLines(readyBreakdown);
+  expect(
+    lines.reduce((sum, line) => sum + line.amount, 0),
+    `the lines for ${month}`,
+  ).toBe(figures.readyToAssign);
+  expect(readyBreakdown.received).toBe(figures.income.received);
+  expect(readyBreakdown.assigned).toBe(figures.totals.assigned);
+  return readyBreakdown;
+}
+
+/** Every month from a year before October 2026 to a year after it, and two far away. */
+const MONTHS = [
+  "1999-12",
+  ...Array.from({ length: 25 }, (_, i) => addMonths("2025-10", i)),
+  "2999-12",
+] as Month[];
+
 /** money in accounts = ready to assign + all-time balance of every category */
 function expectEverythingAccountedFor() {
   const farFuture = getBudgetMonth(db, "2999-12");
   const inAccounts = getAccounts(db).reduce((sum, a) => sum + a.balance, 0);
   expect(farFuture.readyToAssign + farFuture.totals.available).toBe(inAccounts);
-  // The two parts Ready to assign is explained with, in any month.
-  const month = getBudgetMonth(db, "2026-10");
-  expect(month.inAccounts).toBe(inAccounts);
-  expect(month.inCategories).toBe(farFuture.totals.available);
+  // Ready to assign is the same in every month, and explained in every month.
+  for (const month of MONTHS) expectReadyAddsUp(month);
 }
 
 beforeEach(() => {
@@ -120,6 +143,261 @@ describe("ready to assign", () => {
     const rent = createCategory(db, "Rent");
     setAssigned(db, rent, "2026-10", 120_000);
     expect(getBudgetMonth(db, "2026-10").readyToAssign).toBe(-20_000);
+  });
+});
+
+describe("how Ready to assign adds up", () => {
+  const nothing = {
+    leftOver: 0,
+    received: 0,
+    withoutCategory: 0,
+    assigned: 0,
+    assignedLater: 0,
+    alreadyIn: 0,
+    beyondNextMonth: false,
+  };
+
+  it("is all zero without accounts, and then shows only the lines that are always there", () => {
+    db = openDb(":memory:");
+    for (const month of MONTHS) expect(expectReadyAddsUp(month)).toEqual(nothing);
+    expect(readyLines(getBudgetMonth(db, "2026-11").readyBreakdown)).toEqual([
+      { part: "leftOver", amount: 0 },
+      { part: "received", amount: 0 },
+      { part: "assigned", amount: 0 },
+    ]);
+  });
+
+  it("with income only, is what came in: received in its month, left over after it", () => {
+    db = openDb(":memory:");
+    checking = created(
+      createAccount(db, {
+        name: "Checking",
+        type: "checking",
+        startingBalance: 0,
+        balanceDate: "2026-10-01",
+      }),
+    );
+    const salary = createIncomeCategory("Salary");
+    spend(salary, "2026-10-25", 285_000);
+    expect(expectReadyAddsUp("2026-09")).toEqual({ ...nothing, alreadyIn: 285_000 });
+    expect(expectReadyAddsUp("2026-10")).toEqual({ ...nothing, received: 285_000 });
+    expect(expectReadyAddsUp("2026-11")).toEqual({ ...nothing, leftOver: 285_000 });
+    expectEverythingAccountedFor();
+  });
+
+  it("counts a starting balance for the month of its date, without a category", () => {
+    expect(expectReadyAddsUp("2026-10")).toEqual({ ...nothing, withoutCategory: 100_000 });
+    expect(expectReadyAddsUp("2026-11")).toEqual({ ...nothing, leftOver: 100_000 });
+    // Before it: in already, for the next month or a later one.
+    expect(expectReadyAddsUp("2026-09")).toEqual({ ...nothing, alreadyIn: 100_000 });
+    expect(expectReadyAddsUp("2026-08")).toEqual({
+      ...nothing,
+      alreadyIn: 100_000,
+      beyondNextMonth: true,
+    });
+    expectEverythingAccountedFor();
+  });
+
+  it("counts income that counts for the next month there, and as in already before that", () => {
+    const salary = createIncomeCategory("Salary");
+    setNextMonth(db, salary, true);
+    spend(salary, "2026-10-25", 285_000);
+    spend(salary, "2026-11-01", 290_000);
+    // In October, both salaries are in already: one for November, one for December.
+    expect(expectReadyAddsUp("2026-10")).toEqual({
+      ...nothing,
+      withoutCategory: 100_000,
+      alreadyIn: 575_000,
+      beyondNextMonth: true,
+    });
+    expect(expectReadyAddsUp("2026-11")).toEqual({
+      ...nothing,
+      leftOver: 100_000,
+      received: 285_000,
+      alreadyIn: 290_000,
+    });
+    expect(expectReadyAddsUp("2026-12")).toEqual({
+      ...nothing,
+      leftOver: 385_000,
+      received: 290_000,
+    });
+    expectEverythingAccountedFor();
+  });
+
+  it("counts transactions to sort and without a category for the month of their date", () => {
+    db.insert(transactions)
+      .values([
+        { accountId: checking, date: "2026-11-03", amount: -2_340, payee: "Shop", toSort: true },
+        { accountId: checking, date: "2026-11-04", amount: 12_000, payee: "Friend", toSort: true },
+        { accountId: checking, date: "2026-11-05", amount: -5_000 },
+      ])
+      .run();
+    expect(expectReadyAddsUp("2026-11")).toEqual({
+      ...nothing,
+      leftOver: 100_000,
+      withoutCategory: -2_340 + 12_000 - 5_000,
+    });
+    expectEverythingAccountedFor();
+  });
+
+  it("counts an archived category's transactions without a category, and leaves out what it was assigned", () => {
+    const groceries = createCategory(db, "Groceries");
+    setAssigned(db, groceries, "2026-10", 30_000);
+    setAssigned(db, groceries, "2026-11", 20_000);
+    spend(groceries, "2026-10-05", -4_500);
+    spend(groceries, "2026-11-05", -6_000);
+    expect(expectReadyAddsUp("2026-11")).toEqual({
+      ...nothing,
+      leftOver: 100_000 - 30_000,
+      assigned: 20_000,
+    });
+
+    archiveCategory(db, groceries);
+    expect(expectReadyAddsUp("2026-11")).toEqual({
+      ...nothing,
+      leftOver: 100_000 - 4_500,
+      withoutCategory: -6_000,
+    });
+    expectEverythingAccountedFor();
+  });
+
+  it("counts an archived income category's money without a category, in the month it came in", () => {
+    const salary = createIncomeCategory("Salary");
+    setNextMonth(db, salary, true);
+    spend(salary, "2026-10-25", 285_000);
+    expect(expectReadyAddsUp("2026-10")).toEqual({
+      ...nothing,
+      withoutCategory: 100_000,
+      alreadyIn: 285_000,
+    });
+
+    archiveCategory(db, salary);
+    expect(expectReadyAddsUp("2026-10")).toEqual({ ...nothing, withoutCategory: 385_000 });
+    expect(expectReadyAddsUp("2026-11")).toEqual({ ...nothing, leftOver: 385_000 });
+    expectEverythingAccountedFor();
+
+    restoreCategory(db, salary);
+    expect(expectReadyAddsUp("2026-11")).toEqual({
+      ...nothing,
+      leftOver: 100_000,
+      received: 285_000,
+    });
+  });
+
+  it("takes away what is assigned in earlier months, in the month and in later months", () => {
+    const rent = createCategory(db, "Rent");
+    const holiday = createCategory(db, "Holiday");
+    setAssigned(db, rent, "2026-09", 10_000);
+    setAssigned(db, rent, "2026-10", 30_000);
+    setAssigned(db, holiday, "2026-10", 5_000);
+    setAssigned(db, rent, "2026-11", 35_000);
+    setAssigned(db, holiday, "2026-12", 40_000);
+    // Money taken back out of a category in a later month gives it back.
+    setAssigned(db, holiday, "2027-01", -2_000);
+
+    expect(expectReadyAddsUp("2026-10")).toEqual({
+      ...nothing,
+      leftOver: -10_000,
+      withoutCategory: 100_000,
+      assigned: 35_000,
+      assignedLater: 35_000 + 40_000 - 2_000,
+    });
+    expect(getBudgetMonth(db, "2026-10").readyToAssign).toBe(100_000 - 118_000);
+    expectEverythingAccountedFor();
+  });
+
+  it("leaves overspending out: it stays in its category", () => {
+    const groceries = createCategory(db, "Groceries");
+    setAssigned(db, groceries, "2026-10", 10_000);
+    spend(groceries, "2026-10-12", -30_000);
+    expect(expectReadyAddsUp("2026-10")).toEqual({
+      ...nothing,
+      withoutCategory: 100_000,
+      assigned: 10_000,
+    });
+    expect(expectReadyAddsUp("2026-11")).toEqual({ ...nothing, leftOver: 90_000 });
+    expectEverythingAccountedFor();
+  });
+
+  it("crosses the turn of the year", () => {
+    const salary = createIncomeCategory("Salary");
+    const rent = createCategory(db, "Rent");
+    setNextMonth(db, salary, true);
+    spend(salary, "2026-12-24", 285_000);
+    setAssigned(db, rent, "2026-12", 100_000);
+    setAssigned(db, rent, "2027-01", 110_000);
+
+    expect(expectReadyAddsUp("2026-12")).toEqual({
+      ...nothing,
+      leftOver: 100_000,
+      assigned: 100_000,
+      assignedLater: 110_000,
+      alreadyIn: 285_000,
+    });
+    expect(expectReadyAddsUp("2027-01")).toEqual({
+      ...nothing,
+      received: 285_000,
+      assigned: 110_000,
+    });
+    expect(expectReadyAddsUp("2026-11")).toMatchObject({
+      alreadyIn: 285_000,
+      beyondNextMonth: true,
+    });
+    expectEverythingAccountedFor();
+  });
+
+  it("adds up in a month before everything, among it and after it", () => {
+    const savings = created(
+      createAccount(db, {
+        name: "Savings",
+        type: "savings",
+        startingBalance: 500_000,
+        balanceDate: "2026-10-01",
+      }),
+    );
+    const salary = createIncomeCategory("Salary");
+    const bonus = createIncomeCategory("Bonus");
+    const groceries = createCategory(db, "Groceries");
+    const old = createCategory(db, "Old");
+    setNextMonth(db, salary, true);
+    spend(salary, "2026-09-25", 280_000);
+    spend(salary, "2026-10-24", 285_000);
+    spend(bonus, "2026-11-15", 50_000);
+    spend(groceries, "2026-10-03", -6_000);
+    spend(old, "2026-09-03", -1_000);
+    spend(null, "2026-11-20", -4_200);
+    // A transfer between the accounts, and money dated ahead.
+    spend(null, "2026-12-05", -20_000, checking);
+    spend(null, "2026-12-05", 20_000, savings);
+    spend(null, "2027-01-10", 3_000);
+    setAssigned(db, groceries, "2026-09", 20_000);
+    setAssigned(db, groceries, "2026-10", 25_000);
+    setAssigned(db, groceries, "2026-11", 30_000);
+    setAssigned(db, groceries, "2027-02", 10_000);
+    setAssigned(db, old, "2026-09", 5_000);
+    archiveCategory(db, old);
+
+    const money = 600_000 + 280_000 + 285_000 + 50_000 - 1_000 - 4_200 + 3_000;
+    const assigned = 20_000 + 25_000 + 30_000 + 10_000;
+    expect(getBudgetMonth(db, "2026-11").readyToAssign).toBe(money - assigned);
+
+    expect(expectReadyAddsUp("1999-12")).toEqual({
+      ...nothing,
+      assignedLater: assigned,
+      alreadyIn: money,
+      beyondNextMonth: true,
+    });
+    expect(expectReadyAddsUp("2026-11")).toEqual({
+      leftOver: 600_000 + 280_000 - 1_000 - 45_000,
+      received: 285_000 + 50_000,
+      withoutCategory: -4_200,
+      assigned: 30_000,
+      assignedLater: 10_000,
+      alreadyIn: 3_000,
+      beyondNextMonth: true,
+    });
+    expect(expectReadyAddsUp("2999-12")).toEqual({ ...nothing, leftOver: money - assigned });
+    expectEverythingAccountedFor();
   });
 });
 
@@ -780,9 +1058,14 @@ describe("income categories", () => {
 
     const month = getBudgetMonth(db, "2026-10");
     expect(month.readyToAssign).toBe(100_000 + 285_000 - 30_000);
-    expect(month.inAccounts).toBe(100_000 + 285_000 - 4_500);
-    expect(month.inCategories).toBe(30_000 - 4_500);
     expect(month.totals).toEqual({ assigned: 30_000, spent: 4_500, available: 25_500 });
+    // Received, with the starting balance beside it; Groceries' spending is not in it.
+    expect(month.readyBreakdown).toMatchObject({
+      leftOver: 0,
+      received: 285_000,
+      withoutCategory: 100_000,
+      assigned: 30_000,
+    });
     expectEverythingAccountedFor();
   });
 
@@ -794,11 +1077,10 @@ describe("income categories", () => {
     const months = ["2026-09", "2026-10", "2026-11", "2999-12"] as const;
     const figures = () =>
       months.map((month) => {
-        const { readyToAssign, inAccounts, inCategories, totals, groups } = getBudgetMonth(
-          db,
-          month,
-        );
-        return { readyToAssign, inAccounts, inCategories, totals, groups };
+        const { readyToAssign, readyBreakdown, totals, groups } = getBudgetMonth(db, month);
+        // Only whether the money shows as received or as without a category differs.
+        const { received, withoutCategory, ...parts } = readyBreakdown;
+        return { readyToAssign, parts, moneyFor: received + withoutCategory, totals, groups };
       });
     const withoutCategory = figures();
 
@@ -942,8 +1224,12 @@ describe("income that counts for the next month", () => {
     return [...income.categories.map((c) => c.received), income.received];
   };
 
-  /** Every figure of a month but the income section. */
-  const otherFigures = (month: Month) => ({ ...getBudgetMonth(db, month), income: undefined });
+  /** Every figure of a month but the income section and how Ready to assign adds up. */
+  const otherFigures = (month: Month) => ({
+    ...getBudgetMonth(db, month),
+    income: undefined,
+    readyBreakdown: undefined,
+  });
 
   it("is off for a new income category", () => {
     expect(getBudgetMonth(db, "2026-10").income.categories.map((c) => c.nextMonth)).toEqual([
@@ -1008,6 +1294,25 @@ describe("income that counts for the next month", () => {
     setNextMonth(db, salary, true);
     expect(months.map(otherFigures)).toEqual(before);
     expect(getBudgetMonth(db, "2026-10").readyToAssign).toBe(100_000 + 285_000 + 10_000 - 65_000);
+    // Only the sum that explains it moves the salary, from October to November.
+    expect(expectReadyAddsUp("2026-10")).toEqual({
+      leftOver: 0,
+      received: 0,
+      withoutCategory: 100_000,
+      assigned: 30_000,
+      assignedLater: 35_000,
+      alreadyIn: 285_000 + 10_000,
+      beyondNextMonth: false,
+    });
+    expect(expectReadyAddsUp("2026-11")).toEqual({
+      leftOver: 100_000 - 30_000,
+      received: 285_000,
+      withoutCategory: 10_000,
+      assigned: 35_000,
+      assignedLater: 0,
+      alreadyIn: 0,
+      beyondNextMonth: false,
+    });
     expectEverythingAccountedFor();
   });
 

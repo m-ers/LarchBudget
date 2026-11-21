@@ -18,6 +18,7 @@ import { CopyLastMonth } from "./copy-last-month";
 import { GroupBody, UngroupedBody } from "./group-body";
 import { IncomeBody } from "./income-body";
 import { NewGroup } from "./new-group";
+import { ReadyBreakdownCard, readyBreakdownButton, useReadyBreakdown } from "./ready-breakdown";
 import { TableHead } from "./table-head";
 
 type Props = {
@@ -62,8 +63,8 @@ function useInView(ref: React.RefObject<Element | null>): boolean {
 
 /**
  * The budget page for one month: the header with what came in, was
- * assigned and was spent, and Ready to assign; and the table of income,
- * groups and categories.
+ * assigned and was spent, and Ready to assign, which opens how it adds up;
+ * and the table of income, groups and categories.
  *
  * It shows the server's figures with every change that is still being saved
  * applied on top (see `budget-changes.ts`), so a change and everything it
@@ -92,70 +93,76 @@ export function BudgetView({
   const receivedTip = t("budget.overview.receivedTip");
   const ready = budget.readyToAssign;
   const headline = readyHeadline(t, ready, budget.hasAccounts);
+  const breakdown = useReadyBreakdown();
   const hero = useRef<HTMLElement>(null);
   const heroInView = useInView(hero);
   const groupCount = budget.groups.filter(isGroup).length;
 
   return (
     <BudgetContext value={{ month, currency, locale, figures: budget, show }}>
-      <Hero ref={hero}>
-        {/* With the figures under the month, this starts near the top: the
-            figures then line up with Ready to assign. */}
-        <div className={budget.hasAccounts ? "relative self-start pt-5" : "relative"}>
-          {/* As high as the arrows, so "This month" does not move what is below. */}
-          <div className="flex h-7 items-center gap-x-4">
-            {monthNav}
-            {daysLeft !== null && (
-              <p className="text-[14.5px] whitespace-nowrap text-white/70">
-                {richText(t, "budget.header.daysToGo", { count: daysLeft }, { b: bold })}
-              </p>
+      {/* The card that shows how Ready to assign adds up opens under the
+          header, lined up with its right edge: the header clips what
+          sticks out of it. */}
+      <div className="relative shrink-0">
+        <Hero ref={hero}>
+          {/* With the figures under the month, this starts near the top: the
+              figures then line up with Ready to assign. */}
+          <div className={budget.hasAccounts ? "relative self-start pt-5" : "relative"}>
+            {/* As high as the arrows, so "This month" does not move what is below. */}
+            <div className="flex h-7 items-center gap-x-4">
+              {monthNav}
+              {daysLeft !== null && (
+                <p className="text-[14.5px] whitespace-nowrap text-white/70">
+                  {richText(t, "budget.header.daysToGo", { count: daysLeft }, { b: bold })}
+                </p>
+              )}
+            </div>
+            {budget.hasAccounts && (
+              <HeroStats>
+                <HeroStat
+                  label={t("budget.overview.received")}
+                  value={money(received)}
+                  title={
+                    earlier > 0
+                      ? `${receivedTip} ${t("budget.overview.receivedFromLastMonthTip", {
+                          amount: money(earlier),
+                          lastMonth: monthName(addMonths(month, -1), dateLocale),
+                          month: monthName(month, dateLocale),
+                        })}`
+                      : receivedTip
+                  }
+                />
+                <HeroStat
+                  label={t("budget.overview.assigned")}
+                  value={money(assigned)}
+                  title={t("budget.overview.assignedTip")}
+                />
+                <HeroStat
+                  label={t("budget.overview.spent")}
+                  value={money(spent)}
+                  title={t("budget.overview.spentTip")}
+                />
+              </HeroStats>
             )}
           </div>
-          {budget.hasAccounts && (
-            <HeroStats>
-              <HeroStat
-                label={t("budget.overview.received")}
-                value={money(received)}
-                title={
-                  earlier > 0
-                    ? `${receivedTip} ${t("budget.overview.receivedFromLastMonthTip", {
-                        amount: money(earlier),
-                        lastMonth: monthName(addMonths(month, -1), dateLocale),
-                        month: monthName(month, dateLocale),
-                      })}`
-                    : receivedTip
-                }
-              />
-              <HeroStat
-                label={t("budget.overview.assigned")}
-                value={money(assigned)}
-                title={t("budget.overview.assignedTip")}
-              />
-              <HeroStat
-                label={t("budget.overview.spent")}
-                value={money(spent)}
-                title={t("budget.overview.spentTip")}
-              />
-            </HeroStats>
-          )}
-        </div>
-        {/* How the figure adds up, on hover. */}
-        <div
-          title={
-            budget.inCategories < 0
-              ? t("budget.header.readyWithOverspent", {
-                  inAccounts: formatMoney(budget.inAccounts, currency, locale),
-                  overspent: formatMoney(-budget.inCategories, currency, locale),
-                })
-              : t("budget.header.readyMinusCategories", {
-                  inAccounts: formatMoney(budget.inAccounts, currency, locale),
-                  inCategories: formatMoney(budget.inCategories, currency, locale),
-                })
-          }
-        >
-          <HeroFigure amount={formatMoneyParts(ready, currency, locale)} {...headline} />
-        </div>
-      </Hero>
+          <HeroFigure
+            amount={formatMoneyParts(ready, currency, locale)}
+            {...headline}
+            button={
+              budget.hasAccounts
+                ? readyBreakdownButton(
+                    breakdown,
+                    t("budget.breakdown.button", {
+                      label: headline.label,
+                      amount: formatMoney(ready, currency, locale),
+                    }),
+                  )
+                : undefined
+            }
+          />
+        </Hero>
+        {breakdown.open && <ReadyBreakdownCard state={breakdown} />}
+      </div>
 
       <section className="flex-1 rounded-2xl border border-line bg-surface px-2.5 pt-1.5 pb-2.5">
         {!budget.hasAccounts && (

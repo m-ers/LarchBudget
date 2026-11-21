@@ -200,7 +200,7 @@ test("an income category is renamed, moved and archived from its menu, and comes
   const ready = await headerFigure(page).innerText();
   expect(await archive(page, "Salary")).toBe('Archive "Salary"?');
   await expect(headerFigure(page)).toHaveText(ready);
-  await page.getByRole("button", { name: "Show" }).click();
+  await page.getByRole("button", { name: "Show", exact: true }).click();
   const archived = page
     .getByRole("list", { name: "Archived categories" })
     .getByRole("listitem")

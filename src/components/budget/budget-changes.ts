@@ -106,7 +106,11 @@ function assign(budget: BudgetMonth, categoryId: number, amount: number): Budget
       available: budget.totals.available + delta,
     },
     readyToAssign: budget.readyToAssign - delta,
-    inCategories: budget.inCategories + delta,
+    // Assigned in this month is one of the parts Ready to assign is made of.
+    readyBreakdown: {
+      ...budget.readyBreakdown,
+      assigned: budget.readyBreakdown.assigned + delta,
+    },
   };
 }
 

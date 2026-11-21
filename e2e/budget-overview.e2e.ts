@@ -2,18 +2,24 @@ import type { Page } from "@playwright/test";
 import {
   addIncomeCategories,
   assign,
+  breakdownLine,
   categoryRow,
+  expectBreakdownAddsUp,
   groupRow,
   monthFromNow,
   openMenu,
+  openReadyBreakdown,
   overviewFigure,
   overviewTip,
+  readyBreakdown,
+  readyButton,
 } from "./helpers";
 import { expect, test } from "./fixtures";
 
 // The figures under the month: what came in, what was assigned and what was
-// spent, on the demo data. Its salary of €2,850.00 comes in on the 1st of
-// every month, and €2,295.00 is assigned in each month.
+// spent, and how Ready to assign adds up, on the demo data. Its salary of
+// €2,850.00 comes in on the 1st of every month, and €2,295.00 is assigned in
+// each month.
 
 test.use({ app: { seed: true } });
 
@@ -115,11 +121,15 @@ test("the days left show beside this month only", async ({ page }) => {
 test("with Salary counting for the next month, Received says what came in the month before", async ({
   page,
 }) => {
-  const [lastMonth, thisMonth] = [-1, 0].map((offset) => monthFromNow(offset));
+  const [lastMonth, thisMonth, nextMonth] = [-1, 0, 1].map((offset) => monthFromNow(offset));
   const received = overviewTip(page, "Received");
   await receiveGift(page);
   await expect(overviewFigure(page, "Received")).toHaveText("€2,900");
   await expect(received).toHaveAttribute("title", RECEIVED_TIP);
+  await openReadyBreakdown(page);
+  await expect(breakdownLine(page, `Received for ${thisMonth}`)).toHaveText("+ €2,900.00");
+  await expect(breakdownLine(page, `Already in for ${nextMonth}`)).toHaveCount(0);
+  await page.keyboard.press("Escape");
 
   // On: Salary's money for this month came in during the month before, and
   // Received includes it. Its tooltip says so.
@@ -130,11 +140,65 @@ test("with Salary counting for the next month, Received says what came in the mo
   );
   await expect(overviewFigure(page, "Received")).toHaveText("€2,900");
   await expect(categoryRow(page, "Salary").getByRole("cell").last()).toHaveText("€2,850.00");
+  // How Ready to assign adds up counts it for this month too, and the salary
+  // that came in this month for the next.
+  await openReadyBreakdown(page);
+  await expect(breakdownLine(page, `Received for ${thisMonth}`)).toHaveText("+ €2,900.00");
+  await expect(breakdownLine(page, `Already in for ${nextMonth}`)).toHaveText("+ €2,850.00");
+  await expectBreakdownAddsUp(page);
+  await page.keyboard.press("Escape");
 
   // Off again.
   await switchSalary(page);
   await expect(received).toHaveAttribute("title", RECEIVED_TIP);
   await expect(overviewFigure(page, "Received")).toHaveText("€2,900");
+  await openReadyBreakdown(page);
+  await expect(breakdownLine(page, `Already in for ${nextMonth}`)).toHaveCount(0);
+  await expectBreakdownAddsUp(page);
+});
+
+test("how Ready to assign adds up opens from the keyboard, and closes as a popup does", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const button = readyButton(page);
+  const card = readyBreakdown(page);
+  await expect(button).toHaveAccessibleName(
+    /^Ready to assign: €[\d,]+\.\d\d, show how it adds up$/,
+  );
+  await expect(button).toHaveAttribute("aria-expanded", "false");
+
+  // Enter opens it, and the card takes the focus.
+  await button.focus();
+  await page.keyboard.press("Enter");
+  await expect(card).toBeFocused();
+  await expect(button).toHaveAttribute("aria-expanded", "true");
+  await expect(button).toHaveAttribute("aria-controls", (await card.getAttribute("id"))!);
+  await expect(breakdownLine(page, `Assigned in ${monthFromNow(0)}`)).toHaveText("− €2,295.00");
+  await expectBreakdownAddsUp(page);
+
+  // Escape closes it, and the focus goes back to the figure.
+  await page.keyboard.press("Escape");
+  await expect(card).toHaveCount(0);
+  await expect(button).toBeFocused();
+  await expect(button).toHaveAttribute("aria-expanded", "false");
+
+  // Tab moves on past it, and closes it.
+  await page.keyboard.press("Space");
+  await expect(card).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(card).toHaveCount(0);
+  await expect(button).not.toBeFocused();
+
+  // A click on the figure opens and closes it; so does a click elsewhere.
+  await button.click();
+  await expect(card).toBeVisible();
+  await button.click();
+  await expect(card).toHaveCount(0);
+  await button.click();
+  await expect(card).toBeVisible();
+  await page.getByRole("heading", { level: 1 }).click();
+  await expect(card).toHaveCount(0);
 });
 
 test.describe("in Dutch", () => {
@@ -150,11 +214,28 @@ test.describe("in Dutch", () => {
     await categoryRow(page, "Salary").hover();
     await page.getByRole("button", { name: "Acties voor Salary", exact: true }).click();
     await page.getByRole("menuitemcheckbox", { name: "Telt voor de volgende maand" }).click();
-    const [lastMonth, thisMonth] = [-1, 0].map((offset) => monthFromNow(offset, "nl-NL"));
+    const [lastMonth, thisMonth, nextMonth] = [-1, 0, 1].map((offset) =>
+      monthFromNow(offset, "nl-NL"),
+    );
     await expect(overviewTip(page, "Ontvangen")).toHaveAttribute(
       "title",
       "Wat er via je inkomstencategorieën voor deze maand binnenkwam. " +
         `€2,850 hiervan kwam in ${lastMonth} binnen en telt voor ${thisMonth}.`,
     );
+
+    // How Ready to assign adds up, in Dutch.
+    await readyButton(page, "laat zien hoe het is opgebouwd").click();
+    const card = readyBreakdown(page, "Hoe Nog toe te wijzen is opgebouwd");
+    await expect(card).toBeFocused();
+    await expect(breakdownLine(page, `Over uit ${lastMonth}`, card)).toBeVisible();
+    await expect(breakdownLine(page, `Ontvangen voor ${thisMonth}`, card)).toHaveText(
+      "+ €2,850.00",
+    );
+    await expect(breakdownLine(page, `Toegewezen in ${thisMonth}`, card)).toHaveText("− €2,295.00");
+    await expect(breakdownLine(page, `Al binnen voor ${nextMonth}`, card)).toHaveText(
+      "+ €2,850.00",
+    );
+    await expect(card.locator("dt").last()).toHaveText("Nog toe te wijzen");
+    await expectBreakdownAddsUp(page, card);
   });
 });

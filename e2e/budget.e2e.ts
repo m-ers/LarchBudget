@@ -12,6 +12,8 @@ import {
   category,
   categoryRow,
   chosen,
+  expectBreakdown,
+  expectBreakdownAddsUp,
   goToNextMonth,
   goToThisMonth,
   groupHeading,
@@ -19,9 +21,13 @@ import {
   groupTotal,
   headerFigure,
   menuItem,
+  monthFromNow,
   newGroupField,
   openMenu,
   openNewCategory,
+  openReadyBreakdown,
+  readyBreakdown,
+  readyButton,
   slowConnection,
 } from "./helpers";
 import { expect, test } from "./fixtures";
@@ -85,28 +91,46 @@ test("money is divided over categories, and over-assigning is flagged", async ({
   await expect(page.getByText("Every cent is assigned")).toBeVisible();
 });
 
-test("Ready to assign explains how it adds up, also straight after a new amount", async ({
-  page,
-}) => {
+test("Ready to assign shows how it adds up, also straight after a new amount", async ({ page }) => {
   await addAccount(page, "Main account", "7000");
   await page.goto("/");
   await addGroup(page, "Fixed costs");
   await addCategories(page, "Fixed costs", ["Rent", "Water"]);
   await assignAndSave(page, "Rent", "1300");
   await assignAndSave(page, "Water", "92");
-  const explained = page.getByTitle(/ in your accounts /).filter({ visible: true });
-  await expect(explained).toHaveAttribute(
-    "title",
-    "€7,000.00 in your accounts − €1,392.00 in categories",
+  const [lastMonth, thisMonth] = [monthFromNow(-1), monthFromNow(0)];
+  await expect(readyButton(page)).toHaveAccessibleName(
+    "Ready to assign: €5,608.00, show how it adds up",
   );
+
+  // The account's balance of today has no category, and counts for this month.
+  await openReadyBreakdown(page);
+  await expectBreakdown(page, [
+    [`Left over from ${lastMonth}`, "+ €0.00"],
+    [`Received for ${thisMonth}`, "+ €0.00"],
+    [`Without a category in ${thisMonth}`, "+ €7,000.00"],
+    [`Assigned in ${thisMonth}`, "− €1,392.00"],
+    ["Ready to assign", "= €5,608.00"],
+  ]);
+  await expectBreakdownAddsUp(page);
 
   await slowConnection(page, 2_000);
   await assign(page, "Water", "100");
-  await expect(explained).toHaveAttribute(
-    "title",
-    "€7,000.00 in your accounts − €1,400.00 in categories",
+  // Typing in the field closed it.
+  await expect(readyBreakdown(page)).toHaveCount(0);
+  await openReadyBreakdown(page);
+  await expectBreakdown(
+    page,
+    [
+      [`Left over from ${lastMonth}`, "+ €0.00"],
+      [`Received for ${thisMonth}`, "+ €0.00"],
+      [`Without a category in ${thisMonth}`, "+ €7,000.00"],
+      [`Assigned in ${thisMonth}`, "− €1,400.00"],
+      ["Ready to assign", "= €5,600.00"],
+    ],
     { timeout: 1_000 },
   );
+  await expectBreakdownAddsUp(page);
   await expect(headerFigure(page)).toHaveText("€5,600.00");
 });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { BudgetMonth } from "@/db/budget";
 import type { CategoryIcon } from "@/lib/category-icons";
+import { readyLines } from "../../lib/ready";
 import { applyChange, moveChanges, type BudgetChange } from "./budget-changes";
 
 /**
@@ -45,12 +46,23 @@ const budget: BudgetMonth = {
   },
   totals: { assigned: 102_000, spent: 5_000, available: 127_000 },
   readyToAssign: 50_000,
-  // What the categories above hold over all time, and 50.00 more.
-  inAccounts: 179_000,
-  inCategories: 129_000,
+  // Before this month, 1,310.00 more was assigned than had come in.
+  readyBreakdown: {
+    leftOver: -131_000,
+    received: 285_000,
+    withoutCategory: 0,
+    assigned: 102_000,
+    assignedLater: 2_000,
+    alreadyIn: 0,
+    beyondNextMonth: false,
+  },
   hasAccounts: true,
   assignedLastMonth: false,
 };
+
+/** What the lines of Ready to assign's sum add up to. */
+const sum = (month: BudgetMonth) =>
+  readyLines(month.readyBreakdown).reduce((total, line) => total + line.amount, 0);
 
 const assign = (categoryId: number, amount: number): BudgetChange => ({
   type: "assign",
@@ -78,11 +90,16 @@ describe("assigning, before the server confirms it", () => {
     expect(after.readyToAssign).toBe(30_000);
   });
 
-  it("keeps Ready to assign explained: the money in accounts less what categories hold", () => {
-    const after = applyChange(budget, assign(10, 120_000));
-    expect(after.inAccounts).toBe(179_000);
-    expect(after.inCategories).toBe(149_000);
-    expect(after.inAccounts - after.inCategories).toBe(after.readyToAssign);
+  it("keeps the parts of Ready to assign adding up to it", () => {
+    expect(sum(budget)).toBe(budget.readyToAssign);
+    for (const change of [assign(10, 120_000), assign(11, 0), assign(20, -5_000)]) {
+      const after = applyChange(budget, change);
+      expect(after.readyBreakdown).toEqual({
+        ...budget.readyBreakdown,
+        assigned: after.totals.assigned,
+      });
+      expect(sum(after)).toBe(after.readyToAssign);
+    }
   });
 
   it("leaves other categories and groups as they are", () => {
@@ -147,6 +164,10 @@ describe("moving money, before the server confirms it", () => {
     const freed = move(10, "ready", 100_000);
     expect(freed.groups[0].categories[0]).toMatchObject({ assigned: 0, available: 25_000 });
     expect(freed.readyToAssign).toBe(150_000);
+    // The sum that explains it follows.
+    expect(covered.readyBreakdown.assigned).toBe(107_000);
+    expect(freed.readyBreakdown.assigned).toBe(2_000);
+    expect([covered, freed].map(sum)).toEqual([45_000, 150_000]);
   });
 
   it("does not count twice once the server's figures already hold the move", () => {
