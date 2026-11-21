@@ -64,7 +64,7 @@ export type IncomeCategoryRow = {
    * or, when it counts for the next month, in the days `receivedPeriod` gives.
    */
   received: number;
-  /** Whether what comes in on or after the 15th counts for the next month. */
+  /** Whether what comes in counts for the next month. */
   nextMonth: boolean;
 };
 
@@ -383,8 +383,8 @@ function groupNameTaken(db: Db, name: string, exceptId?: number): boolean {
 }
 
 /**
- * Sets whether an income category counts what comes in on or after the 15th
- * for the next month (see `receivedPeriod`). Returns false, and changes
+ * Sets whether what comes in through an income category counts for the
+ * next month (see `receivedPeriod`). Returns false, and changes
  * nothing, when the category does not exist, is archived, or is an expense
  * category, which receives nothing.
  */

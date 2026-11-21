@@ -4,10 +4,9 @@ import Link from "next/link";
 import { useState } from "react";
 import { createIncomeCategoryAction } from "@/app/actions";
 import type { BudgetMonth, IncomeCategoryRow } from "@/db/budget";
-import { useDateLocale, useT } from "@/i18n/client";
-import { formatDayMonth } from "@/lib/dates";
+import { useT } from "@/i18n/client";
+import { addMonths } from "@/lib/dates";
 import { groupColor } from "@/lib/group-colors";
-import { receivedPeriod } from "@/lib/income";
 import { formatMoney } from "@/lib/money";
 import { transactionsHref } from "@/lib/transactions-address";
 import { EnvelopeToken, PlusIcon } from "../icons";
@@ -85,7 +84,7 @@ export function IncomeBody({ income }: { income: BudgetMonth["income"] }) {
 /**
  * One income category: its name and actions, and in the last column what
  * came in for this month. For a category that counts for the next month,
- * pointing at the amount says which days that covers.
+ * that is what came in the month before, and its amount leads there.
  */
 function IncomeRow({
   category,
@@ -98,17 +97,11 @@ function IncomeRow({
 }) {
   const { month, currency, locale } = useBudget();
   const t = useT();
-  const dates = useDateLocale();
   const { id, received, nextMonth } = category;
   const amount = formatMoney(received, currency, locale);
   const menu = useMenu();
-  const period = receivedPeriod(month, true);
-  const days = nextMonth
-    ? t("budget.income.receivedPeriod", {
-        from: formatDayMonth(period.first, dates),
-        to: formatDayMonth(period.last, dates),
-      })
-    : undefined;
+  // What it received came in this month, or the month before.
+  const receivedIn = nextMonth ? addMonths(month, -1) : month;
 
   return (
     <tr className="data-row group/row" onContextMenu={menu.openAtPointer}>
@@ -127,18 +120,14 @@ function IncomeRow({
       <td />
       <td className="pr-6 text-right font-medium whitespace-nowrap tabular-nums">
         {received === 0 ? (
-          <span className="text-muted" title={days}>
-            {amount}
-          </span>
+          <span className="text-muted">{amount}</span>
         ) : (
-          // The transactions behind the amount. Days from two months cannot
-          // be one month's list, so then it is all of the category's.
           <Link
             href={transactionsHref({
               showAll: true,
-              filter: nextMonth ? { category: id } : { category: id, month },
+              filter: { category: id, month: receivedIn },
             })}
-            title={days ?? t("budget.row.seeTransactions")}
+            title={t("budget.row.seeTransactions")}
             className="rounded-sm underline-offset-2 hover:underline"
           >
             {amount}

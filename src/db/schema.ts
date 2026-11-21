@@ -58,9 +58,9 @@ export const categories = sqliteTable("categories", {
    */
   income: integer("income", { mode: "boolean" }).notNull().default(false),
   /**
-   * Only for an income category: what comes in on or after the 15th counts
-   * as received in the next month, such as a salary paid near the end of
-   * the month (see src/lib/income.ts). Ready to assign does not change.
+   * Only for an income category: what comes in during a month counts as
+   * received in the next month, such as a salary paid near the end of the
+   * month (see src/lib/income.ts). Ready to assign does not change.
    */
   nextMonth: integer("next_month", { mode: "boolean" }).notNull().default(false),
   createdAt,

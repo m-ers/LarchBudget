@@ -1,13 +1,5 @@
 import { addMonths, pad, type IsoDate, type Month } from "./dates";
 
-/**
- * The day of the month from which money in an income category that "counts
- * for the next month" does so. A salary paid on the 23rd, 25th or 31st is
- * meant for the next month, and one that slips to the 1st because of a
- * weekend still counts for that same month.
- */
-export const NEXT_MONTH_FROM_DAY = 15;
-
 /** The first and last day of a stretch of days, both included. */
 export type Period = { first: IsoDate; last: IsoDate };
 
@@ -21,17 +13,12 @@ function lastDay(month: Month): IsoDate {
 }
 
 /**
- * The days whose money an income category counts as received in `month`.
- *
- * Normally that is the month itself. For a category that counts for the next
- * month, it is from the 15th of the month before up to and including the
- * 14th of this one: money that arrives on or after the 15th counts for the
- * next month, and money that arrives before it for its own month.
+ * The days whose money an income category counts as received in `month`:
+ * the month itself, or, for a category that counts for the next month, the
+ * whole month before. A salary paid on 25 October, or on 2 October, then
+ * counts for November.
  */
 export function receivedPeriod(month: Month, countsForNextMonth: boolean): Period {
-  if (!countsForNextMonth) return { first: date(month, 1), last: lastDay(month) };
-  return {
-    first: date(addMonths(month, -1), NEXT_MONTH_FROM_DAY),
-    last: date(month, NEXT_MONTH_FROM_DAY - 1),
-  };
+  const from = countsForNextMonth ? addMonths(month, -1) : month;
+  return { first: date(from, 1), last: lastDay(from) };
 }

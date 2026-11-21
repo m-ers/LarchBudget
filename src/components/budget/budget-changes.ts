@@ -15,7 +15,7 @@ export type BudgetChange =
       amount: number;
     }
   | {
-      /** Whether an income category counts what comes in from the 15th for the next month. */
+      /** Whether what comes in through an income category counts for the next month. */
       type: "next-month";
       categoryId: number;
       on: boolean;

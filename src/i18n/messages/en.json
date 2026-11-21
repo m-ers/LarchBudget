@@ -405,7 +405,7 @@
       "newPlaceholderFirst": "New income category, e.g. Salary",
       "received": "{{amount}} received",
       "nextMonth": "Counts for the next month",
-      "receivedPeriod": "Received from {{from}} to {{to}}"
+      "nextMonthHint": "Counts for the next month: this is what came in during {{month}}."
     },
     "addByName": {
       "adding": "Adding…",

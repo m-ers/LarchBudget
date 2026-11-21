@@ -102,11 +102,11 @@ what comes in through them is ready to assign. They show what came in each
 month, and tell your salary apart from a refund or a transfer.
 
 Paid near the end of the month, for the month after? Choose **Counts for the
-next month** in the category's menu. What comes in on or after the 15th then
-shows as received in the next month, and what comes in before the 15th in
-its own month: a salary paid on 25 October, or one that slips to 1 November,
-counts for November. Point at the amount to see which days it covers. Ready
-to assign does not change: the money can be assigned as soon as it is there.
+next month** in the category's menu. Everything that comes in through it
+during a month then shows as received in the month after: a salary paid on
+25 October counts for November. An arrow after the name marks such a
+category. Ready to assign does not change: the money can be assigned as soon
+as it is there.
 
 ## Importing from your bank
 

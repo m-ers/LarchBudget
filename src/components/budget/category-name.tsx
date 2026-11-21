@@ -8,10 +8,11 @@ import {
   renameCategoryAction,
   setNextMonthAction,
 } from "@/app/actions";
-import { useT } from "@/i18n/client";
+import { useDateLocale, useT } from "@/i18n/client";
+import { addMonths, formatMonth } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import { ErrorText } from "../form";
-import { MoreIcon } from "../icons";
+import { ArrowRightIcon, MoreIcon } from "../icons";
 import { InlineName, type InlineNameHandle } from "../inline-name";
 import { Menu, type useMenu } from "../menu";
 import { useSave } from "../use-save";
@@ -35,8 +36,8 @@ type Props = {
    */
   money?: { balance: number; available: number; onMoveMoney: (flow: Flow) => void };
   /**
-   * For an income category: whether what comes in from the 15th counts for
-   * the next month, which its menu switches. Left out for an expense category.
+   * For an income category: whether what comes in counts for the next month,
+   * which its menu switches. Left out for an expense category.
    */
   nextMonth?: boolean;
 };
@@ -49,7 +50,8 @@ let movedToGroup: number | null = null;
  * beside it, whose button shows on row hover.
  */
 export function CategoryName({ category: { id, name }, place, menu, money, nextMonth }: Props) {
-  const { currency, locale, figures, show } = useBudget();
+  const { month, currency, locale, figures, show } = useBudget();
+  const dates = useDateLocale();
   const t = useT();
   const { error, pending, save } = useSave();
   const nameField = useRef<InlineNameHandle>(null);
@@ -136,6 +138,22 @@ export function CategoryName({ category: { id, name }, place, menu, money, nextM
         onSave={(text) => renameCategoryAction(id, text)}
         className={`text-[15.5px] font-medium ${pending ? "opacity-60" : ""}`}
       />
+      {nextMonth && (
+        // What it shows came in the month before: say so, without a word in the row.
+        <span
+          title={t("budget.income.nextMonthHint", {
+            month: formatMonth(addMonths(month, -1), dates),
+          })}
+          className="flex shrink-0 cursor-help text-muted"
+        >
+          <ArrowRightIcon width={15} height={15} aria-hidden="true" />
+          <span className="sr-only">
+            {t("budget.income.nextMonthHint", {
+              month: formatMonth(addMonths(month, -1), dates),
+            })}
+          </span>
+        </span>
+      )}
       <Menu
         label={t("budget.menu.actionsFor", { name })}
         state={menu}

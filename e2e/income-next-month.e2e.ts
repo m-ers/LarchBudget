@@ -12,7 +12,7 @@ import {
 } from "./helpers";
 import { expect, test } from "./fixtures";
 
-// An income category whose money from the 15th on counts for the next month,
+// An income category whose money counts for the month after it came in,
 // such as a salary paid near the end of the month.
 
 /** The menu item that switches it, in the open menu. */
@@ -85,7 +85,7 @@ test.beforeEach(async ({ page }) => {
   await importIncome(page);
 });
 
-test("a salary from the 25th counts for the next month, and Ready to assign stays the same", async ({
+test("what comes in during October counts for November, and Ready to assign stays the same", async ({
   page,
 }) => {
   // Off: each month shows what arrived in it.
@@ -101,29 +101,32 @@ test("a salary from the 25th counts for the next month, and Ready to assign stay
   await expect(monthLine(page)).toHaveCount(0);
   await expect(headerFigure(page)).toHaveText(ready);
 
-  // On: the salary of the 25th moves to November.
+  // On: everything Salary received in October, on the 5th and the 25th,
+  // counts for November. Gifts keeps counting for October.
   await switchSalary(page);
-  await expect(available(page, "Salary")).toHaveText("€2,850.00");
+  await expect(available(page, "Salary")).toHaveText("€3,000.00");
   await expect(available(page, "Gifts")).toHaveText("€0.00");
-  await expect(groupTotal(page, "Income")).toHaveText("€2,850.00 received");
-  await expect(monthLine(page)).toHaveText(says("€2,850 received"));
+  await expect(groupTotal(page, "Income")).toHaveText("€3,000.00 received");
+  await expect(monthLine(page)).toHaveText(says("€3,000 received"));
   await expect(headerFigure(page)).toHaveText(ready);
-  // Pointing at the amount says which days it covers. They span two months,
-  // so it leads to all of Salary's transactions.
-  const amount = categoryRow(page, "Salary").getByRole("link", { name: "€2,850.00" });
-  await expect(amount).toHaveAttribute("title", "Received from October 15 to November 14");
-  await expect(amount).toHaveAttribute("href", /^\/transactions\?show=all&category=\d+$/);
-
-  // What came in on the 5th stays in October, and so does Gifts.
-  await openMonth(page, "2026-10");
-  await expect(available(page, "Salary")).toHaveText("€150.00");
-  await expect(categoryRow(page, "Salary").getByRole("link")).toHaveAttribute(
+  // An arrow after the name says why, and the amount leads to October.
+  await expect(
+    categoryRow(page, "Salary").getByTitle(/^Counts for the next month/),
+  ).toHaveAttribute(
     "title",
-    "Received from September 15 to October 14",
+    "Counts for the next month: this is what came in during October 2026.",
   );
+  await expect(categoryRow(page, "Gifts").getByTitle(/^Counts for the next month/)).toHaveCount(0);
+  await expect(
+    categoryRow(page, "Salary").getByRole("link", { name: "€3,000.00" }),
+  ).toHaveAttribute("href", /^\/transactions\?show=all&category=\d+&month=2026-10$/);
+
+  // October now shows what Salary received in September: nothing.
+  await openMonth(page, "2026-10");
+  await expect(available(page, "Salary")).toHaveText("€0.00");
   await expect(available(page, "Gifts")).toHaveText("€50.00");
-  await expect(groupTotal(page, "Income")).toHaveText("€200.00 received");
-  await expect(monthLine(page)).toHaveText(says("€200 received"));
+  await expect(groupTotal(page, "Income")).toHaveText("€50.00 received");
+  await expect(monthLine(page)).toHaveText(says("€50 received"));
   await expect(headerFigure(page)).toHaveText(ready);
 
   // Off again: everything back where it arrived.
@@ -160,7 +163,7 @@ test("the menu item shows whether it is on, and works from the keyboard", async 
   await page.keyboard.press("Enter");
   await expect(page.getByRole("menu")).toHaveCount(0);
   await expect(button).toBeFocused();
-  await expect(available(page, "Salary")).toHaveText("€2,850.00");
+  await expect(available(page, "Salary")).toHaveText("€3,000.00");
 
   // It stays on after a reload, and only for Salary.
   await page.reload();

@@ -936,13 +936,13 @@ describe("income that counts for the next month", () => {
     });
   });
 
-  it("counts what comes in from the 15th for the next month, and before it for its own", () => {
+  it("counts everything that comes in during a month for the next month", () => {
     spend(salary, "2026-09-25", 270_000);
     spend(salary, "2026-10-05", 15_000);
     spend(salary, "2026-10-14", 1_000);
     spend(salary, "2026-10-15", 200);
     spend(salary, "2026-10-25", 285_000);
-    // A salary that slipped to the 1st because of a weekend.
+    // A salary paid at the start of the month counts for the next one too.
     spend(salary, "2026-11-01", 290_000);
     spend(salary, "2026-11-14", 300);
     spend(salary, "2026-11-15", 295_000);
@@ -958,12 +958,10 @@ describe("income that counts for the next month", () => {
       true,
       false,
     ]);
-    // October: 25 September up to and including 14 October.
-    expect(receivedIn("2026-10")).toEqual([286_000, 12_000, 298_000]);
-    // November: 15 October up to and including 14 November.
-    expect(receivedIn("2026-11")).toEqual([575_500, 0, 575_500]);
-    // December: what came in from 15 November.
-    expect(receivedIn("2026-12")).toEqual([295_000, 0, 295_000]);
+    // Each month shows what came in the month before.
+    expect(receivedIn("2026-10")).toEqual([270_000, 12_000, 282_000]);
+    expect(receivedIn("2026-11")).toEqual([301_200, 0, 301_200]);
+    expect(receivedIn("2026-12")).toEqual([585_300, 0, 585_300]);
     expect(receivedIn("2026-09")).toEqual([0, 0, 0]);
     expectEverythingAccountedFor();
   });
@@ -974,9 +972,9 @@ describe("income that counts for the next month", () => {
     spend(salary, "2026-12-15", 285_000);
     spend(salary, "2027-01-14", 2_000);
     spend(salary, "2027-01-15", 290_000);
-    expect(receivedIn("2026-12")).toEqual([1_000, 0, 1_000]);
-    expect(receivedIn("2027-01")).toEqual([287_000, 0, 287_000]);
-    expect(receivedIn("2027-02")).toEqual([290_000, 0, 290_000]);
+    expect(receivedIn("2026-12")).toEqual([0, 0, 0]);
+    expect(receivedIn("2027-01")).toEqual([286_000, 0, 286_000]);
+    expect(receivedIn("2027-02")).toEqual([292_000, 0, 292_000]);
   });
 
   it("changes no figure but the received ones, in any month", () => {
@@ -1001,10 +999,11 @@ describe("income that counts for the next month", () => {
     const off = months.map(receivedIn);
 
     setNextMonth(db, salary, true);
+    // October's salary shows in November, November's in December.
     expect(months.map(receivedIn)).toEqual([
       [0, 0, 0],
-      [300_000, 0, 300_000],
-      [0, 0, 0],
+      [285_000, 0, 285_000],
+      [15_000, 0, 15_000],
     ]);
     expect(setNextMonth(db, salary, false)).toBe(true);
     expect(months.map(receivedIn)).toEqual(off);

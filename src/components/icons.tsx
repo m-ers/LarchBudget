@@ -63,6 +63,12 @@ export const ChevronRightIcon = (props: SVGProps<SVGSVGElement>) => (
   </Icon>
 );
 
+export const ArrowRightIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M5 12h14m-6-6 6 6-6 6" />
+  </Icon>
+);
+
 export const PlusIcon = (props: SVGProps<SVGSVGElement>) => (
   <Icon {...props}>
     <path d="M12 5v14M5 12h14" />

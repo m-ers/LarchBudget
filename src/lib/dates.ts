@@ -69,11 +69,6 @@ const dateFormat = memoize(
     }),
 );
 
-const dayMonthFormat = memoize(
-  (locale: string) =>
-    new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", timeZone: "UTC" }),
-);
-
 /**
  * The month label split into parts, so the year can be styled on its own:
  * [{ type: "month", value: "November" }, { type: "literal", value: " " }, { type: "year", value: "2026" }]
@@ -90,9 +85,4 @@ export function formatMonth(month: Month, locale: string): string {
 /** A date for display, e.g. "Nov 3, 2026" or "3 nov 2026". */
 export function formatDate(date: IsoDate, locale: string): string {
   return dateFormat(locale).format(utc(date));
-}
-
-/** A day of a month for display, without the year, e.g. "October 15" or "15 oktober". */
-export function formatDayMonth(date: IsoDate, locale: string): string {
-  return dayMonthFormat(locale).format(utc(date));
 }

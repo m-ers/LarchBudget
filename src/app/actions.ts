@@ -196,7 +196,7 @@ export async function renameCategoryAction(
     : categoryNameTaken(t, parsed.data);
 }
 
-/** Whether an income category counts what comes in from the 15th for the next month. */
+/** Whether what comes in through an income category counts for the next month. */
 export async function setNextMonthAction(categoryId: number, on: boolean): Promise<ActionResult> {
   const t = await getT();
   const db = await database();
