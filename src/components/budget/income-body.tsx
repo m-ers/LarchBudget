@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { createIncomeCategoryAction } from "@/app/actions";
 import type { BudgetMonth, IncomeCategoryRow } from "@/db/budget";
-import { useT } from "@/i18n/client";
+import { useDateLocale, useT } from "@/i18n/client";
 import { formatDayMonth } from "@/lib/dates";
 import { groupColor } from "@/lib/group-colors";
 import { receivedPeriod } from "@/lib/income";
@@ -98,14 +98,15 @@ function IncomeRow({
 }) {
   const { month, currency, locale } = useBudget();
   const t = useT();
+  const dates = useDateLocale();
   const { id, received, nextMonth } = category;
   const amount = formatMoney(received, currency, locale);
   const menu = useMenu();
   const period = receivedPeriod(month, true);
   const days = nextMonth
     ? t("budget.income.receivedPeriod", {
-        from: formatDayMonth(period.first, locale),
-        to: formatDayMonth(period.last, locale),
+        from: formatDayMonth(period.first, dates),
+        to: formatDayMonth(period.last, dates),
       })
     : undefined;
 
