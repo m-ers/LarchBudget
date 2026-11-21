@@ -1,32 +1,64 @@
 # Contributing to LarchBudget
 
-Thanks for your interest. This page explains what fits in LarchBudget and how
-changes get in.
+Thanks for your interest. This page explains what fits in LarchBudget, how to
+get it running, and how changes get in.
 
 ## Scope
 
-LarchBudget does one thing: budgeting with categories for one person, kept
-simple.
+LarchBudget is about one thing: budgeting with categories for one person,
+kept simple.
 
 Changes that make that one thing clearer, faster or more pleasant are
-welcome. To stay simple, LarchBudget deliberately leaves out net worth
-tracking, investments, retirement calculators, multiple currencies, multiple
-users and automatic bank connections. Pull requests that add these will be
-declined, however well made.
+welcome. The [roadmap](README.md#roadmap) shows what is planned, and in
+which order.
 
-If you are unsure whether an idea fits, open an issue before writing code.
+For a bigger addition, open an issue first, so we can talk about how it fits
+before you write code.
+
+## Bugs and ideas
+
+- **Found a bug?** [Open an issue](https://github.com/m-ers/LarchBudget/issues/new/choose)
+  and say what you did, what you saw and what you expected. Leave out
+  anything private: blur amounts and names in a screenshot, and do not
+  attach your own bank file or database.
+- **Have an idea?** Open an issue before writing code, so we can see whether
+  it fits.
+- **Found a security problem?** Do not open an issue; see
+  [SECURITY.md](SECURITY.md).
+
+## Get it running
+
+You need Node.js 24 or newer.
+
+```bash
+npm install
+```
+
+```bash
+npm run db:seed
+```
+
+```bash
+npm run dev
+```
+
+Open http://localhost:3000 for a budget with fake demo data.
+[Development](docs/development.md) explains how the code is organised and
+the rules it follows.
 
 ## How changes land
 
 - **`main` always works.** Nothing is committed to it directly.
 - **One change per branch and pull request.** Name the branch after the
   change: `feature/bank-import`, `fix/rounding`, `chore/update-deps`.
-- **Pull requests are squash-merged.** The pull request title becomes the one
-  commit on `main`, so the history of `main` reads as a list of changes. The
-  description stays on the pull request, which the commit links to.
+- **Pull requests are squash-merged.** A pull request becomes one commit on
+  `main`: its title is the first line, followed by the messages of its
+  commits. So the history of `main` reads as a list of changes.
 - **Write the title as a short instruction:** "Add bank CSV import",
   "Fix rollover across years". Use the description to say what changed and
   why, and how you checked it.
+- **Write commit messages for someone reading the history later:** what
+  changed and why, in plain words.
 - **Keep pull requests small.** A small pull request gets reviewed quickly; a
   large one waits.
 
@@ -72,7 +104,12 @@ it, and a unit test when you change the rules in `src/lib` or `src/db`.
 If you changed `src/db/schema.ts`, run `npm run db:generate` and commit the
 migration it creates in `./drizzle`.
 
-For a change you can see, add a screenshot to the pull request.
+For a change you can see:
+
+- Look at it in Safari as well as in Chrome.
+- Add a screenshot to the pull request.
+- If it changes a screen shown in the README or in `docs/`, take those
+  pictures again with `npm run screenshots` and update the text beside them.
 
 ## Releases
 
