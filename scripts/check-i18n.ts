@@ -175,6 +175,8 @@ function check(file: string, used: Set<string>, prefixes: Set<string>): Finding[
   return findings;
 }
 
+const PLURAL_FORM = /_(zero|one|two|few|many|other)$/;
+
 function keys(tree: object, prefix = ""): string[] {
   return Object.entries(tree).flatMap(([key, value]) =>
     typeof value === "string" ? [prefix + key] : keys(value, `${prefix}${key}.`),
@@ -186,8 +188,20 @@ const prefixes = new Set<string>();
 const files = sourceFiles(SRC).filter((file) => !file.startsWith(path.join(SRC, "i18n")));
 const findings = files.flatMap((file) => check(file, used, prefixes));
 
+// A string that looks like a key (it starts with a section of en.json) but
+// is none, such as a key in a validation schema with a typo.
+const allKeys = new Set(keys(english).flatMap((key) => [key, key.replace(PLURAL_FORM, "")]));
+const sections = Object.keys(english);
+const looksLikeKey = (text: string) =>
+  /^[\w]+(\.[\w]+)+$/.test(text) && sections.includes(text.split(".")[0]);
+const unknown = [...used].filter((text) => looksLikeKey(text) && !allKeys.has(text));
+const unknownPrefixes = [...prefixes].filter(
+  (prefix) =>
+    sections.includes(prefix.split(".")[0]) && ![...allKeys].some((k) => k.startsWith(prefix)),
+);
+
 const unused = keys(english).filter((key) => {
-  const base = key.replace(/_(zero|one|two|few|many|other)$/, "");
+  const base = key.replace(PLURAL_FORM, "");
   return !used.has(key) && !used.has(base) && ![...prefixes].some((p) => key.startsWith(p));
 });
 
@@ -203,5 +217,8 @@ for (const { file, line, text } of hints) console.log(`maybe ${file}:${line}  ${
 if (hints.length > 0) console.log(`\n${hints.length} string(s) that may be text: check them.`);
 for (const key of unused) console.log(`en.json: ${key} is not used`);
 if (unused.length > 0) console.log(`\n${unused.length} text(s) in en.json that nothing uses.`);
-if (errors.length > 0 || unused.length > 0) process.exit(1);
+for (const key of [...unknown, ...unknownPrefixes]) console.log(`${key} is not a key in en.json`);
+if (errors.length > 0 || unused.length > 0 || unknown.length + unknownPrefixes.length > 0) {
+  process.exit(1);
+}
 console.log("Every text is in en.json, and every text in en.json is used.");
