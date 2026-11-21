@@ -12,6 +12,8 @@ import {
   category,
   categoryRow,
   chosen,
+  goToNextMonth,
+  goToThisMonth,
   groupHeading,
   groupRow,
   groupTotal,
@@ -194,13 +196,12 @@ test("leftovers roll over into the next month", async ({ page }) => {
   await assignAndSave(page, "Rent", "400");
   await expect(available(page, "Rent")).toHaveText("€400.00");
 
-  await page.getByRole("link", { name: "Next month" }).click();
-  await expect(page.getByRole("link", { name: "This month" })).toBeVisible();
+  await goToNextMonth(page);
   await expect(assignedField(page, "Rent")).toHaveValue("");
   await expect(available(page, "Rent")).toHaveText("€400.00");
   await expect(headerFigure(page)).toHaveText("€600.00");
 
-  await page.getByRole("link", { name: "This month" }).click();
+  await goToThisMonth(page);
   await expect(assignedField(page, "Rent")).toHaveValue("400.00");
 });
 
@@ -218,7 +219,7 @@ test("the Available amount explains how it adds up", async ({ page }) => {
   await assignAndSave(page, "Repairs", "-250");
   await expect(explanation("Rent")).toHaveAttribute("title", "€400.00 assigned");
 
-  await page.getByRole("link", { name: "Next month" }).click();
+  await goToNextMonth(page);
   await assign(page, "Rent", "100");
   await expect(explanation("Rent")).toHaveAttribute(
     "title",
@@ -251,9 +252,9 @@ test("archiving a category gives all its money back to Ready to assign", async (
   await page.goto("/");
   await addGroup(page, "Everyday");
   await addCategories(page, "Everyday", ["Groceries", "Eating out"]);
-  await page.getByRole("link", { name: "Next month" }).click();
+  await goToNextMonth(page);
   await assignAndSave(page, "Groceries", "200");
-  await page.getByRole("link", { name: "This month" }).click();
+  await goToThisMonth(page);
   await assign(page, "Groceries", "300");
   await expect(headerFigure(page)).toHaveText("€500.00");
 

@@ -192,6 +192,22 @@ export async function addIncomeCategories(page: Page, names: string[]) {
   }
 }
 
+/**
+ * From this month to the next, waiting until it is on screen: a page change
+ * keeps the old page in view until the new one is ready, and a test that
+ * types at once would type into the month it is leaving.
+ */
+export async function goToNextMonth(page: Page) {
+  await page.getByRole("link", { name: "Next month" }).click();
+  await expect(page.getByRole("link", { name: "This month" })).toBeVisible();
+}
+
+/** Back to this month, waiting until it is on screen. */
+export async function goToThisMonth(page: Page) {
+  await page.getByRole("link", { name: "This month" }).click();
+  await expect(page.getByRole("link", { name: "This month" })).toHaveCount(0);
+}
+
 export async function assign(page: Page, name: string, amount: string) {
   const field = assignedField(page, name);
   await field.click();
