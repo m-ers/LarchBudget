@@ -110,29 +110,63 @@ export function GroupBody({
       <CategoryRows group={group} />
 
       {showField && (
-        <tr className="data-row">
-          <td className="h-[43px] w-[54px] pl-3.5">
-            <EmptyToken />
-          </td>
-          <td colSpan={4}>
-            <form
-              onSubmit={adder.submit}
-              onFocus={() => setAdding(true)}
-              className="flex items-center gap-3"
-            >
-              <AddByNameField
-                state={adder}
-                label={`New category in ${name}`}
-                placeholder="New category"
-                autoFocus={!isEmpty}
-                className="text-[15.5px] font-medium"
-                onLeave={() => setAdding(false)}
-              />
-            </form>
-          </td>
-        </tr>
+        <NewCategoryRow
+          state={adder}
+          label={`New category in ${name}`}
+          placeholder="New category"
+          autoFocus={!isEmpty}
+          onFocus={() => setAdding(true)}
+          onLeave={() => setAdding(false)}
+        />
       )}
     </tbody>
+  );
+}
+
+/**
+ * The row with the field that adds a category, at the end of a group or of
+ * the income section.
+ */
+export function NewCategoryRow({
+  state,
+  label,
+  placeholder,
+  autoFocus,
+  wide,
+  onFocus,
+  onLeave,
+}: {
+  state: ReturnType<typeof useAddByName>;
+  /** Accessible name of the field. */
+  label: string;
+  placeholder: string;
+  autoFocus: boolean;
+  /** Room for a longer placeholder, such as one with an example. */
+  wide?: boolean;
+  /** Runs when the field gets the focus. */
+  onFocus: () => void;
+  /** Runs when the field loses focus, after what was typed was added or dropped. */
+  onLeave: () => void;
+}) {
+  return (
+    <tr className="data-row">
+      <td className="h-[43px] w-[54px] pl-3.5">
+        <EmptyToken />
+      </td>
+      <td colSpan={4}>
+        <form onSubmit={state.submit} onFocus={onFocus} className="flex items-center gap-3">
+          <AddByNameField
+            state={state}
+            label={label}
+            placeholder={placeholder}
+            autoFocus={autoFocus}
+            wide={wide}
+            className="text-[15.5px] font-medium"
+            onLeave={onLeave}
+          />
+        </form>
+      </td>
+    </tr>
   );
 }
 
@@ -151,24 +185,23 @@ export function UngroupedBody({ group }: { group: GroupRow }) {
   );
 }
 
-const total = "h-[38px] pt-1 text-right text-[13.5px] text-muted tabular-nums";
+const total = "h-[38px] pt-1 text-right text-[13.5px] whitespace-nowrap text-muted tabular-nums";
 
 /**
- * A group's heading row: its name and actions, and in the columns what its
- * categories got assigned, spent and hold together.
+ * The heading row of a section of the budget table: its name and actions,
+ * and in the columns what the section adds up to.
  */
-function GroupHeading({
-  group,
+export function SectionHeading({
+  totals,
   onContextMenu,
   children,
 }: {
-  group: GroupRow;
+  /** What goes in the Assigned, Spent and Available columns. */
+  totals: [assigned: string, spent: string, available: string];
   /** Opens the heading's menu on a right-click. */
   onContextMenu?: (e: React.MouseEvent) => void;
   children: React.ReactNode;
 }) {
-  const { currency, locale } = useBudget();
-  const isEmpty = group.categories.length === 0;
   return (
     <tr className="group/head" onContextMenu={onContextMenu}>
       <th scope="rowgroup" colSpan={2} className="h-[38px] pt-1 pl-3.5 text-left font-normal">
@@ -176,12 +209,40 @@ function GroupHeading({
           {children}
         </div>
       </th>
-      <td className={total}>{isEmpty ? "" : formatAmount(group.assigned, currency, locale)}</td>
-      <td className={total}>{isEmpty ? "" : formatSpent(group.activity, currency, locale)}</td>
-      <td className={`${total} pr-6`}>
-        {isEmpty ? "" : formatMoney(group.available, currency, locale)}
-      </td>
+      <td className={total}>{totals[0]}</td>
+      <td className={total}>{totals[1]}</td>
+      <td className={`${total} pr-6`}>{totals[2]}</td>
     </tr>
+  );
+}
+
+/** A group's heading: what its categories got assigned, spent and hold together. */
+function GroupHeading({
+  group,
+  onContextMenu,
+  children,
+}: {
+  group: GroupRow;
+  onContextMenu?: (e: React.MouseEvent) => void;
+  children: React.ReactNode;
+}) {
+  const { currency, locale } = useBudget();
+  const isEmpty = group.categories.length === 0;
+  return (
+    <SectionHeading
+      totals={
+        isEmpty
+          ? ["", "", ""]
+          : [
+              formatAmount(group.assigned, currency, locale),
+              formatSpent(group.activity, currency, locale),
+              formatMoney(group.available, currency, locale),
+            ]
+      }
+      onContextMenu={onContextMenu}
+    >
+      {children}
+    </SectionHeading>
   );
 }
 

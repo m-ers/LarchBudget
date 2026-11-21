@@ -69,6 +69,7 @@ export function AddByNameField({
   label,
   placeholder,
   autoFocus,
+  wide,
   onLeave,
   className = "",
 }: {
@@ -77,6 +78,8 @@ export function AddByNameField({
   label: string;
   placeholder: string;
   autoFocus?: boolean;
+  /** Room for a longer placeholder, such as one with an example. */
+  wide?: boolean;
   /** Runs when the field loses focus, after what was typed was added or dropped. */
   onLeave?: () => void;
   /** Size, weight and spacing of the text. */
@@ -98,7 +101,7 @@ export function AddByNameField({
         onKeyDown={(e) => {
           if (e.key === "Escape") state.cancel(e.currentTarget);
         }}
-        className={`-ml-2 w-56 rounded-md border bg-transparent px-[7px] py-[3px] placeholder:font-normal placeholder:text-muted focus:bg-surface focus:outline-none ${className} ${
+        className={`-ml-2 ${wide ? "w-80" : "w-56"} rounded-md border bg-transparent px-[7px] py-[3px] placeholder:font-normal placeholder:text-muted focus:bg-surface focus:outline-none ${className} ${
           state.error ? "border-bad" : "border-transparent hover:border-line focus:border-brand"
         }`}
       />

@@ -46,8 +46,11 @@ export function ArchivedCategories({ categories }: { categories: ArchivedCategor
   );
 }
 
-/** One archived category: its name, what it holds, and what restoring it does. */
-function ArchivedRow({ category: { id, name, balance } }: { category: ArchivedCategory }) {
+/**
+ * One archived category: its name, what it holds, and what restoring it
+ * does. An income category holds nothing, so it says it is income instead.
+ */
+function ArchivedRow({ category: { id, name, balance, income } }: { category: ArchivedCategory }) {
   const { currency, locale } = useBudget();
   const { error, pending, save } = useSave();
   const money = formatMoney(Math.abs(balance), currency, locale);
@@ -62,9 +65,13 @@ function ArchivedRow({ category: { id, name, balance } }: { category: ArchivedCa
   return (
     <li className={`flex min-h-8 items-center gap-4 ${pending ? "opacity-60" : ""}`}>
       <span className="w-48 truncate font-medium text-ink">{name}</span>
-      <span className="w-24 text-right text-ink tabular-nums">
-        {formatMoney(balance, currency, locale)}
-      </span>
+      {income ? (
+        <span className="w-24 text-right">Income</span>
+      ) : (
+        <span className="w-24 text-right text-ink tabular-nums">
+          {formatMoney(balance, currency, locale)}
+        </span>
+      )}
       <button
         type="button"
         onClick={() => save(() => restoreCategoryAction(id))}
