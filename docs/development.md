@@ -156,15 +156,18 @@ format, which translation tools know.
   into text.
 - **Data stays as it is:** names you give things, payees, notes, and the
   name LarchBudget.
-- The language is the one chosen in this browser, else the browser's own,
-  else English (`src/i18n/server.ts`). Amounts keep the format of the
-  LOCALE setting.
+- The language is the one chosen in **Settings** in this browser (a cookie),
+  else the browser's own, else English (`src/i18n/server.ts`). Dates and
+  month names follow the language; amounts keep the format of the LOCALE
+  setting. Use `getDateLocale()` or `useDateLocale()` for dates, and
+  `getConfig().locale` for amounts.
 - `npm run check:i18n` lists text written in the code instead of en.json,
   and texts in en.json that nothing uses. `npm test` checks every language
   file against en.json.
-- In development, the cookie `language=en-XA` shows a made-up language that
-  stretches and accents every text: text without accents is not translated
-  yet, and text that gets cut off will not fit in a longer language.
+- In development, **Settings** also offers a made-up language, Pseudo
+  (en-XA), that stretches and accents every text: text without accents is
+  not translated yet, and text that gets cut off will not fit in a longer
+  language.
 
 ## Design
 

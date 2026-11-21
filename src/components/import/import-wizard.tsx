@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { checkImportAction, importTransactionsAction, undoImportAction } from "@/app/actions";
 import type { ImportAccount, ImportOutcome } from "@/db/transactions";
-import { useT } from "@/i18n/client";
+import { useDateLocale, useT } from "@/i18n/client";
 import { formatDate } from "@/lib/dates";
 import {
   decodeText,
@@ -101,6 +101,7 @@ const primaryButton = `${buttonBase} px-4 py-2.5 disabled:opacity-50`;
  */
 export function ImportWizard({ accounts, currency, locale }: Props) {
   const t = useT();
+  const dates = useDateLocale();
   const digits = minorUnitDigits(currency);
   const input = useRef<HTMLInputElement>(null);
   const [accountId, setAccountId] = useState(accounts[0].id);
@@ -309,7 +310,7 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
   if (done) {
     const balanceValues = (d: Done) => ({
       count: d.beforeBalance,
-      date: d.balanceDate ? formatDate(d.balanceDate, locale) : "",
+      date: d.balanceDate ? formatDate(d.balanceDate, dates) : "",
       balance: d.startingBalance === null ? "" : formatMoney(d.startingBalance, currency, locale),
     });
     return (
@@ -617,8 +618,8 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
                   anyKnown ? "import.summary.newCount" : "import.summary.count",
                   {
                     count,
-                    from: formatDate(summary.from, locale),
-                    to: formatDate(summary.to, locale),
+                    from: formatDate(summary.from, dates),
+                    to: formatDate(summary.to, dates),
                     moneyIn: formatMoney(summary.moneyIn, currency, locale),
                     moneyOut: formatMoney(summary.moneyOut, currency, locale),
                   },
@@ -669,7 +670,7 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
                   return (
                     <>
                       <div role="cell" className="whitespace-nowrap text-muted tabular-nums">
-                        {formatDate(row.date, locale)}
+                        {formatDate(row.date, dates)}
                       </div>
                       <div role="cell" className="flex min-w-0 items-center gap-2 pr-4">
                         <span className="truncate font-medium">{row.payee ?? "–"}</span>

@@ -89,8 +89,8 @@ To look around first, with demo data and without Docker, see
   sorting.
 - [Development](docs/development.md): running it locally, how the code is
   organised and the rules it follows.
-- [Contributing](CONTRIBUTING.md): what fits in LarchBudget and how changes
-  get in.
+- [Contributing](CONTRIBUTING.md): what fits in LarchBudget, how changes get
+  in, and how to add your language.
 - [Security](SECURITY.md): how to report a security problem.
 - [Issues](https://github.com/m-ers/LarchBudget/issues): bugs, ideas and what
   is planned.

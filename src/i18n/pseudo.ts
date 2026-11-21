@@ -4,7 +4,7 @@ import type { MessageTree } from "./translate";
  * A made-up language for development: English with accents, a third longer,
  * between brackets: "[Ŕéáďý ţó áššíğñ ····]". Text on screen without them is
  * not translated yet, and text that gets cut off will not fit in a longer
- * language. Choose it in development with the cookie `language=en-XA`.
+ * language. Choose it in development in Settings.
  */
 export const PSEUDO_LANGUAGE = "en-XA";
 

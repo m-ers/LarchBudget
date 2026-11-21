@@ -44,12 +44,15 @@ you to add your first account.
 | --------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `APP_PASSWORD`  | _(empty)_                     | When set, every page asks for this password first.                                                          |
 | `CURRENCY`      | `EUR`                         | The currency of your budget, as a three-letter code such as `USD` or `GBP`.                                 |
-| `LOCALE`        | `en-US`                       | How numbers and dates are written, and how you type amounts. For example `nl-NL` writes 1.234,56.           |
+| `LOCALE`        | `en-US`                       | How amounts are written and typed, and the order of dates. For example `nl-NL` writes 1.234,56.             |
 | `TZ`            | server's zone (UTC in Docker) | Your time zone, for example `Europe/Amsterdam`. It decides what "today" and "this month" are.               |
 | `DATABASE_PATH` | `./data/larchbudget.db`       | Where the database file is. With Docker this is fixed to the volume; see [without Docker](#without-docker). |
 
 A currency or locale that is not valid is ignored: the server log says so,
 and the default is used.
+
+LarchBudget speaks your browser's language when it has it, or the language
+you choose in **Settings**: English or Dutch, so far.
 
 With Docker, put your settings in a file called `.env` next to
 `docker-compose.yml`:

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, use, useMemo } from "react";
+import { dateLocale } from "./languages";
 import { createTranslator, type MessageTree, type Translate } from "./translate";
 
 type Setup = { language: string; messages: MessageTree; numberLocale: string };
@@ -26,4 +27,11 @@ export function useT(): Translate {
     () => createTranslator(language, messages, numberLocale),
     [language, messages, numberLocale],
   );
+}
+
+/** For Client Components: the locale for dates and month names (see `dateLocale`). */
+export function useDateLocale(): string {
+  const setup = use(TranslationContext);
+  if (!setup) throw new Error("useDateLocale needs a TranslationProvider above it.");
+  return dateLocale(setup.language, setup.numberLocale);
 }
