@@ -99,25 +99,43 @@ export async function copyLastMonthAction(month: string): Promise<ActionResult> 
   return done();
 }
 
+const seenAmounts = z.object({
+  from: z.number().int().nullable(),
+  to: z.number().int().nullable(),
+});
+
+/** `seen`: the Assigned amounts the form showed, so a repeated request moves the money once. */
 export async function moveMoneyAction(
   from: budget.MoneyEnd,
   to: budget.MoneyEnd,
   month: string,
   input: string,
+  seen: { from: number | null; to: number | null },
 ): Promise<ActionResult> {
   const db = await database();
   if (!db) return LOGGED_OUT;
-  if (!moneyEnd.safeParse(from).success || !moneyEnd.safeParse(to).success || !isMonth(month)) {
+  const parsedSeen = seenAmounts.safeParse(seen);
+  if (
+    !moneyEnd.safeParse(from).success ||
+    !moneyEnd.safeParse(to).success ||
+    !isMonth(month) ||
+    !parsedSeen.success
+  ) {
     return UNEXPECTED;
   }
 
   const amount = parseAmount(String(input));
   if (amount === null) return fail("That is not an amount.");
 
-  const result = budget.moveMoney(db, { from, to, month, amount });
+  const result = budget.moveMoney(db, { from, to, month, amount, seen: parsedSeen.data });
   if (result === "not-positive") return fail("Enter an amount above zero.");
   if (result === "no-category") return CATEGORY_GONE;
   if (result === "same") return UNEXPECTED;
+  if (result === "changed") {
+    // Show the amounts as they are now, so the next try starts from them.
+    refresh();
+    return fail("These amounts changed in the meantime. Check them and try again.");
+  }
   return done();
 }
 

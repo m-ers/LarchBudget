@@ -1,4 +1,6 @@
 import {
+  alert,
+  categoriesIn,
   category,
   categoryRow,
   clickAway,
@@ -160,4 +162,31 @@ test.describe("at the bottom of a page longer than the window", () => {
     const atPointer = (await page.getByRole("menu").boundingBox())!;
     expect(atPointer.y + atPointer.height).toBeLessThanOrEqual(420);
   });
+});
+
+test("Rename from the menu goes back to a name that was refused, and keeps it", async ({
+  page,
+}) => {
+  await category(page, "Groceries").click();
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.keyboard.type("Rent");
+  await page.keyboard.press("Enter");
+  await expect(alert(page, 'You already have a category called "Rent".')).toBeVisible();
+  const field = page.getByRole("textbox", { name: "Category name" });
+  await expect(field).toHaveValue("Rent");
+
+  await menuButton(page, "Groceries").click();
+  await menuItem(page, "Rename").click();
+  await expect(field).toBeFocused();
+  await expect(field).toHaveValue("Rent");
+});
+
+test("a category moved to another group by keyboard keeps the focus", async ({ page }) => {
+  await menuButton(page, "Groceries").focus();
+  await page.keyboard.press("Enter");
+  await menuItem(page, "Move to Goals").focus();
+  await page.keyboard.press("Enter");
+
+  await expect.poll(() => categoriesIn(page, "Goals")).toContain("Groceries");
+  await expect(menuButton(page, "Groceries")).toBeFocused();
 });

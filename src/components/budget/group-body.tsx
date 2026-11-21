@@ -95,7 +95,8 @@ export function GroupBody({
               onSelect: () => mover.save(() => moveGroupAction(id, "down")),
               disabled: last,
             },
-            { label: "Delete group", onSelect: remove, destructive: true },
+            // Not while a new category is being added: the question would not count it.
+            { label: "Delete group", onSelect: remove, destructive: true, disabled: adder.pending },
           ]}
         >
           <MoreIcon width={15} height={15} />

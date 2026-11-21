@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import {
   archiveCategoryAction,
   moveCategoryAction,
@@ -34,6 +34,9 @@ type Props = {
   money?: { balance: number; available: number; onMoveMoney: (flow: Flow) => void };
 };
 
+/** The category that was just moved to another group, until its new row has the focus. */
+let movedToGroup: number | null = null;
+
 /**
  * Category name: click to rename. The category's actions are in a menu
  * beside it, whose button shows on row hover.
@@ -42,6 +45,15 @@ export function CategoryName({ category: { id, name }, place, menu, money }: Pro
   const { currency, locale, figures } = useBudget();
   const { error, pending, save } = useSave();
   const nameField = useRef<InlineNameHandle>(null);
+
+  // In another group the row is built anew, and the menu button that had
+  // the focus is gone: give it to the new row's button.
+  const menuButton = menu.button;
+  useEffect(() => {
+    if (movedToGroup !== id) return;
+    movedToGroup = null;
+    menuButton.current?.focus();
+  }, [id, menuButton]);
 
   function archive() {
     const question = `Archive "${name}"?`;
@@ -65,7 +77,14 @@ export function CategoryName({ category: { id, name }, place, menu, money }: Pro
             : [
                 {
                   label: `Move to ${groupName}`,
-                  onSelect: () => save(() => moveCategoryToGroupAction(id, groupId)),
+                  onSelect: () => {
+                    movedToGroup = id;
+                    save(
+                      () => moveCategoryToGroupAction(id, groupId),
+                      undefined,
+                      () => (movedToGroup = null),
+                    );
+                  },
                 },
               ],
         ),
@@ -77,13 +96,15 @@ export function CategoryName({ category: { id, name }, place, menu, money }: Pro
     : [];
 
   return (
-    <div className={`flex min-w-0 items-center gap-1 ${pending ? "opacity-60" : ""}`}>
+    <div className="flex min-w-0 items-center gap-1">
+      {/* Only the name dims while a change is saved: dimming the menu too
+          would let the rows below show, and be clicked, through it. */}
       <InlineName
         ref={nameField}
         value={name}
         label="Category name"
         onSave={(text) => renameCategoryAction(id, text)}
-        className="text-[15.5px] font-medium"
+        className={`text-[15.5px] font-medium ${pending ? "opacity-60" : ""}`}
       />
       <Menu
         label={`Actions for ${name}`}

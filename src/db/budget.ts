@@ -239,13 +239,17 @@ function writeAssigned(db: Db, categoryId: number, month: Month, amount: number)
 /**
  * Gives every visible expense category that has nothing assigned in month
  * `to` what it had assigned in month `from`. Returns how many it filled in.
+ *
+ * Only amounts above zero are copied. A category ends a month below zero
+ * when money was moved out of it; that was a one-off, and copying it would
+ * take the same money out again every month.
  */
 export function copyAssignments(db: Db, from: Month, to: Month): number {
   return db.transaction((tx) => {
     const copies = tx.all<{ categoryId: number; amount: number }>(sql`
       SELECT a.category_id AS categoryId, a.amount
       FROM assignments a JOIN categories c ON c.id = a.category_id
-      WHERE a.month = ${from} AND c.archived = 0 AND c.income = 0
+      WHERE a.month = ${from} AND a.amount > 0 AND c.archived = 0 AND c.income = 0
         AND NOT EXISTS (SELECT 1 FROM assignments b
                         WHERE b.category_id = a.category_id AND b.month = ${to})
     `);
@@ -265,11 +269,30 @@ export type MoneyEnd = number | "ready";
  *
  * Refuses an amount that is not above zero, a move to the same place, and
  * archived or income categories, which hold no money to move.
+ *
+ * `seen` holds the Assigned amounts the person was looking at (null for
+ * Ready to assign). The move is only made from exactly those amounts. So
+ * asking twice moves the money once: when the amounts are already what
+ * this move would make them (the first answer got lost on the way back),
+ * nothing changes and the answer is "moved" again. Any other difference
+ * means something else changed them meanwhile: "changed", and nothing moves.
  */
 export function moveMoney(
   db: Db,
-  { from, to, month, amount }: { from: MoneyEnd; to: MoneyEnd; month: Month; amount: number },
-): "moved" | "no-category" | "not-positive" | "same" {
+  {
+    from,
+    to,
+    month,
+    amount,
+    seen,
+  }: {
+    from: MoneyEnd;
+    to: MoneyEnd;
+    month: Month;
+    amount: number;
+    seen: { from: number | null; to: number | null };
+  },
+): "moved" | "no-category" | "not-positive" | "same" | "changed" {
   if (!Number.isSafeInteger(amount) || amount <= 0) return "not-positive";
   if (from === to) return "same";
   return db.transaction((tx) => {
@@ -293,8 +316,19 @@ export function moveMoney(
         .from(assignments)
         .where(and(eq(assignments.categoryId, categoryId), eq(assignments.month, month)))
         .all()[0]?.amount ?? 0;
-    if (from !== "ready") writeAssigned(tx, from, month, assigned(from) - amount);
-    if (to !== "ready") writeAssigned(tx, to, month, assigned(to) + amount);
+    const now = {
+      from: from === "ready" ? null : assigned(from),
+      to: to === "ready" ? null : assigned(to),
+    };
+    // Whether both ends hold what was seen, shifted by `moved` of this amount.
+    const holds = (moved: number) =>
+      (now.from === null || now.from === (seen.from ?? NaN) - moved) &&
+      (now.to === null || now.to === (seen.to ?? NaN) + moved);
+    if (holds(amount)) return "moved";
+    if (!holds(0)) return "changed";
+
+    if (from !== "ready") writeAssigned(tx, from, month, (now.from ?? 0) - amount);
+    if (to !== "ready") writeAssigned(tx, to, month, (now.to ?? 0) + amount);
     return "moved";
   });
 }

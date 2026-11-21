@@ -70,6 +70,13 @@ body {
   outline: none;
 }
 
+/* A field with an error has a red border whether it has focus or not, so
+   there the ring stays, in the same red. */
+:is(input, select, textarea)[aria-invalid="true"]:focus-visible {
+  outline: 2px solid var(--bad);
+  outline-offset: 2px;
+}
+
 /* Faint guides between table rows, so the eye can follow a wide row. */
 .data-row + .data-row {
   border-top: 1px solid var(--rule);

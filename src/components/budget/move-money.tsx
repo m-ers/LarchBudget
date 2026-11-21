@@ -48,16 +48,41 @@ export function MoveMoney({
     onClose(form.current?.contains(document.activeElement) ?? false);
   }
 
+  /** Cancel and Escape. A move that is already on its way cannot be called back. */
+  function cancel() {
+    if (!pending) close();
+  }
+
+  // The end the money comes from, and what it has to give: a category
+  // cannot give more than it holds now, or than it holds over all time.
+  const otherEnd: MoneyEnd = other === READY ? READY : Number(other);
+  const source = out ? category.id : otherEnd;
+  const sourceCategory = figures.groups.flatMap((g) => g.categories).find((c) => c.id === source);
+  const sourceHolds = sourceCategory
+    ? Math.min(sourceCategory.available, sourceCategory.balance)
+    : figures.readyToAssign;
+  const wanted = parseMoney(amount, currency);
+  const tooMuch =
+    wanted !== null && wanted > 0 && wanted > Math.max(0, sourceHolds)
+      ? sourceCategory
+        ? `${sourceCategory.name} holds ${money(Math.max(0, sourceHolds))}; moving more leaves it overspent.`
+        : `Only ${money(Math.max(0, sourceHolds))} is ready to assign; moving more assigns more than you have.`
+      : null;
+
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    const otherEnd: MoneyEnd = other === READY ? READY : Number(other);
     const [from, to] = out ? [category.id, otherEnd] : [otherEnd, category.id];
     const typed = amount;
     // Read the way the server reads it. What cannot be moved is not shown;
     // the server says why.
     const cents = parseMoney(typed, currency);
+    // What each end has assigned as shown now: the server moves from exactly
+    // these amounts, so a request that is sent twice moves the money once.
+    const assignedTo = (end: MoneyEnd) =>
+      figures.groups.flatMap((g) => g.categories).find((c) => c.id === end)?.assigned ?? null;
+    const seen = { from: assignedTo(from), to: assignedTo(to) };
     save(
-      () => moveMoneyAction(from, to, month, typed),
+      () => moveMoneyAction(from, to, month, typed, seen),
       close,
       undefined,
       () => {
@@ -75,7 +100,7 @@ export function MoveMoney({
           ref={form}
           onSubmit={submit}
           onKeyDown={(e) => {
-            if (e.key === "Escape") close();
+            if (e.key === "Escape") cancel();
           }}
           aria-label={out ? `Move money from ${category.name}` : `Cover ${category.name}`}
           className="flex flex-wrap items-center gap-x-2.5 gap-y-1"
@@ -128,12 +153,14 @@ export function MoveMoney({
           </button>
           <button
             type="button"
-            onClick={close}
-            className="rounded-[9px] px-2.5 py-1 font-medium text-muted transition-colors hover:bg-hover hover:text-ink"
+            onClick={cancel}
+            disabled={pending}
+            className="rounded-[9px] px-2.5 py-1 font-medium text-muted transition-colors hover:bg-hover hover:text-ink disabled:opacity-60"
           >
             Cancel
           </button>
           <ErrorText error={error} as="span" className="text-xs" />
+          {!error && tooMuch && <span className="text-xs text-muted">{tooMuch}</span>}
         </form>
       </td>
     </tr>

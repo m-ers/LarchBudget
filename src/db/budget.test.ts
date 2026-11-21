@@ -475,25 +475,35 @@ describe("moving money", () => {
   const assigned = () => Object.fromEntries(rows("2026-10").map((c) => [c.name, c.assigned]));
   const ready = () => getBudgetMonth(db, "2026-10").readyToAssign;
 
+  /** Moves money the way the form does: from the Assigned amounts on screen at that moment. */
+  function move(input: {
+    from: budget.MoneyEnd;
+    to: budget.MoneyEnd;
+    month: Month;
+    amount: number;
+  }) {
+    const shown = (end: budget.MoneyEnd) =>
+      rows(input.month).find((c) => c.id === end)?.assigned ?? null;
+    return moveMoney(db, { ...input, seen: { from: shown(input.from), to: shown(input.to) } });
+  }
+
   it("between two categories changes their Assigned amounts and leaves Ready to assign", () => {
     const before = ready();
-    expect(moveMoney(db, { from: groceries, to: holiday, month: "2026-10", amount: 5_000 })).toBe(
-      "moved",
-    );
+    expect(move({ from: groceries, to: holiday, month: "2026-10", amount: 5_000 })).toBe("moved");
     expect(assigned()).toEqual({ Groceries: 25_000, Holiday: 15_000 });
     expect(ready()).toBe(before);
     expectEverythingAccountedFor();
   });
 
   it("from Ready to assign puts it in one category", () => {
-    moveMoney(db, { from: "ready", to: holiday, month: "2026-10", amount: 7_500 });
+    move({ from: "ready", to: holiday, month: "2026-10", amount: 7_500 });
     expect(assigned()).toEqual({ Groceries: 30_000, Holiday: 17_500 });
     expect(ready()).toBe(52_500);
     expectEverythingAccountedFor();
   });
 
   it("to Ready to assign takes it out of one category", () => {
-    moveMoney(db, { from: groceries, to: "ready", month: "2026-10", amount: 30_000 });
+    move({ from: groceries, to: "ready", month: "2026-10", amount: 30_000 });
     expect(assigned()).toEqual({ Groceries: 0, Holiday: 10_000 });
     expect(ready()).toBe(90_000);
     expectEverythingAccountedFor();
@@ -502,7 +512,7 @@ describe("moving money", () => {
   it("covers an overspent category in the month it is viewed in", () => {
     spend(holiday, "2026-11-03", -16_000);
     expect(rows("2026-11")[1].available).toBe(-6_000);
-    moveMoney(db, { from: groceries, to: holiday, month: "2026-11", amount: 6_000 });
+    move({ from: groceries, to: holiday, month: "2026-11", amount: 6_000 });
     expect(rows("2026-11").map((c) => [c.name, c.assigned, c.available])).toEqual([
       ["Groceries", -6_000, 24_000],
       ["Holiday", 6_000, 0],
@@ -512,14 +522,53 @@ describe("moving money", () => {
     expectEverythingAccountedFor();
   });
 
+  it("moves the money once when the same move is asked for twice", () => {
+    // What the form showed, sent again because the first answer never came back.
+    const sameRequest = {
+      from: groceries,
+      to: holiday,
+      month: "2026-10",
+      amount: 5_000,
+      seen: { from: 30_000, to: 10_000 },
+    } as const;
+    expect(moveMoney(db, sameRequest)).toBe("moved");
+    expect(moveMoney(db, sameRequest)).toBe("moved");
+    expect(assigned()).toEqual({ Groceries: 25_000, Holiday: 15_000 });
+
+    // With Ready to assign at one end, too.
+    const fromReady = {
+      from: "ready",
+      to: holiday,
+      month: "2026-10",
+      amount: 1_000,
+      seen: { from: null, to: 15_000 },
+    } as const;
+    expect(moveMoney(db, fromReady)).toBe("moved");
+    expect(moveMoney(db, fromReady)).toBe("moved");
+    expect(assigned()).toEqual({ Groceries: 25_000, Holiday: 16_000 });
+    expectEverythingAccountedFor();
+  });
+
+  it("moves nothing when the amounts changed since they were looked at", () => {
+    setAssigned(db, groceries, "2026-10", 28_000);
+    expect(
+      moveMoney(db, {
+        from: groceries,
+        to: holiday,
+        month: "2026-10",
+        amount: 5_000,
+        seen: { from: 30_000, to: 10_000 },
+      }),
+    ).toBe("changed");
+    expect(assigned()).toEqual({ Groceries: 28_000, Holiday: 10_000 });
+  });
+
   it("refuses amounts that are not above zero, and a move to the same place", () => {
     for (const amount of [0, -5_000, 0.5]) {
-      expect(moveMoney(db, { from: groceries, to: holiday, month: "2026-10", amount })).toBe(
-        "not-positive",
-      );
+      expect(move({ from: groceries, to: holiday, month: "2026-10", amount })).toBe("not-positive");
     }
-    expect(moveMoney(db, { from: holiday, to: holiday, month: "2026-10", amount: 1 })).toBe("same");
-    expect(moveMoney(db, { from: "ready", to: "ready", month: "2026-10", amount: 1 })).toBe("same");
+    expect(move({ from: holiday, to: holiday, month: "2026-10", amount: 1 })).toBe("same");
+    expect(move({ from: "ready", to: "ready", month: "2026-10", amount: 1 })).toBe("same");
     expect(assigned()).toEqual({ Groceries: 30_000, Holiday: 10_000 });
   });
 
@@ -533,7 +582,7 @@ describe("moving money", () => {
       ["ready", salary],
       [groceries, 9999],
     ] as const) {
-      expect(moveMoney(db, { from, to, month: "2026-10", amount: 1_000 })).toBe("no-category");
+      expect(move({ from, to, month: "2026-10", amount: 1_000 })).toBe("no-category");
     }
     expect(rows("2026-10").find((c) => c.name === "Groceries")?.assigned).toBe(30_000);
     expectEverythingAccountedFor();
@@ -646,6 +695,34 @@ describe("starting a month from the one before", () => {
 
     // A second time there is nothing left to fill in.
     expect(copyAssignments(db, "2026-10", "2026-11")).toBe(0);
+  });
+
+  it("does not repeat money that was moved out of a category", () => {
+    const rent = createCategory(db, "Rent");
+    const repairs = createCategory(db, "Repairs");
+    setAssigned(db, rent, "2026-09", 50_000);
+    // October: nothing assigned to Rent, and 200.00 of what it holds moved to Repairs.
+    expect(
+      moveMoney(db, {
+        from: rent,
+        to: repairs,
+        month: "2026-10",
+        amount: 20_000,
+        seen: { from: 0, to: 0 },
+      }),
+    ).toBe("moved");
+    expect(rows("2026-10").map((c) => [c.name, c.assigned])).toEqual([
+      ["Rent", -20_000],
+      ["Repairs", 20_000],
+    ]);
+
+    // November starts with what was given, not with what was taken away.
+    expect(copyAssignments(db, "2026-10", "2026-11")).toBe(1);
+    expect(rows("2026-11").map((c) => [c.name, c.assigned])).toEqual([
+      ["Rent", 0],
+      ["Repairs", 20_000],
+    ]);
+    expectEverythingAccountedFor();
   });
 });
 

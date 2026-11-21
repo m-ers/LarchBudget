@@ -120,7 +120,11 @@ export function BudgetView({
         </div>
         {/* How the figure adds up, on hover. */}
         <div
-          title={`${formatMoney(budget.inAccounts, currency, locale)} in your accounts − ${formatMoney(budget.inCategories, currency, locale)} in categories`}
+          title={
+            budget.inCategories < 0
+              ? `${formatMoney(budget.inAccounts, currency, locale)} in your accounts + ${formatMoney(-budget.inCategories, currency, locale)} overspent in categories`
+              : `${formatMoney(budget.inAccounts, currency, locale)} in your accounts − ${formatMoney(budget.inCategories, currency, locale)} in categories`
+          }
         >
           <HeroFigure amount={formatMoneyParts(ready, currency, locale)} {...headline} />
         </div>

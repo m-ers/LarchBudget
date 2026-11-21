@@ -141,3 +141,38 @@ test("on a slow connection, the move shows before the server answers", async ({ 
   await expect(form(page)).toHaveCount(0);
   await expect(assignedField(page, "Holiday")).toHaveValue("220.00");
 });
+
+test("says so when more is moved than the category holds", async ({ page }) => {
+  await openMenu(page, "Holiday");
+  await menuItem(page, "Move money…").click();
+  const amount = form(page).getByRole("textbox", { name: "Amount to move" });
+
+  await amount.fill("100");
+  await expect(form(page).getByText(/leaves it overspent/)).toHaveCount(0);
+  await amount.fill("250");
+  await expect(
+    form(page).getByText("Holiday holds €100.00; moving more leaves it overspent."),
+  ).toBeVisible();
+
+  // It is a warning, not a refusal.
+  await form(page).getByRole("button", { name: "Move", exact: true }).click();
+  await expect(available(page, "Holiday")).toContainText("-€150.00");
+});
+
+test("a move that is being saved cannot be cancelled halfway", async ({ page }) => {
+  await openMenu(page, "Groceries");
+  await menuItem(page, "Move money…").click();
+  await form(page).getByRole("textbox", { name: "Amount to move" }).fill("50");
+  await choose(form(page).getByRole("combobox", { name: "Move to" }), "Holiday");
+  await slowConnection(page, 800);
+
+  await form(page).getByRole("button", { name: "Move", exact: true }).click();
+  await expect(form(page).getByRole("button", { name: "Cancel" })).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(form(page)).toBeVisible();
+
+  // It closes by itself once the move is saved.
+  await expect(form(page)).toHaveCount(0);
+  await expect(assignedField(page, "Groceries")).toHaveValue("250.00");
+  await expect(assignedField(page, "Holiday")).toHaveValue("150.00");
+});

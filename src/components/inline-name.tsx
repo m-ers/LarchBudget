@@ -1,6 +1,6 @@
 "use client";
 
-import { useImperativeHandle } from "react";
+import { useImperativeHandle, useRef } from "react";
 import { MAX_NAME_LENGTH } from "@/lib/limits";
 import type { ActionResult } from "@/lib/result";
 import { ErrorText } from "./form";
@@ -25,7 +25,18 @@ type Props = {
  */
 export function InlineName({ ref, value, label, onSave, className = "" }: Props) {
   const edit = useInlineEdit(value, onSave);
-  useImperativeHandle(ref, () => ({ startEditing: edit.start }));
+  const field = useRef<HTMLInputElement>(null);
+  useImperativeHandle(ref, () => ({
+    startEditing() {
+      // Already open (a refused name stays in the field): go back to it,
+      // and keep what was typed.
+      if (edit.text === null) edit.start();
+      else {
+        field.current?.focus();
+        field.current?.select();
+      }
+    },
+  }));
 
   if (edit.text === null) {
     return (
@@ -45,6 +56,7 @@ export function InlineName({ ref, value, label, onSave, className = "" }: Props)
   return (
     <span className="flex min-w-0 items-center gap-2">
       <input
+        ref={field}
         autoFocus
         aria-label={label}
         aria-invalid={edit.error ? true : undefined}
