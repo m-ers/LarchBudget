@@ -1,9 +1,10 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { isCategoryIcon, type CategoryIcon } from "../lib/category-icons";
-import { addMonths, monthStart, type Month } from "../lib/dates";
+import { addMonths, currentMonth, monthStart, type Month } from "../lib/dates";
 import { groupColors, isGroupColorSlot } from "../lib/group-colors";
 import { receivedPeriod } from "../lib/income";
 import { splitReadyToAssign, type ReadyBreakdown } from "../lib/ready";
+import { categoryNeeds, isTarget, readTarget, type Target } from "../lib/targets";
 import type { Db } from "./index";
 import { assignments, categories, categoryGroups } from "./schema";
 
@@ -46,6 +47,13 @@ export type CategoryRow = {
    * category gives back to Ready to assign.
    */
   balance: number;
+  /** Its target, or null for none. */
+  target: Target | null;
+  /**
+   * What its target still needs in the viewed month (`categoryNeeds`):
+   * 0 without a target, once it is met, and in a month that is over.
+   */
+  needed: number;
 };
 
 export type GroupRow = {
@@ -75,6 +83,13 @@ export type IncomeCategoryRow = {
 };
 
 export type BudgetMonth = {
+  /** The month these figures are for. */
+  month: Month;
+  /**
+   * The current month when they were worked out: targets need money in it
+   * and in later months only.
+   */
+  thisMonth: Month;
   /** The expense categories, in their groups. */
   groups: GroupRow[];
   /**
@@ -94,9 +109,19 @@ export type BudgetMonth = {
   hasAccounts: boolean;
   /** Whether anything was assigned to a visible expense category in the month before. */
   assignedLastMonth: boolean;
+  /** What the targets of all visible expense categories still need in the month. */
+  needed: number;
 };
 
-export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
+/**
+ * The figures of one month. `thisMonth` is the current month, which decides
+ * whether targets still need money (see `targetNeeds`).
+ */
+export function getBudgetMonth(
+  db: Db,
+  month: Month,
+  thisMonth: Month = currentMonth(),
+): BudgetMonth {
   const start = monthStart(month);
   const next = monthStart(addMonths(month, 1));
   // The days an income category counts as received in this month.
@@ -110,6 +135,9 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
     icon: string | null;
     income: number;
     next_month: number;
+    target_kind: string | null;
+    target_amount: number | null;
+    target_month: string | null;
     received: number | null;
     assigned: number;
     assigned_through: number;
@@ -125,6 +153,9 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
       c.icon,
       c.income,
       c.next_month,
+      c.target_kind,
+      c.target_amount,
+      c.target_month,
       CASE WHEN c.income THEN
         coalesce((SELECT sum(t.amount) FROM transactions t
                   WHERE t.category_id = c.id
@@ -181,14 +212,19 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
 
   const byGroup = new Map<number | null, CategoryRow[]>();
   const list: CategoryRow[] = expenses.map((r) => {
+    const figures = {
+      assigned: r.assigned,
+      activity: r.activity,
+      available: r.assigned_through + r.activity_through,
+      target: readTarget(r.target_kind, r.target_amount, r.target_month),
+    };
     const row = {
       id: r.id,
       name: r.name,
       icon: icon(r),
-      assigned: r.assigned,
-      activity: r.activity,
-      available: r.assigned_through + r.activity_through,
+      ...figures,
       balance: r.assigned_total + r.activity_total,
+      needed: categoryNeeds(figures, month, thisMonth),
     };
     byGroup.set(r.group_id, [...(byGroup.get(r.group_id) ?? []), row]);
     return row;
@@ -218,6 +254,8 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
   const inCategories = expenses.reduce((sum, r) => sum + r.assigned_total + r.activity_total, 0);
 
   return {
+    month,
+    thisMonth,
     groups,
     income: { categories: income, received: income.reduce((sum, c) => sum + c.received, 0) },
     totals: {
@@ -229,6 +267,7 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
     readyBreakdown: getReadyBreakdown(db, month),
     hasAccounts: accountCount > 0,
     assignedLastMonth: assignedLastMonth === 1,
+    needed: list.reduce((sum, c) => sum + c.needed, 0),
   };
 }
 
@@ -326,6 +365,26 @@ export function copyAssignments(db: Db, from: Month, to: Month): number {
     `);
     for (const { categoryId, amount } of copies) writeAssigned(tx, categoryId, to, amount);
     return copies.length;
+  });
+}
+
+/**
+ * Gives every visible expense category what its target still needs in
+ * `month`, on top of what it has assigned there, in one step. Returns how
+ * many categories got money.
+ *
+ * The needs are worked out here, from the database, exactly as the budget
+ * shows them. Once a target has what it needs it needs nothing more, so
+ * doing this twice adds nothing the second time. Money that is not there
+ * is assigned anyway: Ready to assign then goes below zero and says so.
+ */
+export function assignTargets(db: Db, month: Month, thisMonth: Month = currentMonth()): number {
+  return db.transaction((tx) => {
+    const needy = getBudgetMonth(tx, month, thisMonth)
+      .groups.flatMap((g) => g.categories)
+      .filter((c) => c.needed > 0);
+    for (const c of needy) writeAssigned(tx, c.id, month, c.assigned + c.needed);
+    return needy.length;
   });
 }
 
@@ -446,6 +505,42 @@ export function setNextMonth(db: Db, categoryId: number, on: boolean): boolean {
         eq(categories.income, true),
       ),
     )
+    .run();
+  return changed.changes > 0;
+}
+
+/** The condition for a category that can have a target: there, not archived, not income. */
+const takesTarget = (id: number) =>
+  and(eq(categories.id, id), eq(categories.archived, false), eq(categories.income, false));
+
+/**
+ * Gives an expense category a target, in place of the one it had. Refuses
+ * a target that is not one (`isTarget`), and a category that does not
+ * exist, is archived, or is an income category, which holds no money.
+ */
+export function setTarget(db: Db, id: number, target: Target): "set" | "invalid" | "no-category" {
+  if (!isTarget(target)) return "invalid";
+  const changed = db
+    .update(categories)
+    .set({
+      targetKind: target.kind,
+      targetAmount: target.amount,
+      targetMonth: target.kind === "byMonth" ? target.month : null,
+    })
+    .where(takesTarget(id))
+    .run();
+  return changed.changes > 0 ? "set" : "no-category";
+}
+
+/**
+ * Takes a category's target away. Returns false, and changes nothing, when
+ * the category does not exist, is archived, or is an income category.
+ */
+export function removeTarget(db: Db, id: number): boolean {
+  const changed = db
+    .update(categories)
+    .set({ targetKind: null, targetAmount: null, targetMonth: null })
+    .where(takesTarget(id))
     .run();
   return changed.changes > 0;
 }
