@@ -405,7 +405,7 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
             void load(e.dataTransfer.files[0]);
           }}
           className={`mt-5 flex flex-col items-center gap-3 rounded-2xl border-[1.5px] border-dashed px-6 py-12 text-center transition-colors ${
-            dragging ? "border-brand bg-ok-track" : "border-[#c3c5cb]"
+            dragging ? "border-brand bg-ok-track" : "border-dash"
           }`}
         >
           <UploadIcon width={26} height={26} className="text-muted" />

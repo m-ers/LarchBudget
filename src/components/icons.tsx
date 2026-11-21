@@ -122,7 +122,7 @@ export const EnvelopeToken = ({ color }: { color: string }) => (
 export const EmptyToken = () => (
   <span
     aria-hidden="true"
-    className="flex h-[19px] w-[26px] shrink-0 items-center justify-center rounded-[4px] border-[1.5px] border-dashed border-[#c3c5cb] text-sm leading-none text-muted"
+    className="flex h-[19px] w-[26px] shrink-0 items-center justify-center rounded-[4px] border-[1.5px] border-dashed border-dash text-sm leading-none text-muted"
   >
     +
   </span>
