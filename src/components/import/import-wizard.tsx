@@ -741,8 +741,6 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
               ? t("import.action.nothingNew")
               : t(anyKnown ? "import.action.importNew" : "import.action.import", {
                   count,
-                  // Written without a thousands separator, as the button always was.
-                  amount: String(count),
                   account: account.name,
                 })}
         </button>

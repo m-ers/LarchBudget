@@ -291,10 +291,10 @@
     "action": {
       "importing": "Importing…",
       "nothingNew": "Nothing new to import",
-      "import_one": "Import {{amount}} transaction into {{account}}",
-      "import_other": "Import {{amount}} transactions into {{account}}",
-      "importNew_one": "Import {{amount}} new transaction into {{account}}",
-      "importNew_other": "Import {{amount}} new transactions into {{account}}"
+      "import_one": "Import {{count}} transaction into {{account}}",
+      "import_other": "Import {{count}} transactions into {{account}}",
+      "importNew_one": "Import {{count}} new transaction into {{account}}",
+      "importNew_other": "Import {{count}} new transactions into {{account}}"
     },
     "result": {
       "imported_one": "Imported {{count}} transaction into {{account}}.",
