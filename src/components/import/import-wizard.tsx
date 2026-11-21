@@ -31,6 +31,7 @@ import {
   field as fieldBase,
   primaryButton as buttonBase,
   quietButton,
+  selectField as selectBase,
 } from "../form";
 import { CheckIcon, UploadIcon } from "../icons";
 import { useSave } from "../use-save";
@@ -81,6 +82,7 @@ function rememberAccount(id: number) {
 }
 
 const field = `${fieldBase} px-2.5`;
+const selectField = `${selectBase} px-2.5`;
 const primaryButton = `${buttonBase} px-4 py-2.5 disabled:opacity-50`;
 
 /**
@@ -377,7 +379,7 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
           setAccountPicked(true);
           if (file && !edited) chooseMapping(file.rows, next);
         }}
-        className={field}
+        className={selectField}
       >
         {accounts.map((a) => (
           <option key={a.id} value={a.id}>
@@ -457,7 +459,7 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
           onChange={(e) => onChange(Number(e.target.value))}
           aria-describedby={tipId}
           aria-invalid={!optional && (value === null || value < 0) ? true : undefined}
-          className={`${field} ${!optional && (value === null || value < 0) ? "border-bad" : ""}`}
+          className={`${selectField} ${!optional && (value === null || value < 0) ? "border-bad" : ""}`}
         >
           <option value={-1}>{optional ? none : "Choose a column…"}</option>
           {Array.from({ length: width }, (_, i) => (
@@ -507,7 +509,7 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
                 set({ dateOrder: e.target.value as DateOrder });
               }}
               aria-describedby={orderGuessed ? "date-order-guess" : undefined}
-              className={field}
+              className={selectField}
             >
               {Object.entries(dateOrderLabels).map(([order, label]) => (
                 <option key={order} value={order}>
@@ -561,7 +563,7 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
             <select
               value={file.delimiter}
               onChange={(e) => changeDelimiter(e.target.value as Delimiter)}
-              className={`${field} w-auto py-1`}
+              className={`${field} h-[30px] w-auto py-1`}
             >
               {delimiters.map((delimiter) => (
                 <option key={delimiter} value={delimiter}>

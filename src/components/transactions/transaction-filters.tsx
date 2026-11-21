@@ -56,7 +56,7 @@ export function TransactionFilters({ filter, accounts, categories }: Props) {
   const filtered = Object.values(fields).some((value) => value !== undefined && value !== "");
   // Like `field` in form.tsx, but each control is as wide as its own width says.
   const choice =
-    "rounded-[9px] border border-line bg-surface px-2.5 py-2 text-[14.5px] placeholder:text-muted/60 focus:border-brand focus:outline-none";
+    "h-10 rounded-[9px] border border-line bg-surface px-2.5 py-2 text-[14.5px] placeholder:text-muted/60 focus:border-brand focus:outline-none";
 
   return (
     <form

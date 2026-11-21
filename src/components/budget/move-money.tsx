@@ -126,7 +126,7 @@ export function MoveMoney({
             aria-label={out ? "Move to" : "Cover from"}
             value={other}
             onChange={(e) => setOther(e.target.value)}
-            className={`${control} max-w-72`}
+            className={`${control} h-[33px] max-w-72`}
           >
             <option value={READY}>Ready to assign ({money(figures.readyToAssign)})</option>
             {figures.groups.map((group) => {

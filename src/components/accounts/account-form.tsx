@@ -4,7 +4,7 @@ import { createAccountAction } from "@/app/actions";
 import { accountTypeLabels, accountTypes } from "@/lib/account-types";
 import type { IsoDate } from "@/lib/dates";
 import { MAX_NAME_LENGTH } from "@/lib/limits";
-import { ErrorText, Field, field, primaryButton } from "../form";
+import { ErrorText, Field, field, primaryButton, selectField } from "../form";
 import { useSave } from "../use-save";
 import { BalanceFields } from "./balance-fields";
 
@@ -39,7 +39,7 @@ export function AccountForm({
         />
       </Field>
       <Field label="Type">
-        <select name="type" defaultValue="checking" className={`${field} px-3`}>
+        <select name="type" defaultValue="checking" className={`${selectField} px-3`}>
           {accountTypes.map((type) => (
             <option key={type} value={type}>
               {accountTypeLabels[type]}

@@ -11,6 +11,13 @@ export const quietButton =
 export const field =
   "w-full rounded-[9px] border border-line bg-surface py-2 font-normal placeholder:text-muted/60 focus:border-brand focus:outline-none";
 
+/**
+ * A dropdown styled like `field`. Safari ignores a dropdown's vertical
+ * padding, which makes it lower than the text fields next to it; a fixed
+ * height (the one other browsers already give it) keeps them level.
+ */
+export const selectField = `${field} h-[38px]`;
+
 /** A message about something that went wrong, announced to screen readers. Renders nothing without one. */
 export function ErrorText({
   error,
