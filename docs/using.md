@@ -66,7 +66,7 @@ month before and after.
   up or down, move it to another group, move money, set a target, or archive
   it.
 
-<img src="images/menu.png" alt="The menu of a category: Rename, Move up, Move down, Move to another group, Move money and Archive" />
+<img src="images/menu.png" alt="The menu of a category: Rename, Move up, Move down, Move to another group, Move money, Set target and Archive" />
 
 - **Archiving** a category takes it off the budget and gives its money back
   to Ready to assign. Its transactions keep their category. Archived
