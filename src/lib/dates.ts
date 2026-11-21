@@ -36,6 +36,15 @@ export function addMonths(month: Month, delta: number): Month {
   return `${Math.floor(index / 12)}-${pad((index % 12) + 1)}` as Month;
 }
 
+/** How many months `to` is after `from`: monthsBetween("2026-11", "2027-06") -> 7. */
+export function monthsBetween(from: Month, to: Month): number {
+  const index = (month: Month) => {
+    const [year, m] = month.split("-").map(Number);
+    return year * 12 + (m - 1);
+  };
+  return index(to) - index(from);
+}
+
 /** First day of the month, e.g. "2026-11-01". */
 export function monthStart(month: Month): IsoDate {
   return `${month}-01` as IsoDate;

@@ -8,6 +8,7 @@ import {
   isMonth,
   monthLabelParts,
   monthName,
+  monthsBetween,
   today,
 } from "./dates";
 
@@ -27,6 +28,15 @@ describe("addMonths", () => {
     expect(addMonths("2026-12", 1)).toBe("2027-01");
     expect(addMonths("2026-01", -1)).toBe("2025-12");
     expect(addMonths("2026-03", -15)).toBe("2024-12");
+  });
+});
+
+describe("monthsBetween", () => {
+  it("counts the months from one to another, across years and backwards", () => {
+    expect(monthsBetween("2026-11", "2026-11")).toBe(0);
+    expect(monthsBetween("2026-11", "2027-06")).toBe(7);
+    expect(monthsBetween("2026-12", "2027-01")).toBe(1);
+    expect(monthsBetween("2027-01", "2026-12")).toBe(-1);
   });
 });
 
