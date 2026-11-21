@@ -66,7 +66,12 @@ test.describe("with an account", () => {
     ).toBeVisible();
     await expect(picked(page, "Date")).toHaveText("Datum · 20261118");
     await expect(picked(page, "Amount")).toHaveText("Bedrag (EUR) · 45,10");
-    await expect(picked(page, "Out or in (Af/Bij, Debit/Credit)")).toHaveText("Af Bij · Af");
+    await expect(picked(page, "Out or in")).toHaveText("Af Bij · Af");
+    await expect(picked(page, "Money in")).toHaveText("No separate column");
+    // Short labels; what they are for is in a tooltip, and read to screen readers.
+    await expect(
+      page.getByRole("combobox", { name: "Out or in", exact: true }),
+    ).toHaveAccessibleDescription(/^For banks whose amounts have no plus or minus/);
     await expect(picked(page, "Payee")).toHaveText("Naam / Omschrijving · Fresh Market");
     await expect(picked(page, "Note")).toHaveText(/^Mededelingen\s+·\s+Pasvolgnr/);
     await expect(summary(page)).toContainText(
@@ -199,7 +204,7 @@ test.describe("with an account", () => {
   }) => {
     await chooseFile(page, "withdrawal-deposit.csv");
     await expect(picked(page, "Amount")).toHaveText("Withdrawal · 45.10");
-    await expect(picked(page, "Money in (if it has its own column)")).toHaveText("Deposit");
+    await expect(picked(page, "Money in")).toHaveText("Deposit");
     await expect(summary(page)).toContainText(
       "3 transactions · Nov 1, 2026 to Nov 18, 2026 · €2,850.00 in · €48.60 out",
     );
@@ -208,15 +213,11 @@ test.describe("with an account", () => {
     ).toBeVisible();
 
     // Without its own column, the Deposit column is ignored and shows no money in.
-    await page
-      .getByRole("combobox", { name: "Money in (if it has its own column)", exact: true })
-      .selectOption("-1");
+    await page.getByRole("combobox", { name: "Money in", exact: true }).selectOption("-1");
     await expect(summary(page)).toContainText("2 transactions");
     await expect(summary(page)).toContainText("Skipped: 1 × no readable amount.");
 
-    await page
-      .getByRole("combobox", { name: "Money in (if it has its own column)", exact: true })
-      .selectOption("3");
+    await page.getByRole("combobox", { name: "Money in", exact: true }).selectOption("3");
     await page.getByRole("button", { name: "Import 3 transactions into Checking" }).click();
     await expect(
       page.getByRole("heading", { name: "Imported 3 transactions into Checking." }),

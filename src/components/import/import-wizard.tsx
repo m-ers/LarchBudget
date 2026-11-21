@@ -447,23 +447,28 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
     value: number | null,
     onChange: (column: number) => void,
     optional: boolean,
-  ) => (
-    <Field label={label}>
-      <select
-        value={value ?? -1}
-        onChange={(e) => onChange(Number(e.target.value))}
-        aria-invalid={!optional && (value === null || value < 0) ? true : undefined}
-        className={`${field} ${!optional && (value === null || value < 0) ? "border-bad" : ""}`}
-      >
-        <option value={-1}>{optional ? "None" : "Choose a column…"}</option>
-        {Array.from({ length: width }, (_, i) => (
-          <option key={i} value={i}>
-            {columnLabel(i)}
-          </option>
-        ))}
-      </select>
-    </Field>
-  );
+    { none = "None", tip }: { none?: string; tip?: string } = {},
+  ) => {
+    const tipId = tip ? `${label.toLowerCase().replace(/\W+/g, "-")}-tip` : undefined;
+    return (
+      <Field label={label} tip={tip} tipId={tipId}>
+        <select
+          value={value ?? -1}
+          onChange={(e) => onChange(Number(e.target.value))}
+          aria-describedby={tipId}
+          aria-invalid={!optional && (value === null || value < 0) ? true : undefined}
+          className={`${field} ${!optional && (value === null || value < 0) ? "border-bad" : ""}`}
+        >
+          <option value={-1}>{optional ? none : "Choose a column…"}</option>
+          {Array.from({ length: width }, (_, i) => (
+            <option key={i} value={i}>
+              {columnLabel(i)}
+            </option>
+          ))}
+        </select>
+      </Field>
+    );
+  };
 
   const reasons = new Map<string, number>();
   for (const skipped of result?.skipped ?? []) {
@@ -519,16 +524,24 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
         </div>
         {columnSelect("Amount", mapping.amount, (amount) => set({ amount }), false)}
         {columnSelect(
-          "Money in (if it has its own column)",
+          "Money in",
           mapping.amountIn ?? null,
           (column) => set({ amountIn: column < 0 ? null : column }),
           true,
+          {
+            none: "No separate column",
+            tip: "For banks that put money in and money out in separate columns. Amount is then the money out.",
+          },
         )}
         {columnSelect(
-          "Out or in (Af/Bij, Debit/Credit)",
+          "Out or in",
           mapping.indicator,
           (column) => set({ indicator: column < 0 ? null : column }),
           true,
+          {
+            none: "No separate column",
+            tip: "For banks whose amounts have no plus or minus, with a column like Af/Bij or Debit/Credit that says which way the money went.",
+          },
         )}
         {columnSelect(
           "Payee",

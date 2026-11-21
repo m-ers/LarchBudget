@@ -89,6 +89,13 @@ export const CheckIcon = (props: SVGProps<SVGSVGElement>) => (
   </Icon>
 );
 
+export const InfoIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5M12 8h.01" />
+  </Icon>
+);
+
 /** Filled warning triangle. Always paired with text; never the only signal. */
 export const WarningIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">

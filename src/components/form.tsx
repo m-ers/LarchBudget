@@ -1,3 +1,5 @@
+import { InfoIcon } from "./icons";
+
 /** The few form pieces every screen shares. Padding is left to each use. */
 
 export const primaryButton =
@@ -32,24 +34,47 @@ export function ErrorText({
  * A form control with its label above it, and an optional hint under it.
  * The hint stays out of the label, so it is not read as part of the
  * control's name: give the control `aria-describedby={hintId}` instead.
+ *
+ * A tip is for a short label that needs explaining: it shows on hovering
+ * the ⓘ after the label, and is read to screen readers as the control's
+ * description when the control has `aria-describedby={tipId}`.
  */
 export function Field({
   label,
   hint,
   hintId,
+  tip,
+  tipId,
   children,
 }: {
   label: string;
   hint?: string;
   hintId?: string;
+  tip?: string;
+  tipId?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-1.5 text-sm font-medium">
       <label className="flex flex-col gap-1.5">
-        {label}
+        {tip ? (
+          <span className="flex items-center gap-1.5">
+            {label}
+            {/* Hidden from the name; the tip reaches screen readers through tipId. */}
+            <span aria-hidden="true" title={tip} className="cursor-help text-muted">
+              <InfoIcon width={14} height={14} />
+            </span>
+          </span>
+        ) : (
+          label
+        )}
         {children}
       </label>
+      {tip && (
+        <span id={tipId} hidden>
+          {tip}
+        </span>
+      )}
       {hint && (
         <p id={hintId} className="text-xs font-normal text-muted">
           {hint}
