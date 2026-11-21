@@ -187,6 +187,23 @@ test.describe("with an account", () => {
     ).toBeVisible();
   });
 
+  test("every dropdown has room for its text", async ({ page }) => {
+    await chooseFile(page, "ing.csv");
+    await expect(page.getByRole("button", { name: /^Import \d+ transactions into/ })).toBeVisible();
+    // A dropdown with a fixed height cuts its text off when its padding
+    // leaves less room than the letters are high.
+    const cramped = await page.locator("select:visible").evaluateAll((selects) =>
+      selects
+        .filter((select) => {
+          const style = getComputedStyle(select);
+          const padding = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+          return select.clientHeight - padding < parseFloat(style.fontSize);
+        })
+        .map((select) => select.closest("label")?.textContent?.trim().slice(0, 12)),
+    );
+    expect(cramped).toEqual([]);
+  });
+
   test("the import page starts afresh when you come back to it", async ({ page }) => {
     await chooseFile(page, "ing.csv");
     await page.getByRole("button", { name: "Import 6 transactions into Checking" }).click();

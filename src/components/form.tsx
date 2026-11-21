@@ -8,8 +8,10 @@ export const primaryButton =
 export const quietButton =
   "rounded-[9px] border border-line px-3.5 py-2 font-medium transition-colors hover:bg-hover";
 
-export const field =
-  "w-full rounded-[9px] border border-line bg-surface py-2 font-normal placeholder:text-muted/60 focus:border-brand focus:outline-none";
+const fieldLook =
+  "rounded-[9px] border border-line bg-surface font-normal placeholder:text-muted/60 focus:border-brand focus:outline-none";
+
+export const field = `${fieldLook} w-full py-2`;
 
 /**
  * A dropdown styled like `field`. Safari ignores a dropdown's vertical
@@ -17,6 +19,13 @@ export const field =
  * height (the one other browsers already give it) keeps them level.
  */
 export const selectField = `${field} h-[38px]`;
+
+/**
+ * A lower dropdown as wide as its text, for beside a line of text. It has no
+ * vertical padding of its own: with `field`'s padding, a height this low
+ * leaves no room for the letters, and other browsers than Safari cut them off.
+ */
+export const smallSelectField = `${fieldLook} h-[30px]`;
 
 /** A message about something that went wrong, announced to screen readers. Renders nothing without one. */
 export function ErrorText({
