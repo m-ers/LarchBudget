@@ -27,8 +27,7 @@ spending comes out of them.
 - **Every euro gets a purpose.** Money that is not in a category yet is
   _Ready to assign_, and stays in view until you have given it a place.
 - **Your data stays with you.** Everything lives in one file on your own
-  computer or server. There is no account and no subscription, and
-  LarchBudget contacts no other server.
+  computer or server. LarchBudget is free and open source.
 - **Simple to start.** One budget, a few screens, and little to learn before
   you can begin.
 
@@ -84,12 +83,6 @@ settings, backing up, updating and running without Docker.
 
 To look around first, with demo data and without Docker, see
 [Development](docs/development.md#run-it-locally).
-
-## Kept simple
-
-LarchBudget is about your budget, and tries to do that one thing well. It is
-for one person with one currency, and it does not track net worth or
-investments. It is made for a desktop browser first.
 
 ## Roadmap
 

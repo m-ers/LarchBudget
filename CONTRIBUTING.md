@@ -12,9 +12,8 @@ Changes that make that one thing clearer, faster or more pleasant are
 welcome. The [roadmap](README.md#roadmap) shows what is planned, and in
 which order.
 
-A bigger addition changes what LarchBudget is: tracking net worth or
-investments, for example, or several users. Open an issue first, so we can
-talk about whether and how it fits before you write code.
+For a bigger addition, open an issue first, so we can talk about how it fits
+before you write code.
 
 ## Bugs and ideas
 

@@ -68,8 +68,7 @@ Without `APP_PASSWORD`, anyone who can reach LarchBudget can read and change
 your finances. That is fine on a computer only you use. Before LarchBudget
 can be reached from other devices or from the internet:
 
-1. **Set `APP_PASSWORD`.** Choose a long one: the login does not slow down
-   someone who keeps guessing yet.
+1. **Set `APP_PASSWORD`.** Choose a long one, so that it cannot be guessed.
 2. **Use HTTPS**, so the password and your figures cannot be read on the way.
    The usual way is a reverse proxy in front of LarchBudget, such as
    [Caddy](https://caddyserver.com) or [Traefik](https://traefik.io). The
