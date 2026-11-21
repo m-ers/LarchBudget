@@ -386,6 +386,8 @@
       "moveTo": "Verplaatsen naar {{group}}",
       "moveMoney": "Geld verplaatsen…",
       "coverOverspending": "Tekort aanvullen…",
+      "setTarget": "Doel instellen…",
+      "changeTarget": "Doel wijzigen…",
       "archive": "Archiveren",
       "groupColor": "Kleur van de groep",
       "deleteGroup": "Groep verwijderen"
@@ -436,6 +438,11 @@
       "assign": "Hetzelfde toewijzen als in {{month}}",
       "assigning": "Toewijzen…"
     },
+    "assignTargets": {
+      "need_one": "Je doel heeft deze maand nog {{amount}} nodig.",
+      "need_other": "Je doelen hebben deze maand nog {{amount}} nodig.",
+      "assign": "Doelen toewijzen"
+    },
     "moveMoney": {
       "moveLead": "Verplaats",
       "coverLead": "Vul",
@@ -454,6 +461,30 @@
       "cancel": "Annuleren",
       "categoryHolds": "{{name}} heeft {{amount}}; verplaats je meer, dan ontstaat er een tekort.",
       "onlyReady": "Er is maar {{amount}} nog toe te wijzen; verplaats je meer, dan wijs je meer toe dan je hebt."
+    },
+    "target": {
+      "toGo": "nog {{amount}}",
+      "toGoTip": "Je doel heeft deze maand nog {{amount}} nodig.",
+      "explain": {
+        "monthly": "Doel: {{amount}} per maand.",
+        "topUp": "Doel: aanvullen tot {{amount}}.",
+        "byMonth": "Doel: {{amount}} in {{month}}.",
+        "byMonthPassed": "Doel: {{amount}} in {{month}}, en die maand is voorbij."
+      }
+    },
+    "targetForm": {
+      "formLabel": "Doel voor {{name}}",
+      "kindLabel": "Soort doel",
+      "kind": {
+        "monthly": "Elke maand",
+        "topUp": "Aanvullen tot",
+        "byMonth": "Op datum"
+      },
+      "amountLabel": "Doelbedrag",
+      "monthLabel": "Doelmaand",
+      "save": "Opslaan",
+      "cancel": "Annuleren",
+      "remove": "Doel verwijderen"
     },
     "colors": {
       "blue": "Blauw",

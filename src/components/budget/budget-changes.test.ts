@@ -1,15 +1,19 @@
 import { describe, expect, it } from "vitest";
 import type { BudgetMonth } from "@/db/budget";
 import type { CategoryIcon } from "@/lib/category-icons";
+import type { Target } from "@/lib/targets";
 import { readyLines } from "../../lib/ready";
-import { applyChange, moveChanges, type BudgetChange } from "./budget-changes";
+import { applyChange, moveChanges, targetChanges, type BudgetChange } from "./budget-changes";
 
 /**
- * Two groups. Rent has 300.00 left from earlier months and 50.00 spent this
- * month; Water has 20.00 more assigned in a later month. A salary came in
- * through the income category Salary.
+ * November 2026, the current month. Two groups. Rent has 300.00 left from
+ * earlier months and 50.00 spent this month; Water has 20.00 more assigned
+ * in a later month. A salary came in through the income category Salary.
+ * No category has a target.
  */
 const budget: BudgetMonth = {
+  month: "2026-11",
+  thisMonth: "2026-11",
   groups: [
     {
       id: 1,
@@ -23,8 +27,19 @@ const budget: BudgetMonth = {
           activity: -5_000,
           available: 125_000,
           balance: 125_000,
+          target: null,
+          needed: 0,
         },
-        { id: 11, name: "Water", assigned: 2_000, activity: 0, available: 2_000, balance: 4_000 },
+        {
+          id: 11,
+          name: "Water",
+          assigned: 2_000,
+          activity: 0,
+          available: 2_000,
+          balance: 4_000,
+          target: null,
+          needed: 0,
+        },
       ],
       assigned: 102_000,
       activity: -5_000,
@@ -34,7 +49,18 @@ const budget: BudgetMonth = {
       id: 2,
       name: "Goals",
       colorSlot: 1,
-      categories: [{ id: 20, name: "Holiday", assigned: 0, activity: 0, available: 0, balance: 0 }],
+      categories: [
+        {
+          id: 20,
+          name: "Holiday",
+          assigned: 0,
+          activity: 0,
+          available: 0,
+          balance: 0,
+          target: null,
+          needed: 0,
+        },
+      ],
       assigned: 0,
       activity: 0,
       available: 0,
@@ -58,6 +84,7 @@ const budget: BudgetMonth = {
   },
   hasAccounts: true,
   assignedLastMonth: false,
+  needed: 0,
 };
 
 /** What the lines of Ready to assign's sum add up to. */
@@ -80,6 +107,8 @@ describe("assigning, before the server confirms it", () => {
       activity: -5_000,
       available: 145_000,
       balance: 145_000,
+      target: null,
+      needed: 0,
     });
     expect(after.groups[0]).toMatchObject({
       assigned: 122_000,
@@ -251,5 +280,113 @@ describe("choosing an icon, before the server confirms it", () => {
 
   it("changes nothing for a category that is not on the page", () => {
     expect(applyChange(budget, icon(99, "house"))).toBe(budget);
+  });
+});
+
+describe("targets, before the server confirms them", () => {
+  const target = (categoryId: number, value: Target | null): BudgetChange => ({
+    type: "target",
+    categoryId,
+    target: value,
+  });
+  const needs = (month: BudgetMonth) =>
+    month.groups.flatMap((g) => g.categories.map((c) => [c.name, c.needed]));
+
+  /**
+   * Rent: €1,100 every month, with €1,000 assigned. Water: top up to €50,
+   * with €20 assigned and nothing from last month. Holiday: €1,200 by June
+   * 2027, eight months away including this one.
+   */
+  const withTargets = [
+    target(10, { kind: "monthly", amount: 110_000 }),
+    target(11, { kind: "topUp", amount: 5_000 }),
+    target(20, { kind: "byMonth", amount: 120_000, month: "2027-06" }),
+  ].reduce(applyChange, budget);
+
+  it("show what a new target needs, and change no other figure", () => {
+    expect(needs(withTargets)).toEqual([
+      ["Rent", 10_000],
+      ["Water", 3_000],
+      ["Holiday", 15_000],
+    ]);
+    expect(withTargets.needed).toBe(28_000);
+    expect(withTargets.groups[0].categories[0].target).toEqual({
+      kind: "monthly",
+      amount: 110_000,
+    });
+    expect(withTargets.readyToAssign).toBe(budget.readyToAssign);
+    expect(withTargets.totals).toEqual(budget.totals);
+    expect(withTargets.groups.map((g) => g.assigned)).toEqual([102_000, 0]);
+  });
+
+  it("need nothing once a target is removed", () => {
+    const after = applyChange(withTargets, target(10, null));
+    expect(after.groups[0].categories[0]).toMatchObject({ target: null, needed: 0 });
+    expect(after.needed).toBe(18_000);
+  });
+
+  it("is the same applied twice, and ignores a category that is not there", () => {
+    const change = target(20, { kind: "monthly", amount: 4_000 });
+    const once = applyChange(withTargets, change);
+    expect(applyChange(once, change)).toEqual(once);
+    expect(once.needed).toBe(10_000 + 3_000 + 4_000);
+    expect(applyChange(budget, target(99, { kind: "monthly", amount: 4_000 }))).toBe(budget);
+  });
+
+  it("follow what is typed into Assigned", () => {
+    const some = applyChange(withTargets, assign(10, 105_000));
+    expect(some.groups[0].categories[0].needed).toBe(5_000);
+    expect(some.needed).toBe(23_000);
+    const met = applyChange(withTargets, assign(10, 130_000));
+    expect(met.groups[0].categories[0].needed).toBe(0);
+    expect(met.needed).toBe(18_000);
+  });
+
+  it("need nothing in a month that is over", () => {
+    const october = { ...budget, month: "2026-10" as const };
+    const after = applyChange(october, target(20, { kind: "monthly", amount: 4_000 }));
+    expect(after.groups[1].categories[0].needed).toBe(0);
+    expect(after.needed).toBe(0);
+  });
+
+  describe("assigning them all", () => {
+    const changes = targetChanges(withTargets.groups);
+    const after = changes.reduce(applyChange, withTargets);
+
+    it("adds what each category needs to its Assigned amount", () => {
+      expect(changes).toEqual([
+        { type: "assign", categoryId: 10, amount: 110_000 },
+        { type: "assign", categoryId: 11, amount: 5_000 },
+        { type: "assign", categoryId: 20, amount: 15_000 },
+      ]);
+      expect(after.groups.flatMap((g) => g.categories.map((c) => c.assigned))).toEqual([
+        110_000, 5_000, 15_000,
+      ]);
+    });
+
+    it("moves every figure along at once, and leaves nothing needed", () => {
+      expect(needs(after)).toEqual([
+        ["Rent", 0],
+        ["Water", 0],
+        ["Holiday", 0],
+      ]);
+      expect(after.needed).toBe(0);
+      expect(after.groups.map((g) => g.assigned)).toEqual([115_000, 15_000]);
+      expect(after.totals.assigned).toBe(budget.totals.assigned + 28_000);
+      expect(after.readyToAssign).toBe(50_000 - 28_000);
+      expect(sum(after)).toBe(after.readyToAssign);
+    });
+
+    it("assigns more than there is, and Ready to assign goes below zero", () => {
+      const short = applyChange(withTargets, target(20, { kind: "monthly", amount: 60_000 }));
+      const all = targetChanges(short.groups).reduce(applyChange, short);
+      expect(all.needed).toBe(0);
+      expect(all.readyToAssign).toBe(50_000 - 10_000 - 3_000 - 60_000);
+    });
+
+    it("does not count twice once the server's figures already hold it", () => {
+      expect(changes.reduce(applyChange, after)).toEqual(after);
+      expect(targetChanges(after.groups)).toEqual([]);
+    });
   });
 });

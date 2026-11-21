@@ -5,6 +5,7 @@ import {
   daysLeftInMonth,
   formatDate,
   formatMonth,
+  formatMonthShort,
   isMonth,
   monthLabelParts,
   monthName,
@@ -86,6 +87,13 @@ describe("formatMonth", () => {
   it("names the month and year in the locale's words", () => {
     expect(formatMonth("2026-11", "en-US")).toBe("November 2026");
     expect(formatMonth("2026-03", "nl-NL")).toBe("maart 2026");
+  });
+});
+
+describe("formatMonthShort", () => {
+  it("writes the month in fewer letters, in the language", () => {
+    expect(formatMonthShort("2027-06", "en-US")).toBe("Jun 2027");
+    expect(formatMonthShort("2027-03", "nl-NL")).toBe("mrt 2027");
   });
 });
 

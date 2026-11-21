@@ -14,6 +14,7 @@ const monthName = (month: Month, locale: string) =>
 /**
  * The quiet line above the groups of a month that has nothing assigned
  * yet, while the month before it has: one click assigns the same again.
+ * While targets need money, `AssignTargets` takes its place.
  */
 export function CopyLastMonth() {
   const { month } = useBudget();

@@ -386,6 +386,8 @@
       "moveTo": "Move to {{group}}",
       "moveMoney": "Move money…",
       "coverOverspending": "Cover overspending…",
+      "setTarget": "Set target…",
+      "changeTarget": "Change target…",
       "archive": "Archive",
       "groupColor": "Colour of the group",
       "deleteGroup": "Delete group"
@@ -493,6 +495,11 @@
       "assign": "Assign the same as {{month}}",
       "assigning": "Assigning…"
     },
+    "assignTargets": {
+      "need_one": "Your target needs {{amount}} more this month.",
+      "need_other": "Your targets need {{amount}} more this month.",
+      "assign": "Assign targets"
+    },
     "moveMoney": {
       "moveLead": "Move",
       "coverLead": "Cover",
@@ -511,6 +518,30 @@
       "cancel": "Cancel",
       "categoryHolds": "{{name}} holds {{amount}}; moving more leaves it overspent.",
       "onlyReady": "Only {{amount}} is ready to assign; moving more assigns more than you have."
+    },
+    "target": {
+      "toGo": "{{amount}} to go",
+      "toGoTip": "Your target needs {{amount}} more this month.",
+      "explain": {
+        "monthly": "Target: {{amount}} every month.",
+        "topUp": "Target: top up to {{amount}}.",
+        "byMonth": "Target: {{amount}} by {{month}}.",
+        "byMonthPassed": "Target: {{amount}} by {{month}}, which has passed."
+      }
+    },
+    "targetForm": {
+      "formLabel": "Target for {{name}}",
+      "kindLabel": "Kind of target",
+      "kind": {
+        "monthly": "Every month",
+        "topUp": "Top up to",
+        "byMonth": "By a month"
+      },
+      "amountLabel": "Target amount",
+      "monthLabel": "Target month",
+      "save": "Save",
+      "cancel": "Cancel",
+      "remove": "Remove target"
     }
   },
   "settings": {

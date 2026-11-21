@@ -10,7 +10,9 @@ import type { Month } from "@/lib/dates";
 import { formatMoney, formatMoneyParts } from "@/lib/money";
 import { primaryButton } from "../form";
 import { Hero, HeroFigure } from "../hero";
+import { useSave } from "../use-save";
 import { ArchivedCategories } from "./archived-categories";
+import { AssignTargets } from "./assign-targets";
 import { applyChange } from "./budget-changes";
 import { BudgetContext } from "./budget-context";
 import { CopyLastMonth } from "./copy-last-month";
@@ -87,6 +89,8 @@ export function BudgetView({
   const hero = useRef<HTMLElement>(null);
   const heroInView = useInView(hero);
   const groupCount = budget.groups.filter(isGroup).length;
+  // Assigning the targets; kept here, as its line goes once they are met.
+  const assigningTargets = useSave();
 
   return (
     <BudgetContext value={{ month, currency, locale, figures: budget, show }}>
@@ -140,10 +144,16 @@ export function BudgetView({
           </div>
         )}
 
-        {budget.assignedLastMonth &&
+        {/* While targets need money, assigning them takes the place of
+            assigning the same as last month. */}
+        {budget.needed > 0 ? (
+          <AssignTargets state={assigningTargets} />
+        ) : (
+          budget.assignedLastMonth &&
           budget.groups.every((g) => g.categories.every((c) => c.assigned === 0)) && (
             <CopyLastMonth />
-          )}
+          )
+        )}
 
         <table className="w-full border-collapse">
           <TableHead

@@ -12,7 +12,7 @@ import { accountTypes } from "@/lib/account-types";
 import { isCategoryIcon, type CategoryIcon } from "@/lib/category-icons";
 import { isGroupColorSlot } from "@/lib/group-colors";
 import { getConfig } from "@/lib/config";
-import { addMonths, isMonth, today, type IsoDate } from "@/lib/dates";
+import { addMonths, isMonth, today, type IsoDate, type Month } from "@/lib/dates";
 import { delimiters, parseCsv } from "@/lib/import/csv";
 import {
   MAX_CELL_LENGTH,
@@ -26,6 +26,7 @@ import { applyMapping, isMapping, serializeMapping, type Mapping } from "@/lib/i
 import { EARLIEST_BALANCE_DATE, MAX_NAME_LENGTH } from "@/lib/limits";
 import { minorUnitDigits, parseMoney } from "@/lib/money";
 import type { ActionResult, Failure } from "@/lib/result";
+import { isTargetKind, type Target } from "@/lib/targets";
 import { isLanguage, LANGUAGE_COOKIE } from "@/i18n/languages";
 import { PSEUDO_LANGUAGE } from "@/i18n/pseudo";
 import { getT } from "@/i18n/server";
@@ -112,6 +113,59 @@ export async function copyLastMonthAction(month: string): Promise<ActionResult> 
   if (!isMonth(month)) return unexpected(t);
 
   budget.copyAssignments(db, addMonths(month, -1), month);
+  return done();
+}
+
+/**
+ * Gives a category a target: its kind, the amount as typed, and for
+ * "byMonth" the month to reach it by (null for the other kinds).
+ */
+export async function setTargetAction(
+  categoryId: number,
+  kind: string,
+  input: string,
+  month: string | null,
+): Promise<ActionResult> {
+  const t = await getT();
+  const db = await database();
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(categoryId).success || !isTargetKind(kind)) return unexpected(t);
+  // Only "by a month" has a month.
+  if (kind === "byMonth" ? !isMonth(month) : month !== null) return unexpected(t);
+
+  const amount = parseAmount(String(input));
+  if (amount === null) return fail(t("errors.budget.notAnAmount"));
+  if (amount <= 0) return fail(t("errors.budget.amountNotPositive"));
+
+  const target: Target =
+    kind === "byMonth" ? { kind, amount, month: month as Month } : { kind, amount };
+  const result = budget.setTarget(db, categoryId, target);
+  if (result === "no-category") return categoryGone(t);
+  if (result === "invalid") return unexpected(t);
+  return done();
+}
+
+export async function removeTargetAction(categoryId: number): Promise<ActionResult> {
+  const t = await getT();
+  const db = await database();
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(categoryId).success) return unexpected(t);
+
+  return budget.removeTarget(db, categoryId) ? done() : categoryGone(t);
+}
+
+/**
+ * Adds what each target still needs in a month to its category's Assigned
+ * amount. The needs are worked out again here, never taken from the page,
+ * so a second click adds nothing.
+ */
+export async function assignTargetsAction(month: string): Promise<ActionResult> {
+  const t = await getT();
+  const db = await database();
+  if (!db) return loggedOut(t);
+  if (!isMonth(month)) return unexpected(t);
+
+  budget.assignTargets(db, month);
   return done();
 }
 

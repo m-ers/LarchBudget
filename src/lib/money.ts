@@ -38,6 +38,24 @@ export function formatMoney(minorUnits: number, currency: string, locale: string
   return moneyFormat(locale, currency).format(toMajor(minorUnits, currency));
 }
 
+const trimmedFormat = memoize(
+  (locale: string, currency: string) =>
+    new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+      trailingZeroDisplay: "stripIfInteger",
+    }),
+);
+
+/**
+ * Formats minor units, leaving out the cents only when they are zero, for
+ * amounts in a sentence: 8000 -> "€80", 17143 -> "€171.43". It never hides
+ * a cent.
+ */
+export function formatMoneyTrimmed(minorUnits: number, currency: string, locale: string): string {
+  return trimmedFormat(locale, currency).format(toMajor(minorUnits, currency));
+}
+
 /**
  * Like `formatMoney`, split at the decimal separator so the cents can be
  * styled more quietly: (286500, "EUR", "en-US") -> ["€2,865", ".00"].

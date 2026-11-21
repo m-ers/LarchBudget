@@ -68,6 +68,11 @@ const monthFormat = memoize(
     new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: "UTC" }),
 );
 
+const shortMonthFormat = memoize(
+  (locale: string) =>
+    new Intl.DateTimeFormat(locale, { month: "short", year: "numeric", timeZone: "UTC" }),
+);
+
 const dateFormat = memoize(
   (locale: string) =>
     new Intl.DateTimeFormat(locale, {
@@ -94,6 +99,11 @@ export function monthName(month: Month, locale: string): string {
 /** A month for display, e.g. "November 2026" or "november 2026". */
 export function formatMonth(month: Month, locale: string): string {
   return monthFormat(locale).format(utc(month));
+}
+
+/** A month in fewer letters, for a narrow list: "Jun 2027" or "jun 2027". */
+export function formatMonthShort(month: Month, locale: string): string {
+  return shortMonthFormat(locale).format(utc(month));
 }
 
 /** A date for display, e.g. "Nov 3, 2026" or "3 nov 2026". */
