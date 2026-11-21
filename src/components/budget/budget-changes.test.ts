@@ -1,6 +1,23 @@
 import { describe, expect, it } from "vitest";
-import type { BudgetMonth } from "@/db/budget";
+import { openDb } from "@/db";
+import { createAccount } from "@/db/accounts";
+import {
+  archiveCategory,
+  assignTargets,
+  createCategory,
+  createGroup,
+  createIncomeCategory,
+  getBudgetMonth,
+  removeTarget,
+  restoreCategory,
+  setAssigned,
+  setTarget,
+  type BudgetMonth,
+} from "@/db/budget";
+import { created } from "@/db/created";
+import { transactions } from "@/db/schema";
 import type { CategoryIcon } from "@/lib/category-icons";
+import type { IsoDate, Month } from "@/lib/dates";
 import type { Target } from "@/lib/targets";
 import { readyLines } from "../../lib/ready";
 import { applyChange, moveChanges, targetChanges, type BudgetChange } from "./budget-changes";
@@ -388,5 +405,124 @@ describe("targets, before the server confirms them", () => {
       expect(changes.reduce(applyChange, after)).toEqual(after);
       expect(targetChanges(after.groups)).toEqual([]);
     });
+  });
+});
+
+describe("targets and amounts, against the server's figures for random budgets", () => {
+  // Seen in November 2026: September and October are over.
+  const NOW: Month = "2026-11";
+  const MONTHS: Month[] = ["2026-09", "2026-10", "2026-11", "2026-12", "2027-01"];
+  const SEEDS = Array.from({ length: 100 }, (_, i) => i + 1);
+
+  /** Random numbers that come out the same for the same seed. */
+  function random(seed: number) {
+    let state = seed >>> 0;
+    const next = () => {
+      state = (state * 1_664_525 + 1_013_904_223) >>> 0;
+      return state / 2 ** 32;
+    };
+    const int = (low: number, high: number) => low + Math.floor(next() * (high - low + 1));
+    return {
+      int,
+      chance: (probability: number) => next() < probability,
+      pick: <T>(list: readonly T[]) => list[int(0, list.length - 1)],
+    };
+  }
+  type Random = ReturnType<typeof random>;
+
+  function randomTarget(r: Random): Target | null {
+    switch (r.int(0, 3)) {
+      case 0:
+        return null;
+      case 1:
+        return { kind: "monthly", amount: r.int(1, 90_000) };
+      case 2:
+        return { kind: "topUp", amount: r.int(1, 90_000) };
+      default:
+        return {
+          kind: "byMonth",
+          amount: r.int(1, 900_000),
+          month: r.pick([...MONTHS, "2027-06"]),
+        };
+    }
+  }
+
+  /**
+   * Four categories in two groups, each with a random target or none, and
+   * amounts assigned (some below zero, as after moving money out) and spent
+   * at random over five months; some archived, some of those restored. A
+   * salary came in through an income category.
+   */
+  function randomBudget(r: Random) {
+    const db = openDb(":memory:");
+    const groups = [created(createGroup(db, "Bills")), created(createGroup(db, "Goals"))];
+    const account = created(
+      createAccount(db, {
+        name: "Checking",
+        type: "checking",
+        startingBalance: 50_000,
+        balanceDate: "2026-09-01",
+      }),
+    );
+    const spend = (categoryId: number, date: IsoDate, amount: number) =>
+      db.insert(transactions).values({ accountId: account, categoryId, date, amount }).run();
+
+    const ids = [0, 1, 2, 3].map((i) => created(createCategory(db, `C${i}`, r.pick(groups))));
+    for (const id of ids) {
+      const target = randomTarget(r);
+      if (target) setTarget(db, id, target);
+      for (const m of MONTHS) {
+        if (r.chance(0.5)) setAssigned(db, id, m, r.int(-5_000, 30_000));
+        const day = String(r.int(1, 28)).padStart(2, "0");
+        if (r.chance(0.5)) spend(id, `${m}-${day}` as IsoDate, r.int(-40_000, 5_000));
+      }
+      if (r.chance(0.15)) {
+        archiveCategory(db, id);
+        if (r.chance(0.5)) restoreCategory(db, id);
+      }
+    }
+    spend(created(createIncomeCategory(db, "Salary")), "2026-11-25", 300_000);
+    return { db, ids };
+  }
+
+  it("show a new target or Assigned amount as the server will have it", () => {
+    for (const seed of SEEDS) {
+      const r = random(seed);
+      const { db, ids } = randomBudget(r);
+      for (let step = 0; step < 10; step++) {
+        const m = r.pick(MONTHS);
+        const id = r.pick(ids);
+        const before = getBudgetMonth(db, m, NOW);
+        let change: BudgetChange;
+        if (r.chance(0.5)) {
+          const target = randomTarget(r);
+          change = { type: "target", categoryId: id, target };
+          if (target) setTarget(db, id, target);
+          else removeTarget(db, id);
+        } else {
+          const amount = r.int(-10_000, 60_000);
+          change = assign(id, amount);
+          setAssigned(db, id, m, amount);
+        }
+        expect(applyChange(before, change), `seed ${seed}, step ${step}`).toEqual(
+          getBudgetMonth(db, m, NOW),
+        );
+      }
+    }
+  });
+
+  it("show Assign targets as the server assigns them, and a second time adds nothing", () => {
+    for (const seed of SEEDS) {
+      const { db } = randomBudget(random(seed));
+      for (const m of ["2026-10", NOW, "2026-12", "2027-01", "2027-06", "2027-07"] as Month[]) {
+        const before = getBudgetMonth(db, m, NOW);
+        const changes = targetChanges(before.groups);
+        expect(assignTargets(db, m, NOW, NOW)).toBe(changes.length);
+        const after = getBudgetMonth(db, m, NOW);
+        expect(changes.reduce(applyChange, before), `seed ${seed}, ${m}`).toEqual(after);
+        expect(after.needed).toBe(0);
+        expect(assignTargets(db, m, NOW, NOW)).toBe(0);
+      }
+    }
   });
 });

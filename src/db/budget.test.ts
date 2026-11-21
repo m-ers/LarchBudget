@@ -1562,6 +1562,10 @@ describe("targets", () => {
       expect(needs(NOW)).toEqual([["Groceries", 3_500]]);
       // December tops up from what November leaves.
       expect(needs("2026-12")).toEqual([["Groceries", 40_000 - 6_500 - 30_000 + 25_000]]);
+      // Neither a refund later in November nor spending in December changes November's need.
+      spend(groceries, "2026-11-30", 2_000);
+      spend(groceries, "2026-12-01", -9_900);
+      expect(needs(NOW)).toEqual([["Groceries", 3_500]]);
     });
 
     it("top up overspending carried over from last month", () => {
@@ -1714,6 +1718,20 @@ describe("targets", () => {
       expect(assignedIn("2026-12").map(([, a]) => a)).toEqual([0, 0, 0, 0, 0]);
       // Drawn again in December, the page's needs hold.
       expect(assignTargets(db, "2026-12", "2026-12", "2026-12")).toBe(3);
+    });
+
+    it("reaches a by-a-month target exactly, when each month is assigned as it comes", () => {
+      const gift = createCategory(db, "Gift");
+      setTarget(db, gift, byMonth(100_001, "2027-02"));
+      const given: number[] = [];
+      for (let m: Month = NOW; m <= "2027-04"; m = addMonths(m, 1)) {
+        assignTargets(db, m, m, m);
+        given.push(
+          getBudgetMonth(db, m, m).groups[0].categories.find((c) => c.id === gift)!.assigned,
+        );
+      }
+      // November to February, the first rounded up; nothing after February.
+      expect(given).toEqual([25_001, 25_000, 25_000, 25_000, 0, 0]);
     });
 
     it("assigns all or nothing, in one transaction", () => {
