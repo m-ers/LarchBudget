@@ -4,8 +4,9 @@ import { createContext } from "react";
 import type { CategoryOptionGroup } from "@/db/transactions";
 
 /**
- * The categories a transaction can be sorted into. Given once for the whole
- * list, so the page does not send them again with every row.
+ * The categories a transaction can be sorted into, the income categories
+ * first. Given once for the whole list, so the page does not send them
+ * again with every row.
  */
 export const CategoryChoices = createContext<CategoryOptionGroup[]>([]);
 

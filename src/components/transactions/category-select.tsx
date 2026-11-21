@@ -105,6 +105,8 @@ export function CategorySelect({
   }
 
   const shownIsCategory = shown !== UNSORTED && shown !== NO_CATEGORY;
+  // Once there are income categories, "No category" is mostly for transfers between own accounts.
+  const hasIncome = groups.some((group) => group.id === "income");
   const archivedIsCurrent = categoryArchived && categoryId !== null;
   const suggested = suggestion?.categoryId == null ? NO_CATEGORY : String(suggestion.categoryId);
 
@@ -150,11 +152,13 @@ export function CategorySelect({
           }`}
         >
           <option value={UNSORTED}>Choose a category…</option>
-          <option value={NO_CATEGORY}>No category (income or transfer)</option>
+          <option value={NO_CATEGORY}>
+            {hasIncome ? "No category (transfer)" : "No category (income or transfer)"}
+          </option>
           {archivedIsCurrent && <option value={categoryId}>{categoryName} (archived)</option>}
           {listDrawn
             ? groups.map((group) => (
-                <optgroup key={group.name} label={group.name}>
+                <optgroup key={String(group.id)} label={group.name}>
                   {group.categories.map((category) => (
                     <option key={category.id} value={category.id}>
                       {category.name}
