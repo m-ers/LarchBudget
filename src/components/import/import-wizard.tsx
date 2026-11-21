@@ -28,10 +28,10 @@ import { formatAmount, formatMoney, minorUnitDigits } from "@/lib/money";
 import {
   ErrorText,
   Field,
-  field as fieldBase,
   primaryButton as buttonBase,
   quietButton,
   selectField as selectBase,
+  smallSelectField,
 } from "../form";
 import { CheckIcon, UploadIcon } from "../icons";
 import { useSave } from "../use-save";
@@ -81,7 +81,6 @@ function rememberAccount(id: number) {
   }
 }
 
-const field = `${fieldBase} px-2.5`;
 const selectField = `${selectBase} px-2.5`;
 const primaryButton = `${buttonBase} px-4 py-2.5 disabled:opacity-50`;
 
@@ -563,7 +562,7 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
             <select
               value={file.delimiter}
               onChange={(e) => changeDelimiter(e.target.value as Delimiter)}
-              className={`${field} h-[30px] w-auto py-1`}
+              className={`${smallSelectField} px-2.5`}
             >
               {delimiters.map((delimiter) => (
                 <option key={delimiter} value={delimiter}>
