@@ -5,16 +5,16 @@ get it running, and how changes get in.
 
 ## Scope
 
-LarchBudget does one thing: budgeting with categories for one person, kept
-simple.
+LarchBudget is about one thing: budgeting with categories for one person,
+kept simple.
 
 Changes that make that one thing clearer, faster or more pleasant are
-welcome. To stay simple, LarchBudget deliberately leaves out net worth
-tracking, investments, retirement calculators, multiple currencies, multiple
-users and automatic bank connections. Pull requests that add these will be
-declined, however well made.
+welcome. The [roadmap](README.md#roadmap) shows what is planned, and in
+which order.
 
-The [roadmap](README.md#roadmap) shows what is planned, and in which order.
+A bigger addition changes what LarchBudget is: tracking net worth or
+investments, for example, or several users. Open an issue first, so we can
+talk about whether and how it fits before you write code.
 
 ## Bugs and ideas
 

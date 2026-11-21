@@ -104,7 +104,7 @@ month, and tell your salary apart from a refund or a transfer.
 ## Importing from your bank
 
 Transactions come in through a CSV file that you download from your bank's
-website. There is no direct connection to your bank.
+website. A direct connection to your bank may come later.
 
 <img src="images/import.png" alt="A bank file being imported" />
 

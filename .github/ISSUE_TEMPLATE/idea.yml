@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        LarchBudget stays small on purpose. [What fits](https://github.com/m-ers/LarchBudget/blob/main/CONTRIBUTING.md#scope) lists what it deliberately leaves out.
+        LarchBudget tries to stay simple. [Scope](https://github.com/m-ers/LarchBudget/blob/main/CONTRIBUTING.md#scope) says what it is for.
   - type: textarea
     id: what
     attributes:

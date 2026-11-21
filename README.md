@@ -29,8 +29,8 @@ spending comes out of them.
 - **Your data stays with you.** Everything lives in one file on your own
   computer or server. There is no account and no subscription, and
   LarchBudget contacts no other server.
-- **Small on purpose.** One person, one budget, and little to learn before
-  you can start.
+- **Simple to start.** One budget, a few screens, and little to learn before
+  you can begin.
 
 ## A look inside
 
@@ -85,11 +85,11 @@ settings, backing up, updating and running without Docker.
 To look around first, with demo data and without Docker, see
 [Development](docs/development.md#run-it-locally).
 
-## What it leaves out
+## Kept simple
 
-To stay simple, LarchBudget deliberately leaves out net worth tracking,
-investments, retirement calculators, multiple currencies, multiple users and
-automatic bank connections. It is made for a desktop browser first.
+LarchBudget is about your budget, and tries to do that one thing well. It is
+for one person with one currency, and it does not track net worth or
+investments. It is made for a desktop browser first.
 
 ## Roadmap
 
@@ -107,8 +107,9 @@ Next, in this order:
 6. [A target for a category](https://github.com/m-ers/LarchBudget/issues/36)
 7. [Backing up, restoring and exporting from the app](https://github.com/m-ers/LarchBudget/issues/37)
 
-Later: a [desktop app](https://github.com/m-ers/LarchBudget/issues/30), a
-layout for phones, dark mode and undo.
+Later: a [desktop app](https://github.com/m-ers/LarchBudget/issues/30),
+bringing in transactions from your bank automatically, a layout for phones,
+dark mode and undo.
 
 ## Documentation
 
