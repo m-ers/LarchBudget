@@ -49,23 +49,41 @@ const NOT_TEXT = /^(LarchBudget|CSV)$/;
 
 const LOOSE = process.argv.includes("--loose");
 
+const SHOWING_OPERATORS = new Set([
+  ts.SyntaxKind.AmpersandAmpersandToken,
+  ts.SyntaxKind.BarBarToken,
+  ts.SyntaxKind.QuestionQuestionToken,
+]);
+
 /** Whether `node` is shown as it is between JSX tags, through `?:`, `&&`, `??` or `||`. */
 function shownInJsx(node: ts.Node): boolean {
   let parent = node.parent;
   while (
     parent &&
     (ts.isConditionalExpression(parent) ||
-      ts.isBinaryExpression(parent) ||
+      (ts.isBinaryExpression(parent) && SHOWING_OPERATORS.has(parent.operatorToken.kind)) ||
       ts.isParenthesizedExpression(parent))
   ) {
     if (ts.isConditionalExpression(parent) && parent.condition === node) return false;
+    // In `a && b`, only `b` can be shown.
+    if (
+      ts.isBinaryExpression(parent) &&
+      parent.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken &&
+      parent.left === node
+    ) {
+      return false;
+    }
     node = parent;
     parent = node.parent;
   }
   return !!parent && ts.isJsxExpression(parent) && !ts.isJsxAttribute(parent.parent);
 }
 
-const hasWords = (text: string) => /\p{L}{2,}/u.test(text) && !NOT_TEXT.test(text.trim());
+/** A key such as `nav.budget`, or a path such as `/transactions`. */
+const NOT_WORDS = /^([\w-]+\.)+[\w-]+$|^\//;
+
+const hasWords = (text: string) =>
+  /\p{L}{2,}/u.test(text) && !NOT_TEXT.test(text.trim()) && !NOT_WORDS.test(text.trim());
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
