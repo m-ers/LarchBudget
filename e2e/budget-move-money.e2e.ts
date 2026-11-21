@@ -66,6 +66,24 @@ test("money moves from one category to another, and Ready to assign stays", asyn
   await expect(available(page, "Holiday")).toHaveText("€150.00");
 });
 
+test("moving starts from what the category holds, selected so typing replaces it", async ({
+  page,
+}) => {
+  await openMenu(page, "Groceries");
+  await menuItem(page, "Move money…").click();
+  const amount = page.getByRole("textbox", { name: "Amount to move" });
+  await expect(amount).toHaveValue("300.00");
+  await expect(amount).toBeFocused();
+  expect(await amount.evaluate((field: HTMLInputElement) => field.selectionEnd)).toBe(6);
+  expect(await amount.evaluate((field: HTMLInputElement) => field.selectionStart)).toBe(0);
+  await page.keyboard.press("Escape");
+
+  // A category that holds nothing starts empty.
+  await openMenu(page, "Repairs");
+  await menuItem(page, "Move money…").click();
+  await expect(page.getByRole("textbox", { name: "Amount to move" })).toHaveValue("");
+});
+
 test("money moves back to Ready to assign", async ({ page }) => {
   await openMenu(page, "Holiday");
   await menuItem(page, "Move money…").click();

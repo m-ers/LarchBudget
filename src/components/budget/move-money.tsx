@@ -38,9 +38,12 @@ export function MoveMoney({
   const { error, setError, pending, save } = useSave();
   const t = useT();
   const out = flow === "out";
-  // Covering starts from what the category is short.
+  // Moving starts from what the category holds, covering from what it is
+  // short; selected, so typing replaces it.
   const [amount, setAmount] = useState(
-    out ? "" : toInputValue(-category.available, currency, locale),
+    out
+      ? toInputValue(Math.max(0, category.available), currency, locale)
+      : toInputValue(-category.available, currency, locale),
   );
   const [other, setOther] = useState(READY);
   const form = useRef<HTMLFormElement>(null);
