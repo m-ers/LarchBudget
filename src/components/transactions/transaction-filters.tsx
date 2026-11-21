@@ -14,6 +14,8 @@ type Props = {
   filter: TransactionFilter;
   accounts: { id: number; name: string; closed: boolean }[];
   categories: { id: number; name: string; archived: boolean; income: boolean }[];
+  /** Newest first, with how each is shown. */
+  months: { month: Month; label: string }[];
 };
 
 const SEARCH_DELAY = 400;
@@ -23,7 +25,7 @@ const SEARCH_DELAY = 400;
  * list can be linked to and survives paging. A search is applied on Enter, or
  * a moment after typing stops.
  */
-export function TransactionFilters({ filter, accounts, categories }: Props) {
+export function TransactionFilters({ filter, accounts, categories, months }: Props) {
   const router = useRouter();
   // What the controls show. A search is kept as typed, spaces and all.
   const [fields, setFields] = useState<TransactionFilter>(filter);
@@ -117,15 +119,22 @@ export function TransactionFilters({ filter, accounts, categories }: Props) {
           </option>
         ))}
       </select>
-      <input
-        type="month"
+      {/* A list rather than a month field: Safari on the Mac has no month picker. */}
+      <select
         aria-label="Month"
         value={fields.month ?? ""}
         onChange={(e) =>
           show({ ...fields, month: (e.target.value || undefined) as Month | undefined })
         }
-        className={`${choice} w-40`}
-      />
+        className={`${choice} w-44`}
+      >
+        <option value="">All months</option>
+        {months.map(({ month, label }) => (
+          <option key={month} value={month}>
+            {label}
+          </option>
+        ))}
+      </select>
       {filtered && (
         <button type="button" onClick={() => show({})} className={`${quietButton} text-[14.5px]`}>
           Clear

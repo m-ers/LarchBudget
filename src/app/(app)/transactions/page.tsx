@@ -16,7 +16,7 @@ import { CategorySelect } from "@/components/transactions/category-select";
 import { DeleteTransaction } from "@/components/transactions/delete-transaction";
 import { TransactionFilters } from "@/components/transactions/transaction-filters";
 import { getConfig } from "@/lib/config";
-import { formatDate } from "@/lib/dates";
+import { formatDate, formatMonth } from "@/lib/dates";
 import { formatAmount, formatMoney } from "@/lib/money";
 import { readAddress, transactionsHref } from "@/lib/transactions-address";
 
@@ -100,6 +100,13 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
               filter={filter}
               accounts={filterOptions.accounts}
               categories={filterOptions.categories}
+              // The month in the address is offered too, even when it has no transactions.
+              months={[
+                ...new Set([...filterOptions.months, ...(filter.month ? [filter.month] : [])]),
+              ]
+                .sort()
+                .reverse()
+                .map((month) => ({ month, label: formatMonth(month, locale) }))}
             />
             <p className="px-1 pb-2.5 text-[14.5px] text-muted">
               <span className="tabular-nums">{summary.count}</span>{" "}

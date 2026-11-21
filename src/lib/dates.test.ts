@@ -4,6 +4,7 @@ import {
   currentMonth,
   daysLeftInMonth,
   formatDate,
+  formatMonth,
   isMonth,
   monthLabelParts,
   today,
@@ -59,6 +60,13 @@ describe("monthLabelParts", () => {
         .map((p) => p.value)
         .join(""),
     ).toBe("maart 2026");
+  });
+});
+
+describe("formatMonth", () => {
+  it("names the month and year in the locale's words", () => {
+    expect(formatMonth("2026-11", "en-US")).toBe("November 2026");
+    expect(formatMonth("2026-03", "nl-NL")).toBe("maart 2026");
   });
 });
 

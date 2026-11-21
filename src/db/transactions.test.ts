@@ -489,6 +489,7 @@ describe("finding transactions", () => {
         { id: salary, name: "Salary", archived: false, income: true },
         { id: old, name: "Old", archived: true, income: false },
       ],
+      months: ["2026-12", "2026-11", "2026-10"],
     });
   });
 

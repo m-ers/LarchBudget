@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { and, desc, eq, isNotNull, sql, type SQL } from "drizzle-orm";
-import { addMonths, monthStart, type IsoDate } from "../lib/dates";
+import { addMonths, monthStart, type IsoDate, type Month } from "../lib/dates";
 import type { Cursor, TransactionFilter } from "../lib/transactions-address";
 import { byName, syncStartingBalance } from "./accounts";
 import { UNGROUPED } from "./budget";
@@ -461,6 +461,7 @@ export function getCategoryOptions(db: Db): CategoryOptionGroup[] {
 export function getFilterOptions(db: Db): {
   accounts: { id: number; name: string; closed: boolean }[];
   categories: { id: number; name: string; archived: boolean; income: boolean }[];
+  months: Month[];
 } {
   return {
     // Open accounts first, each part in the order of the Accounts page.
@@ -479,6 +480,12 @@ export function getFilterOptions(db: Db): {
       .from(categories)
       .orderBy(categories.archived, categories.name)
       .all(),
+    // The months that have transactions, newest first.
+    months: db
+      .all<{ month: Month }>(
+        sql`SELECT DISTINCT substr(${transactions.date}, 1, 7) AS month FROM ${transactions} ORDER BY month DESC`,
+      )
+      .map((row) => row.month),
   };
 }
 

@@ -474,8 +474,9 @@ test.describe("finding transactions", () => {
     await page.goto(`/transactions?show=all&category=${id}&month=2026-11`);
     await expect(rowsShown(page)).toHaveCount(1);
     await expect(page.getByRole("combobox", { name: "Category", exact: true })).toHaveValue(id);
-    await expect(page.getByLabel("Month")).toHaveValue("2026-11");
-    await page.getByLabel("Month").fill("2026-10");
+    const month = page.getByRole("combobox", { name: "Month", exact: true });
+    await expect(chosen(month)).toHaveText("November 2026");
+    await month.selectOption({ label: "October 2026" });
     await expect(page).toHaveURL(/month=2026-10/);
     await expect(page.getByText("No transactions match.")).toBeVisible();
 
