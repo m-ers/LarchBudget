@@ -300,11 +300,8 @@
       "imported_one": "Imported {{count}} transaction into {{account}}.",
       "imported_other": "Imported {{count}} transactions into {{account}}.",
       "nothingNew": "Nothing new to import.",
-      "allDuplicates": "All {{count}} transactions in this file were already in LarchBudget.",
       "duplicates_one": "{{count}} was already in LarchBudget and was skipped.",
       "duplicates_other": "{{count}} were already in LarchBudget and were skipped.",
-      "balanceAllOne": "It is from {{date}} or earlier. The balance of {{balance}} you entered for that day already includes it.",
-      "balanceAllMany": "They are from {{date}} or earlier. The balance of {{balance}} you entered for that day already includes them.",
       "balanceSome_one": "{{count}} of them is from {{date}} or earlier. The balance of {{balance}} you entered for that day already includes it.",
       "balanceSome_other": "{{count}} of them are from {{date}} or earlier. The balance of {{balance}} you entered for that day already includes them.",
       "sortNow": "Sort them now",
@@ -312,7 +309,11 @@
       "undo": "Undo this import",
       "undoing": "Undoing…",
       "undone_one": "Import undone. {{count}} transaction was removed.",
-      "undone_other": "Import undone. {{count}} transactions were removed."
+      "undone_other": "Import undone. {{count}} transactions were removed.",
+      "balanceAll_one": "It is from {{date}} or earlier. The balance of {{balance}} you entered for that day already includes it.",
+      "balanceAll_other": "They are from {{date}} or earlier. The balance of {{balance}} you entered for that day already includes them.",
+      "allDuplicates_one": "The transaction in this file was already in LarchBudget.",
+      "allDuplicates_other": "All {{count}} transactions in this file were already in LarchBudget."
     }
   },
   "budget": {
@@ -357,7 +358,7 @@
       "assignedTo": "Assigned to {{name}}"
     },
     "gauge": {
-      "overspent": "Overspent: ",
+      "overspent": "Overspent:",
       "explain": {
         "overspent": "Overspent by {{amount}}: assign more to cover it. {{sum}}",
         "nothing": "Nothing assigned or spent this month.",
@@ -391,8 +392,8 @@
       "newCategoryLabel": "New category in {{name}}",
       "newCategoryPlaceholder": "New category",
       "deleteEmpty": "Delete the group \"{{name}}\"?",
-      "deleteOne": "Delete the group \"{{name}}\"? Its category will be archived, and the money in it goes back to Ready to assign.",
-      "deleteMany": "Delete the group \"{{name}}\"? Its {{count}} categories will be archived, and the money in them goes back to Ready to assign."
+      "deleteWithCategories_one": "Delete the group \"{{name}}\"? Its category will be archived, and the money in it goes back to Ready to assign.",
+      "deleteWithCategories_other": "Delete the group \"{{name}}\"? Its {{count}} categories will be archived, and the money in them goes back to Ready to assign."
     },
     "income": {
       "title": "Income",

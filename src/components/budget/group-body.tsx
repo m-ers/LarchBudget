@@ -25,9 +25,7 @@ import { RowAction, rowActionLook } from "./row-action";
 /** What deleting a group does, asked before it happens. */
 function deleteQuestion(t: Translate, name: string, categoryCount: number): string {
   if (categoryCount === 0) return t("budget.group.deleteEmpty", { name });
-  return categoryCount === 1
-    ? t("budget.group.deleteOne", { name })
-    : t("budget.group.deleteMany", { name, count: categoryCount });
+  return t("budget.group.deleteWithCategories", { name, count: categoryCount });
 }
 
 /**

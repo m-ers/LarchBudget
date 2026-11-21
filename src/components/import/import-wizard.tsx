@@ -339,12 +339,10 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
               done.startingBalance !== null && (
                 <p className="mt-1 text-muted">
                   {done.beforeBalance === done.imported
-                    ? t(
-                        done.imported === 1
-                          ? "import.result.balanceAllOne"
-                          : "import.result.balanceAllMany",
-                        balanceValues(done),
-                      )
+                    ? t("import.result.balanceAll", {
+                        ...balanceValues(done),
+                        count: done.imported,
+                      })
                     : t("import.result.balanceSome", balanceValues(done))}
                 </p>
               )}

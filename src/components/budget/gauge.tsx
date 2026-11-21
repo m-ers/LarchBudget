@@ -45,7 +45,7 @@ export function Gauge({ available, activity, label, explanation }: Props) {
         }`}
       >
         {state === "over" && <WarningIcon />}
-        {state === "over" && <span className="sr-only">{t("budget.gauge.overspent")}</span>}
+        {state === "over" && <span className="sr-only">{t("budget.gauge.overspent")} </span>}
         {label}
       </span>
     </span>
