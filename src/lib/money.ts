@@ -88,17 +88,57 @@ export function toMinorUnits(whole: string, fraction: string, digits: number): n
   return minor > BigInt(Number.MAX_SAFE_INTEGER) ? null : Number(minor);
 }
 
-/**
- * Parses user input such as "12.34", "12,34", "-5" or "1 234,50" into minor
- * units. Returns null when the input is not a valid amount. Thousands
- * separators other than spaces are rejected instead of guessed at.
- */
-export function parseMoney(input: string, currency: string): number | null {
-  const cleaned = input.replace(/[\s\u00a0\u202f]/g, "").replace("\u2212", "-");
-  const match = /^([+-])?(\d+)(?:[.,](\d+))?$/.exec(cleaned);
-  if (!match) return null;
+/** The character a locale groups thousands with: "," in en-US, "." in nl-NL. */
+const groupSeparator = memoize(
+  (locale: string) =>
+    new Intl.NumberFormat(locale).formatToParts(12345).find((part) => part.type === "group")
+      ?.value ?? ",",
+);
 
-  const [, sign, whole, fraction = ""] = match;
+/**
+ * Parses an amount someone typed into minor units, or null when it is not
+ * one. A dot and a comma are both understood, as the decimal separator or
+ * between thousands, so "12.50", "12,50", "1.234,56", "1,234.56" and
+ * "1 234,50" all work whatever the locale:
+ * - with both, the last one is the decimal separator;
+ * - one that appears more than once is between thousands ("1.234.567");
+ * - a single one is the decimal separator, unless exactly three digits
+ *   follow it and the locale groups thousands with it: "1.200" is 1200 in
+ *   nl-NL, and in en-US has a decimal more than euros have, so it is refused.
+ * Thousands come in groups of three, so a slip like "12.00,50" is refused
+ * instead of guessed at.
+ */
+export function parseMoney(input: string, currency: string, locale: string): number | null {
+  const cleaned = input.replace(/[\s\u00a0\u202f'\u2019]/g, "").replace("\u2212", "-");
+  const match = /^([+-])?(\d[\d.,]*)$/.exec(cleaned);
+  if (!match) return null;
+  const [, sign, number] = match;
+
+  let whole = number;
+  let fraction = "";
+  let group: string | null = null;
+  const lastDot = number.lastIndexOf(".");
+  const lastComma = number.lastIndexOf(",");
+  if (lastDot !== -1 && lastComma !== -1) {
+    const at = Math.max(lastDot, lastComma);
+    [whole, fraction] = [number.slice(0, at), number.slice(at + 1)];
+    group = number[at] === "." ? "," : ".";
+  } else if (lastDot !== -1 || lastComma !== -1) {
+    const separator = lastDot !== -1 ? "." : ",";
+    const parts = number.split(separator);
+    if (parts.length > 2 || (parts[1].length === 3 && separator === groupSeparator(locale))) {
+      group = separator;
+    } else {
+      [whole, fraction] = parts;
+    }
+  }
+  if (group !== null) {
+    const grouped = group === "." ? /^\d{1,3}(\.\d{3})*$/ : /^\d{1,3}(,\d{3})*$/;
+    if (!grouped.test(whole)) return null;
+    whole = whole.replaceAll(group, "");
+  }
+  if (!/^\d+$/.test(whole) || !/^\d*$/.test(fraction)) return null;
+
   const value = toMinorUnits(whole, fraction, minorUnitDigits(currency));
   if (value === null) return null;
   return sign === "-" ? -value : value;

@@ -61,7 +61,7 @@ export function MoveMoney({
   const sourceHolds = sourceCategory
     ? Math.min(sourceCategory.available, sourceCategory.balance)
     : figures.readyToAssign;
-  const wanted = parseMoney(amount, currency);
+  const wanted = parseMoney(amount, currency, locale);
   const tooMuch =
     wanted !== null && wanted > 0 && wanted > Math.max(0, sourceHolds)
       ? sourceCategory
@@ -75,7 +75,7 @@ export function MoveMoney({
     const typed = amount;
     // Read the way the server reads it. What cannot be moved is not shown;
     // the server says why.
-    const cents = parseMoney(typed, currency);
+    const cents = parseMoney(typed, currency, locale);
     // What each end has assigned as shown now: the server moves from exactly
     // these amounts, so a request that is sent twice moves the money once.
     const assignedTo = (end: MoneyEnd) =>

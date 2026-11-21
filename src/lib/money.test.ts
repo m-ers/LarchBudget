@@ -26,36 +26,64 @@ describe("formatMoney", () => {
 });
 
 describe("parseMoney", () => {
-  it("accepts a dot or a comma as the decimal separator", () => {
-    expect(parseMoney("12.34", "EUR")).toBe(1234);
-    expect(parseMoney("12,34", "EUR")).toBe(1234);
-    expect(parseMoney("12,3", "EUR")).toBe(1230);
-    expect(parseMoney("12", "EUR")).toBe(1200);
+  const eur = (input: string, locale = "en-US") => parseMoney(input, "EUR", locale);
+
+  it("accepts a dot or a comma as the decimal separator, in any locale", () => {
+    for (const locale of ["en-US", "nl-NL"]) {
+      expect(eur("12.34", locale)).toBe(1234);
+      expect(eur("12,34", locale)).toBe(1234);
+      expect(eur("12,3", locale)).toBe(1230);
+      expect(eur("12", locale)).toBe(1200);
+    }
+  });
+
+  it("understands thousands written either way", () => {
+    for (const locale of ["en-US", "nl-NL"]) {
+      expect(eur("1.234,56", locale)).toBe(123456);
+      expect(eur("1,234.56", locale)).toBe(123456);
+      expect(eur("1.234.567", locale)).toBe(123456700);
+      expect(eur("1,234,567.89", locale)).toBe(123456789);
+      expect(eur("-1.200,00", locale)).toBe(-120000);
+    }
+    expect(eur("1'234.50", "de-CH")).toBe(123450);
+  });
+
+  it("lets the locale decide a single separator with three digits after it", () => {
+    expect(eur("1.200", "nl-NL")).toBe(120000);
+    expect(eur("1,200", "en-US")).toBe(120000);
+    // The decimal separator there, and a decimal more than euros have.
+    expect(eur("1.200", "en-US")).toBeNull();
+    expect(eur("1,200", "nl-NL")).toBeNull();
   });
 
   it("handles signs and spaces", () => {
-    expect(parseMoney("-5", "EUR")).toBe(-500);
-    expect(parseMoney("+5.00", "EUR")).toBe(500);
-    expect(parseMoney(" 1 234,50 ", "EUR")).toBe(123450);
+    expect(eur("-5")).toBe(-500);
+    expect(eur("+5.00")).toBe(500);
+    expect(eur(" 1 234,50 ")).toBe(123450);
+    expect(eur("\u22125")).toBe(-500);
   });
 
   it("is exact where floats are not", () => {
-    expect(parseMoney("0.29", "EUR")).toBe(29);
-    expect(parseMoney("1.15", "EUR")).toBe(115);
+    expect(eur("0.29")).toBe(29);
+    expect(eur("1.15")).toBe(115);
   });
 
   it("respects the currency's decimals", () => {
-    expect(parseMoney("1500", "JPY")).toBe(1500);
-    expect(parseMoney("1500.5", "JPY")).toBeNull();
-    expect(parseMoney("1.234", "KWD")).toBe(1234);
+    expect(parseMoney("1500", "JPY", "en-US")).toBe(1500);
+    expect(parseMoney("1500.5", "JPY", "en-US")).toBeNull();
+    expect(parseMoney("1.234", "KWD", "en-US")).toBe(1234);
   });
 
-  it("rejects anything ambiguous or invalid", () => {
-    expect(parseMoney("", "EUR")).toBeNull();
-    expect(parseMoney("abc", "EUR")).toBeNull();
-    expect(parseMoney("1.234,56", "EUR")).toBeNull();
-    expect(parseMoney("12.345", "EUR")).toBeNull();
-    expect(parseMoney("1e3", "EUR")).toBeNull();
+  it("refuses what is not an amount, and groups that are not thousands", () => {
+    expect(eur("")).toBeNull();
+    expect(eur("abc")).toBeNull();
+    expect(eur("1e3")).toBeNull();
+    expect(eur("12.345")).toBeNull();
+    expect(eur("12.00,50")).toBeNull();
+    expect(eur("1.2.3,4")).toBeNull();
+    expect(eur("1,234.5,6")).toBeNull();
+    expect(eur("12345.678", "nl-NL")).toBeNull();
+    expect(eur(",50")).toBeNull();
   });
 });
 
@@ -95,7 +123,7 @@ describe("toInputValue", () => {
   it("round-trips through parseMoney in any locale", () => {
     for (const locale of ["en-US", "nl-NL", "de-CH", "fr-FR", "sv-SE"]) {
       for (const amount of [1, 99, 123456, -250000, 100000000]) {
-        expect(parseMoney(toInputValue(amount, "EUR", locale), "EUR")).toBe(amount);
+        expect(parseMoney(toInputValue(amount, "EUR", locale), "EUR", locale)).toBe(amount);
       }
     }
   });

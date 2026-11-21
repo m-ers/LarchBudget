@@ -12,6 +12,8 @@ export type AppOptions = {
   password?: string;
   /** Fills the database with the demo data from `npm run db:seed` first. */
   seed?: boolean;
+  /** Sets LOCALE, for how numbers and dates are written; en-US when not given. */
+  locale?: string;
 };
 
 /** A port nothing listens on yet. */
@@ -93,7 +95,7 @@ export const test = base.extend<{ app: AppOptions; server: Server }>({
       DATABASE_PATH: path.join(dir, "larchbudget.db"),
       HOSTNAME: "127.0.0.1",
       CURRENCY: "EUR",
-      LOCALE: "en-US",
+      LOCALE: app.locale ?? "en-US",
       NEXT_TELEMETRY_DISABLED: "1",
     };
     delete env.APP_PASSWORD;

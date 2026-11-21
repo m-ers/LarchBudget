@@ -62,7 +62,7 @@ export function AssignedInput({ categoryId, categoryName, value }: Props) {
     setText(null);
     // Read the way the server reads it. What cannot be read is not shown;
     // the server says why.
-    const amount = typed.trim() === "" ? 0 : parseMoney(typed, currency);
+    const amount = typed.trim() === "" ? 0 : parseMoney(typed, currency, locale);
     if (amount === value) {
       setRetry(null);
       setError(null);
