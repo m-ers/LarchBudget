@@ -1,6 +1,9 @@
+# Starts LarchBudget from its published image. See docs/installing.md.
 services:
   larchbudget:
-    build: .
+    # `latest` is the newest release. Put a version here, such as 0.1.0, to
+    # stay on that one.
+    image: ghcr.io/m-ers/larchbudget:latest
     restart: unless-stopped
     ports:
       - "3000:3000"

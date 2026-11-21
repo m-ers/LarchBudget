@@ -9,8 +9,8 @@ LarchBudget is about one thing: budgeting with categories for one person,
 kept simple.
 
 Changes that make that one thing clearer, faster or more pleasant are
-welcome. The [roadmap](README.md#roadmap) shows what is planned, and in
-which order.
+welcome. The [issues](https://github.com/m-ers/LarchBudget/issues) show what is
+planned.
 
 For a bigger addition, open an issue first, so we can talk about how it fits
 before you write code.
@@ -113,5 +113,9 @@ For a change you can see:
 
 ## Releases
 
-Releases are tagged `vX.Y.Z`, with notes generated from the merged pull
-requests. Until 1.0.0, anything may still change between versions.
+Releases are tagged `vX.Y.Z`, with notes that say what changed. Until 1.0.0,
+anything may still change between versions.
+
+Publishing a release on GitHub builds the Docker image and publishes it as
+`ghcr.io/m-ers/larchbudget`, tagged with the version (`0.1.0`), the minor
+version (`0.1`) and `latest`. See `.github/workflows/release.yml`.

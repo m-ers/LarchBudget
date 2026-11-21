@@ -8,30 +8,35 @@ enter is kept in one database file. This page covers:
 - [Password and HTTPS](#password-and-https)
 - [Backing up](#backing-up)
 - [Updating](#updating)
+- [Building the image yourself](#building-the-image-yourself)
 - [Running without Docker](#without-docker)
 
 ## With Docker
 
-You need [Docker](https://docs.docker.com/get-started/get-docker/) and
-[Git](https://git-scm.com).
+You need [Docker](https://docs.docker.com/get-started/get-docker/). Make a
+folder for LarchBudget, and in it, download `docker-compose.yml`, the file
+that tells Docker how to run LarchBudget:
 
 ```bash
-git clone https://github.com/m-ers/LarchBudget.git
+curl -O https://raw.githubusercontent.com/m-ers/LarchBudget/main/docker-compose.yml
 ```
 
-```bash
-cd LarchBudget
-```
+Then start it:
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 Open http://localhost:3000. LarchBudget starts with an empty budget and asks
 you to add your first account.
 
-The database is kept in a Docker volume called `larchbudget-data`, so it
-stays when you update or restart LarchBudget.
+- Docker downloads LarchBudget's image the first time. The image works on
+  Intel and AMD computers, and on 64-bit ARM ones, such as a Mac with Apple
+  silicon or a Raspberry Pi with a 64-bit system.
+- The database is kept in a Docker volume called `larchbudget-data`, so it
+  stays when you update or restart LarchBudget.
+- `docker-compose.yml` uses the newest release. To stay on one version,
+  change `latest` in it to a version, such as `0.1.0`.
 
 ## Settings
 
@@ -106,20 +111,47 @@ Backing up and restoring from within LarchBudget is
 
 ## Updating
 
-Make a [backup](#backing-up) first. Then, in the LarchBudget folder:
+Make a [backup](#backing-up) first. Then, in the folder with
+`docker-compose.yml`, download the new version:
 
 ```bash
-git pull
+docker compose pull
 ```
 
+And start it:
+
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 The database is brought up to date by itself the first time the new version
 opens it. Until 1.0.0, anything may still change between versions: read the
 [release notes](https://github.com/m-ers/LarchBudget/releases) before you
 update.
+
+## Building the image yourself
+
+To run the newest code, before it is released, build the image from it. You
+need Git as well:
+
+```bash
+git clone https://github.com/m-ers/LarchBudget.git
+```
+
+```bash
+cd LarchBudget
+```
+
+```bash
+docker build -t ghcr.io/m-ers/larchbudget:latest .
+```
+
+```bash
+docker compose up -d
+```
+
+Docker then uses the image you built instead of downloading one. To go back
+to the released version, run `docker compose pull` and `docker compose up -d`.
 
 ## Without Docker
 
