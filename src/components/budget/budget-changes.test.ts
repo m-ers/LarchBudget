@@ -4,7 +4,8 @@ import { applyChange, moveChanges, type BudgetChange } from "./budget-changes";
 
 /**
  * Two groups. Rent has 300.00 left from earlier months and 50.00 spent this
- * month; Water has 20.00 more assigned in a later month.
+ * month; Water has 20.00 more assigned in a later month. A salary came in
+ * through the income category Salary.
  */
 const budget: BudgetMonth = {
   groups: [
@@ -37,6 +38,7 @@ const budget: BudgetMonth = {
       available: 0,
     },
   ],
+  income: { categories: [{ id: 30, name: "Salary", received: 285_000 }], received: 285_000 },
   totals: { assigned: 102_000, spent: 5_000, available: 127_000 },
   readyToAssign: 50_000,
   // What the categories above hold over all time, and 50.00 more.
@@ -112,6 +114,11 @@ describe("assigning, before the server confirms it", () => {
 
   it("changes nothing for a category that is not on the page", () => {
     expect(applyChange(budget, assign(99, 5_000))).toBe(budget);
+  });
+
+  it("changes nothing for an income category, which holds no money", () => {
+    expect(applyChange(budget, assign(30, 5_000))).toBe(budget);
+    expect(applyChange(budget, assign(10, 120_000)).income).toBe(budget.income);
   });
 });
 
