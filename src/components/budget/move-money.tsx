@@ -15,6 +15,13 @@ export type Flow = "out" | "in";
 
 const READY = "ready";
 
+/**
+ * What a category can give in the viewed month: what it holds at the end of
+ * it, and never more than it holds over all time, as a later month may have
+ * spent some of that already. Below zero when it is overspent.
+ */
+const holds = (category: CategoryRow) => Math.min(category.available, category.balance);
+
 const control =
   "rounded-[9px] border border-line bg-surface px-2.5 py-1 focus:border-brand focus:outline-none";
 
@@ -42,7 +49,7 @@ export function MoveMoney({
   // short; selected, so typing replaces it.
   const [amount, setAmount] = useState(
     out
-      ? toInputValue(Math.max(0, category.available), currency, locale)
+      ? toInputValue(Math.max(0, holds(category)), currency, locale)
       : toInputValue(-category.available, currency, locale),
   );
   const [other, setOther] = useState(READY);
@@ -58,14 +65,11 @@ export function MoveMoney({
     if (!pending) close();
   }
 
-  // The end the money comes from, and what it has to give: a category
-  // cannot give more than it holds now, or than it holds over all time.
+  // The end the money comes from, and what it has to give.
   const otherEnd: MoneyEnd = other === READY ? READY : Number(other);
   const source = out ? category.id : otherEnd;
   const sourceCategory = figures.groups.flatMap((g) => g.categories).find((c) => c.id === source);
-  const sourceHolds = sourceCategory
-    ? Math.min(sourceCategory.available, sourceCategory.balance)
-    : figures.readyToAssign;
+  const sourceHolds = sourceCategory ? holds(sourceCategory) : figures.readyToAssign;
   const wanted = parseMoney(amount, currency, locale);
   const tooMuch =
     wanted !== null && wanted > 0 && wanted > Math.max(0, sourceHolds)
