@@ -9,6 +9,7 @@ import {
   assignedField,
   available,
   categoryRow,
+  countAnswers,
   headerFigure,
   menuButton,
   menuItem,
@@ -194,6 +195,15 @@ test.describe("with an account and categories", () => {
     await page.keyboard.type("abc");
     await page.keyboard.press("Enter");
     await expect(alert(page, "That is not an amount.")).toBeVisible();
+    // An amount the server refuses as too large is refused before it is
+    // sent, so it never shows in the row.
+    const answers = countAnswers(page);
+    await amount.fill("1000000000.01");
+    await expect(alert(page, "That is not an amount.")).toHaveCount(0);
+    await page.keyboard.press("Enter");
+    await expect(alert(page, "That is not an amount.")).toBeVisible();
+    await expect(toGo(page, "Rent")).toHaveText("€1,200 to go");
+    expect(answers()).toBe(0);
     // Escape closes the form, back to the menu button, and nothing changed.
     await page.keyboard.press("Escape");
     await expect(form).toHaveCount(0);

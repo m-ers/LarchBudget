@@ -23,7 +23,7 @@ import {
   MAX_ROWS,
 } from "@/lib/import/limits";
 import { applyMapping, isMapping, serializeMapping, type Mapping } from "@/lib/import/mapping";
-import { EARLIEST_BALANCE_DATE, MAX_NAME_LENGTH } from "@/lib/limits";
+import { EARLIEST_BALANCE_DATE, MAX_AMOUNT, MAX_NAME_LENGTH } from "@/lib/limits";
 import { minorUnitDigits, parseMoney } from "@/lib/money";
 import type { ActionResult, Failure } from "@/lib/result";
 import { isTargetKind, type Target } from "@/lib/targets";
@@ -74,9 +74,6 @@ const name = z
   .trim()
   .min(1, "errors.name.required")
   .max(MAX_NAME_LENGTH, "errors.name.tooLong");
-
-/** Amounts above this are almost certainly typos (and keep sums exact). */
-const MAX_AMOUNT = 1_000_000_000_00;
 
 /** Reads an amount someone typed. An empty field means zero; null means "not an amount". */
 function parseAmount(input: string): number | null {

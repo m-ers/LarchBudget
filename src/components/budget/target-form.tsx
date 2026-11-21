@@ -5,6 +5,7 @@ import { removeTargetAction, setTargetAction } from "@/app/actions";
 import type { CategoryRow } from "@/db/budget";
 import { useDateLocale, useT } from "@/i18n/client";
 import { addMonths, formatMonthShort, type Month } from "@/lib/dates";
+import { MAX_AMOUNT } from "@/lib/limits";
 import { formatAmount, parseMoney, toInputValue } from "@/lib/money";
 import { targetKinds, type Target, type TargetKind } from "@/lib/targets";
 import { ErrorText, primaryButton } from "../form";
@@ -65,8 +66,13 @@ export function TargetForm({
     const typed = amount;
     const when = kind === "byMonth" ? month : null;
     // Read the way the server reads it. What cannot be saved is not shown;
-    // the server says why.
+    // the server says why. An amount it refuses as too large is refused
+    // here, with the same message, before the row shows it.
     const cents = parseMoney(typed, currency, locale);
+    if (cents !== null && Math.abs(cents) > MAX_AMOUNT) {
+      setError(t("errors.budget.notAnAmount"));
+      return;
+    }
     save(
       () => setTargetAction(category.id, kind, typed, when),
       close,
