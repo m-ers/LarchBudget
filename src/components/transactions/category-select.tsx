@@ -4,6 +4,7 @@ import { useContext, useRef, useState } from "react";
 import { sortTransactionAction } from "@/app/actions";
 import type { SortTarget, Suggestion } from "@/db/transactions";
 import { ErrorText } from "../form";
+import { CheckIcon } from "../icons";
 import { windowLostFocus } from "../use-inline-edit";
 import { useSave } from "../use-save";
 import { CategoryChoices } from "./category-choices";
@@ -25,6 +26,8 @@ type Props = {
 
 const UNSORTED = "unsorted";
 const NO_CATEGORY = "ready";
+/** What the field holds while it shows a suggestion: nothing is chosen yet. */
+const SUGGESTED = "suggested";
 
 /**
  * Chooses where a transaction belongs.
@@ -34,8 +37,11 @@ const NO_CATEGORY = "ready";
  * of those as a change); the choice is saved on Enter or when leaving the
  * field, and Escape puts the old value back. A choice is shown at once and
  * focus moves to the next transaction without waiting for the server, so a
- * list can be worked through quickly. A suggestion is a button that makes
- * the same choice.
+ * list can be worked through quickly.
+ *
+ * A suggestion from last time is shown in the field itself, in the look of a
+ * field still to fill in. Nothing is saved until it is accepted, with the
+ * check mark next to it or with Enter.
  *
  * Every row would otherwise hold every category, which makes a long list
  * slow to draw. A row draws the full list only while it is being used.
@@ -61,23 +67,30 @@ export function CategorySelect({
   const { error, setError, save: run } = useSave();
 
   const saved = toSort ? UNSORTED : categoryId === null ? NO_CATEGORY : String(categoryId);
-  const shown = draft ?? saved;
+  // A suggestion is shown until something is picked.
+  const suggested = toSort && draft === null ? suggestion : undefined;
+  const suggestedValue = suggested
+    ? suggested.categoryId === null
+      ? NO_CATEGORY
+      : String(suggested.categoryId)
+    : null;
+  const suggestedName = suggested?.category ?? "No category";
+  const shown = draft ?? (suggested ? SUGGESTED : saved);
 
   function focusNextRow() {
-    // The next row with something to sort. This row may leave the list once saved.
+    // This row may leave the list once saved.
     let row = cell.current?.closest("tr")?.nextElementSibling;
     while (row) {
-      // Its suggestion first, so a list can be worked through with Enter alone.
-      const control =
-        row.querySelector<HTMLElement>("[data-sort-suggestion]") ??
-        row.querySelector<HTMLElement>("[data-sort-control]");
+      const control = row.querySelector<HTMLElement>("[data-sort-control]");
       if (control) return control.focus();
       row = row.nextElementSibling;
     }
   }
 
-  function save(next: string, thenFocusNext: boolean) {
-    if (saving.current) return;
+  function save(choice: string, thenFocusNext: boolean) {
+    // Accepting a suggestion is choosing what it stands for.
+    const next = choice === SUGGESTED ? suggestedValue : choice;
+    if (saving.current || next === null) return;
     if (next === saved) {
       setDraft(null);
       return;
@@ -104,11 +117,11 @@ export function CategorySelect({
     return null;
   }
 
-  const shownIsCategory = shown !== UNSORTED && shown !== NO_CATEGORY;
+  const shownIsCategory = shown !== UNSORTED && shown !== NO_CATEGORY && shown !== SUGGESTED;
   // Once there are income categories, "No category" is mostly for transfers between own accounts.
   const hasIncome = groups.some((group) => group.id === "income");
+  const noCategory = hasIncome ? "No category (transfer)" : "No category (income or transfer)";
   const archivedIsCurrent = categoryArchived && categoryId !== null;
-  const suggested = suggestion?.categoryId == null ? NO_CATEGORY : String(suggestion.categoryId);
 
   return (
     <span ref={cell} className="flex flex-col">
@@ -117,6 +130,11 @@ export function CategorySelect({
           data-sort-control
           aria-label={`Category for ${describedAs}, ${amount}`}
           aria-invalid={error ? true : undefined}
+          title={
+            suggested
+              ? `Suggested: you chose ${suggestedName} for this payee last time. Not sorted yet.`
+              : undefined
+          }
           value={shown}
           onFocus={() => setListDrawn(true)}
           onPointerDown={() => {
@@ -146,15 +164,20 @@ export function CategorySelect({
             if (draft !== null) save(draft, false);
           }}
           className={`w-64 rounded-[9px] border px-2.5 py-1.5 text-[14.5px] focus:border-brand focus:outline-none ${
-            shown === UNSORTED
+            shown === UNSORTED || shown === SUGGESTED
               ? "border-brand/50 bg-ok-track font-medium"
               : "border-line bg-surface text-ink"
           }`}
         >
+          {suggested && (
+            // Shown in the field but left out of the list: there the category
+            // itself is picked, like any other, and that is a choice.
+            <option value={SUGGESTED} hidden>
+              {suggested.categoryId === null ? noCategory : suggested.category}
+            </option>
+          )}
           <option value={UNSORTED}>Choose a category…</option>
-          <option value={NO_CATEGORY}>
-            {hasIncome ? "No category (transfer)" : "No category (income or transfer)"}
-          </option>
+          <option value={NO_CATEGORY}>{noCategory}</option>
           {archivedIsCurrent && <option value={categoryId}>{categoryName} (archived)</option>}
           {listDrawn
             ? groups.map((group) => (
@@ -171,16 +194,15 @@ export function CategorySelect({
                 <option value={shown}>{nameOf(shown)}</option>
               )}
         </select>
-        {toSort && suggestion && (
+        {suggested && (
           <button
             type="button"
-            data-sort-suggestion
-            aria-label={`Sort ${describedAs} into ${suggestion.category ?? "No category"}, as last time`}
-            title="Same as last time"
-            onClick={() => save(suggested, true)}
-            className="max-w-32 truncate rounded-[9px] border border-brand/50 px-2.5 py-1.5 text-[14.5px] font-medium text-brand transition-colors hover:bg-ok-track focus-visible:border-brand focus-visible:outline-none"
+            aria-label={`Sort ${describedAs} into ${suggestedName}, as last time`}
+            title={`Sort into ${suggestedName}, as last time`}
+            onClick={() => save(SUGGESTED, true)}
+            className="grid size-[34px] shrink-0 place-items-center rounded-[9px] border border-brand/50 text-brand transition-colors hover:bg-ok-track focus-visible:border-brand focus-visible:outline-none"
           >
-            {suggestion.category ?? "No category"}
+            <CheckIcon />
           </button>
         )}
       </span>

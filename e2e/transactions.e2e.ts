@@ -311,23 +311,51 @@ test("a regular can be sorted into the category used last time with Enter, Enter
   await page.getByRole("link", { name: /^Transactions/ }).click();
   await expect(headerFigure(page)).toHaveText("6");
 
-  // The same payee, whatever the case or the spaces; a payee never sorted gets no button.
-  const suggestion = (payee: string, date: string, into: string) =>
+  // The same payee, whatever the case or the spaces: the field shows where it went last
+  // time, with a check mark to accept it. Nothing is sorted yet.
+  const accept = (payee: string, date: string, into: string) =>
     page.getByRole("button", { name: `Sort ${payee} on ${date} into ${into}, as last time` });
-  await expect(suggestion("Acme Corp", "Nov 22, 2026", "No category")).toHaveText("No category");
-  await expect(suggestion("  coffee bar", "Nov 21, 2026", "Coffee")).toHaveText("Coffee");
-  await expect(suggestion("Fresh Market", "Nov 20, 2026", "Groceries")).toHaveText("Groceries");
-  await expect(suggestion("Landlord", "Nov 2, 2026", "Rent")).toHaveCount(0);
+  const salary = picker(page, "Acme Corp", "Nov 22, 2026");
+  const coffee = picker(page, "  coffee bar", "Nov 21, 2026");
+  const market = picker(page, "Fresh Market", "Nov 20, 2026");
+  await expect(chosen(salary)).toHaveText("No category (income or transfer)");
+  await expect(accept("Acme Corp", "Nov 22, 2026", "No category")).toBeVisible();
+  await expect(chosen(coffee)).toHaveText("Coffee");
+  await expect(accept("  coffee bar", "Nov 21, 2026", "Coffee")).toBeVisible();
+  await expect(chosen(market)).toHaveText("Groceries");
+  await expect(accept("Fresh Market", "Nov 20, 2026", "Groceries")).toBeVisible();
+  await expect(headerFigure(page)).toHaveText("6");
+  // A payee never sorted gets neither.
+  await expect(chosen(picker(page, "Landlord", "Nov 2, 2026"))).toHaveText("Choose a category…");
+  await expect(accept("Landlord", "Nov 2, 2026", "Rent")).toHaveCount(0);
 
-  await suggestion("Acme Corp", "Nov 22, 2026", "No category").focus();
+  // Passing a field by does not accept what it suggests.
+  await salary.focus();
+  await page.keyboard.press("Tab");
+  await expect(accept("Acme Corp", "Nov 22, 2026", "No category")).toBeFocused();
+  await expect(headerFigure(page)).toHaveText("6");
+
+  // Enter in the field accepts it and moves on to the next.
+  await salary.focus();
   await page.keyboard.press("Enter");
-  await expect(suggestion("  coffee bar", "Nov 21, 2026", "Coffee")).toBeFocused();
+  await expect(coffee).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(suggestion("Fresh Market", "Nov 20, 2026", "Groceries")).toBeFocused();
-  await page.keyboard.press("Enter");
+  await expect(market).toBeFocused();
+  await expect(headerFigure(page)).toHaveText("4");
+
+  // The suggested category can also be picked from the list, like any other.
+  await expect(market.locator("option[hidden]")).toHaveText("Groceries");
+  const groceries = market.locator("optgroup option", { hasText: /^Groceries$/ });
+  await market.selectOption((await groceries.getAttribute("value")) ?? "");
   // The next transaction to sort is the other coffee, which now has a suggestion too.
-  await expect(suggestion("Coffee Bar", "Nov 17, 2026", "Coffee").first()).toBeFocused();
+  const otherCoffee = picker(page, "Coffee Bar", "Nov 17, 2026");
+  await expect(otherCoffee).toBeFocused();
   await expect(headerFigure(page)).toHaveText("3");
+
+  // The check mark does the same with the mouse.
+  await expect(chosen(otherCoffee)).toHaveText("Coffee");
+  await accept("Coffee Bar", "Nov 17, 2026", "Coffee").click();
+  await expect(headerFigure(page)).toHaveText("2");
 
   await page.getByRole("link", { name: /^All/ }).click();
   await expect(chosen(picker(page, "Acme Corp", "Nov 22, 2026"))).toHaveText(
