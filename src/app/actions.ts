@@ -67,7 +67,8 @@ const MAX_AMOUNT = 1_000_000_000_00;
 /** Reads an amount someone typed. An empty field means zero; null means "not an amount". */
 function parseAmount(input: string): number | null {
   if (input.trim() === "") return 0;
-  const amount = parseMoney(input, getConfig().currency);
+  const { currency, locale } = getConfig();
+  const amount = parseMoney(input, currency, locale);
   if (amount === null || Math.abs(amount) > MAX_AMOUNT) return null;
   return amount;
 }

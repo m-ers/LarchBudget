@@ -209,3 +209,24 @@ test("Tab and the arrow keys go down and up the column; Shift+Tab reaches the bu
   await page.keyboard.press("Tab");
   await expect(newGroupField(page)).toBeFocused();
 });
+
+test.describe("with Dutch number formats", () => {
+  test.use({ app: { locale: "nl-NL" } });
+
+  test("amounts can be typed with a thousands dot and a decimal comma", async ({ page }) => {
+    await addAccount(page, "Main account", "2.500,00");
+    await page.goto("/");
+    await expect(headerFigure(page)).toHaveText(/^€\s*2\.500,00$/);
+    await addGroup(page, "Everyday");
+    await addCategories(page, "Everyday", ["Groceries"]);
+
+    await assignAndSave(page, "Groceries", "1.200,50");
+    await expect(assignedField(page, "Groceries")).toHaveValue("1.200,50");
+    await expect(available(page, "Groceries")).toHaveText(/^€\s*1\.200,50$/);
+    await expect(headerFigure(page)).toHaveText(/^€\s*1\.299,50$/);
+
+    // A single dot with three digits after it is between thousands here.
+    await assignAndSave(page, "Groceries", "1.300");
+    await expect(available(page, "Groceries")).toHaveText(/^€\s*1\.300,00$/);
+  });
+});
