@@ -1,19 +1,15 @@
 import { statSync, writeFileSync } from "node:fs";
-import path from "node:path";
 import type { Page } from "@playwright/test";
-import { addAccount, alert, headerFigure } from "./budget-page";
+import { addAccount, alert, bankFile, chosen, headerFigure } from "./helpers";
 import { expect, test } from "./fixtures";
 
-/** Made-up bank files in the style of a Dutch bank's export. */
-const file = (name: string) => path.join("e2e", "files", name);
-
 async function chooseFile(page: Page, name: string) {
-  await page.getByLabel("Bank file").setInputFiles(file(name));
+  await page.getByLabel("Bank file").setInputFiles(bankFile(name));
 }
 
 /** The option a column picker shows, e.g. "Datum · 20261118". */
 const picked = (page: Page, label: string) =>
-  page.getByRole("combobox", { name: label, exact: true }).locator("option:checked");
+  chosen(page.getByRole("combobox", { name: label, exact: true }));
 
 const summary = (page: Page) => page.locator("main").filter({ visible: true });
 
@@ -385,9 +381,7 @@ test.describe("with an account", () => {
     await expect(
       page.getByText("Read with the settings from your last import into this account."),
     ).toBeVisible();
-    await expect(
-      page.getByRole("combobox", { name: "Separator" }).locator("option:checked"),
-    ).toHaveText("Semicolon");
+    await expect(chosen(page.getByRole("combobox", { name: "Separator" }))).toHaveText("Semicolon");
     await expect(picked(page, "Amount")).toHaveText("Amount · -1100.00");
   });
 });

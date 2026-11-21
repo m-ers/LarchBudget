@@ -10,7 +10,7 @@ import {
   menuItem,
   openGroupMenu,
   openMenu,
-} from "./budget-page";
+} from "./helpers";
 import { expect, test } from "./fixtures";
 
 // Getting an archived category back.

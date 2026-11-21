@@ -1,4 +1,3 @@
-import path from "node:path";
 import type { Page } from "@playwright/test";
 import {
   addAccount,
@@ -7,8 +6,10 @@ import {
   addIncomeCategories,
   alert,
   available,
+  bankFile,
   category,
   categoryRow,
+  chosen,
   clickAway,
   groupTotal,
   headerFigure,
@@ -17,7 +18,7 @@ import {
   newIncomeField,
   openMenu,
   spentLine,
-} from "./budget-page";
+} from "./helpers";
 import { expect, test } from "./fixtures";
 
 // Income categories: where money comes in, apart from the groups it is divided over.
@@ -32,7 +33,7 @@ test.beforeEach(async ({ page }) => {
 /** Imports e2e/files/ing.csv, whose salary from Acme Corp came in on 1 November 2026. */
 async function importBankFile(page: Page) {
   await page.getByRole("link", { name: "Import from bank" }).click();
-  await page.getByLabel("Bank file").setInputFiles(path.join("e2e", "files", "ing.csv"));
+  await page.getByLabel("Bank file").setInputFiles(bankFile("ing.csv"));
   await page.getByRole("button", { name: "Import 6 transactions into Checking" }).click();
   await expect(
     page.getByRole("heading", { name: "Imported 6 transactions into Checking." }),
@@ -70,9 +71,7 @@ test("a salary sorted into an income category shows under Income, with the same 
 }) => {
   await importBankFile(page);
   await sortSalary(page, "ready");
-  await expect(salaryPicker(page).locator("option:checked")).toHaveText(
-    "No category (income or transfer)",
-  );
+  await expect(chosen(salaryPicker(page))).toHaveText("No category (income or transfer)");
   await page.goto("/?month=2026-11");
   const ready = await headerFigure(page).innerText();
 
@@ -102,7 +101,7 @@ test("a salary sorted into an income category shows under Income, with the same 
   await categoryRow(page, "Salary").getByRole("link", { name: "€2,850.00" }).click();
   await expect(page).toHaveURL(/\/transactions\?show=all&category=\d+&month=2026-11$/);
   const picked = page.getByRole("combobox", { name: "Category", exact: true });
-  await expect(picked.locator("option:checked")).toHaveText("Salary");
+  await expect(chosen(picked)).toHaveText("Salary (income)");
   await expect(
     page.getByText("1 transaction matches. Money in €2,850.00, money out €0.00."),
   ).toBeVisible();

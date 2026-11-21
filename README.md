@@ -59,7 +59,8 @@ automatic bank connections. The interface is designed for desktop first.
 
 ## Run it locally
 
-Requires Node.js 26 or newer.
+Requires Node.js 24 or newer. The Docker image and the automated checks use
+Node.js 26.
 
 ```bash
 npm install

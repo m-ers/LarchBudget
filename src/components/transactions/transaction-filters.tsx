@@ -13,7 +13,7 @@ import { quietButton } from "../form";
 type Props = {
   filter: TransactionFilter;
   accounts: { id: number; name: string; closed: boolean }[];
-  categories: { id: number; name: string; archived: boolean }[];
+  categories: { id: number; name: string; archived: boolean; income: boolean }[];
 };
 
 const SEARCH_DELAY = 400;
@@ -112,6 +112,7 @@ export function TransactionFilters({ filter, accounts, categories }: Props) {
         {categories.map((category) => (
           <option key={category.id} value={category.id}>
             {category.name}
+            {category.income ? " (income)" : ""}
             {category.archived ? " (archived)" : ""}
           </option>
         ))}

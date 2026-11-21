@@ -1,9 +1,16 @@
-import { expect, type Page } from "@playwright/test";
+import path from "node:path";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 /**
  * Finding things on the pages, and the steps most tests take. Role-based
  * queries skip pages that Next.js keeps mounted but hidden.
  */
+
+/** One of the made-up bank files in `e2e/files`. */
+export const bankFile = (name: string) => path.join("e2e", "files", name);
+
+/** The option a picker shows as chosen. */
+export const chosen = (picker: Locator) => picker.locator("option:checked");
 
 const exactly = (text: string) =>
   new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");

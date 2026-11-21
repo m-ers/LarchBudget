@@ -10,7 +10,7 @@ import {
   openNewCategory,
   slowConnection,
   windowLosesFocus,
-} from "./budget-page";
+} from "./helpers";
 import { expect, test } from "./fixtures";
 
 // The "new group" and "new category" fields: Enter or clicking away adds,

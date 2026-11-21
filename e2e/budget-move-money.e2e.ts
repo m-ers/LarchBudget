@@ -12,7 +12,7 @@ import {
   menuItem,
   openMenu,
   slowConnection,
-} from "./budget-page";
+} from "./helpers";
 import { expect, test } from "./fixtures";
 
 // Moving money between categories, and covering an overspent one.

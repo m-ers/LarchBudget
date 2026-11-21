@@ -485,9 +485,9 @@ describe("finding transactions", () => {
         { id: savings, name: "Savings", closed: false },
       ],
       categories: [
-        { id: groceries, name: "Groceries", archived: false },
-        { id: salary, name: "Salary", archived: false },
-        { id: old, name: "Old", archived: true },
+        { id: groceries, name: "Groceries", archived: false, income: false },
+        { id: salary, name: "Salary", archived: false, income: true },
+        { id: old, name: "Old", archived: true, income: false },
       ],
     });
   });

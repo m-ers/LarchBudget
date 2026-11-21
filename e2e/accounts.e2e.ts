@@ -1,7 +1,6 @@
-import path from "node:path";
 import type { Locator, Page } from "@playwright/test";
 import { today } from "../src/lib/dates";
-import { addAccount, alert, headerFigure } from "./budget-page";
+import { addAccount, alert, bankFile, headerFigure } from "./helpers";
 import { expect, test } from "./fixtures";
 
 /** The "Add an account" form. */
@@ -47,7 +46,7 @@ function answerNextQuestion(page: Page, accept: boolean): Promise<string> {
 /** Imports one of the made-up bank files in e2e/files into the first account. */
 async function importFile(page: Page, file: string, count: number, account: string) {
   await page.getByRole("link", { name: "Import from bank" }).click();
-  await page.getByLabel("Bank file").setInputFiles(path.join("e2e", "files", file));
+  await page.getByLabel("Bank file").setInputFiles(bankFile(file));
   await page.getByRole("button", { name: `Import ${count} transactions into ${account}` }).click();
   await expect(page.getByRole("heading", { name: /^Imported / })).toBeVisible();
 }

@@ -11,7 +11,7 @@ import {
   newCategoryField,
   openGroupMenu,
   openMenu,
-} from "./budget-page";
+} from "./helpers";
 import { expect, test } from "./fixtures";
 
 // Putting categories and groups in another order, and categories in another group.

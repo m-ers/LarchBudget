@@ -8,7 +8,7 @@ import {
   menuItem,
   openGroupMenu,
   openMenu,
-} from "./budget-page";
+} from "./helpers";
 import { expect, test } from "./fixtures";
 
 // The menu beside every category and group name.

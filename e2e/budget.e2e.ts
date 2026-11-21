@@ -11,6 +11,7 @@ import {
   available,
   category,
   categoryRow,
+  chosen,
   groupHeading,
   groupRow,
   groupTotal,
@@ -20,7 +21,7 @@ import {
   openMenu,
   openNewCategory,
   slowConnection,
-} from "./budget-page";
+} from "./helpers";
 import { expect, test } from "./fixtures";
 
 test("an empty budget shows where to start", async ({ page }) => {
@@ -163,7 +164,7 @@ test.describe("a Spent amount", () => {
     const amount = await spent.innerText();
     await spent.click();
     const picked = page.getByRole("combobox", { name: "Category", exact: true });
-    await expect(picked.locator("option:checked")).toHaveText("Groceries");
+    await expect(chosen(picked)).toHaveText("Groceries");
     await expect(page.getByText(/ match(es)?\. Money in/)).toContainText(`money out €${amount}.`);
   });
 });

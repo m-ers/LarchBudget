@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { headerFigure } from "./budget-page";
+import { headerFigure } from "./helpers";
 import { expect, test } from "./fixtures";
 
 test.use({ app: { seed: true } });

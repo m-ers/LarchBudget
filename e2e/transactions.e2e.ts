@@ -1,17 +1,18 @@
-import path from "node:path";
 import type { Page } from "@playwright/test";
 import {
   addAccount,
   addCategories,
   addGroup,
   alert,
-  categoryRow,
+  bankFile,
   category,
+  categoryRow,
+  chosen,
   headerFigure,
   menuItem,
   openMenu,
   windowLosesFocus,
-} from "./budget-page";
+} from "./helpers";
 import { expect, test } from "./fixtures";
 
 /** One account, a few categories, and six imported transactions to sort. */
@@ -29,7 +30,7 @@ test.beforeEach(async ({ page }) => {
   ]);
 
   await page.getByRole("link", { name: "Import from bank" }).click();
-  await page.getByLabel("Bank file").setInputFiles(path.join("e2e", "files", "ing.csv"));
+  await page.getByLabel("Bank file").setInputFiles(bankFile("ing.csv"));
   await page.getByRole("button", { name: "Import 6 transactions into Checking" }).click();
   await expect(
     page.getByRole("heading", { name: "Imported 6 transactions into Checking." }),
@@ -44,8 +45,6 @@ const picker = (page: Page, payee: string, date: string) =>
 
 const firstPicker = (page: Page) => page.getByRole("combobox", { name: /^Category for / }).first();
 
-const shown = (select: ReturnType<typeof firstPicker>) => select.locator("option:checked");
-
 /** Chooses like a person: the picker gets focus first, which is when it draws its categories. */
 async function choose(select: ReturnType<typeof firstPicker>, option: string | { label: string }) {
   await select.focus();
@@ -53,7 +52,7 @@ async function choose(select: ReturnType<typeof firstPicker>, option: string | {
 }
 
 /** A bank file in the ING layout, one line per [date, payee, amount in cents (negative = out)]. */
-function bankFile(rows: [string, string, number][]) {
+function generatedFile(rows: [string, string, number][]) {
   const header =
     '"Datum";"Naam / Omschrijving";"Rekening";"Tegenrekening";"Code";"Af Bij";"Bedrag (EUR)";"Mutatiesoort";"Mededelingen";"Saldo na mutatie";"Tag"';
   const lines = rows.map(([date, payee, cents], i) => {
@@ -67,7 +66,11 @@ function bankFile(rows: [string, string, number][]) {
   };
 }
 
-async function importFile(page: Page, file: ReturnType<typeof bankFile> | string, count: number) {
+async function importFile(
+  page: Page,
+  file: ReturnType<typeof generatedFile> | string,
+  count: number,
+) {
   // Through the link, as a person does: a file chosen before the page is ready is lost.
   await page.getByRole("link", { name: "Import from bank" }).click();
   await page.getByLabel("Bank file").setInputFiles(file);
@@ -98,8 +101,8 @@ test("picking a category saves at once and moves on to the next", async ({ page 
   await expect(page.getByRole("link", { name: /^Transactions/ })).not.toContainText("to sort");
 
   await page.getByRole("link", { name: /^All/ }).click();
-  await expect(shown(picker(page, "Fresh Market", "Nov 18, 2026"))).toHaveText("Groceries");
-  await expect(shown(picker(page, "Acme Corp", "Nov 1, 2026"))).toHaveText(
+  await expect(chosen(picker(page, "Fresh Market", "Nov 18, 2026"))).toHaveText("Groceries");
+  await expect(chosen(picker(page, "Acme Corp", "Nov 1, 2026"))).toHaveText(
     "No category (income or transfer)",
   );
   // The account's starting balance is listed, but is not something to sort.
@@ -127,19 +130,19 @@ test("browsing the choices with the keyboard does not save; Enter or leaving doe
   const first = firstPicker(page);
   await first.focus();
   await page.keyboard.type("R");
-  await expect(shown(first)).toHaveText("Rent");
+  await expect(chosen(first)).toHaveText("Rent");
   await page.keyboard.press("Escape");
-  await expect(shown(first)).toHaveText("Choose a category…");
+  await expect(chosen(first)).toHaveText("Choose a category…");
   await expect(headerFigure(page)).toHaveText("6");
 
   // Letters typed within a second count as one search, so wait in between.
   await page.waitForTimeout(1500);
   await first.focus();
   await page.keyboard.type("E");
-  await expect(shown(first)).toHaveText("Eating out");
+  await expect(chosen(first)).toHaveText("Eating out");
   await page.waitForTimeout(1500);
   await page.keyboard.type("Em");
-  await expect(shown(first)).toHaveText("Emergency fund");
+  await expect(chosen(first)).toHaveText("Emergency fund");
   await page.waitForTimeout(500);
   await expect(headerFigure(page)).toHaveText("6");
 
@@ -148,7 +151,7 @@ test("browsing the choices with the keyboard does not save; Enter or leaving doe
   await expect(firstPicker(page)).toBeFocused();
 
   await page.keyboard.type("G");
-  await expect(shown(firstPicker(page))).toHaveText("Groceries");
+  await expect(chosen(firstPicker(page))).toHaveText("Groceries");
   await page.keyboard.press("Tab");
   await expect(headerFigure(page)).toHaveText("4");
 });
@@ -168,7 +171,7 @@ test("a transaction keeps showing its category after the category is archived", 
   await page.getByRole("link", { name: /^Transactions/ }).click();
   await page.getByRole("link", { name: /^All/ }).click();
   await expect(page).toHaveURL(/show=all/);
-  await expect(shown(picker(page, "Fresh Market", "Nov 18, 2026"))).toHaveText(
+  await expect(chosen(picker(page, "Fresh Market", "Nov 18, 2026"))).toHaveText(
     "Groceries (archived)",
   );
 });
@@ -218,7 +221,7 @@ test.describe("on a slow connection", () => {
     await choose(market, { label: "Groceries" });
     // Nothing has come back yet: the count is old, but the row shows the choice.
     await expect(headerFigure(page)).toHaveText("6");
-    await expect(shown(market)).toHaveText("Groceries");
+    await expect(chosen(market)).toHaveText("Groceries");
     await expect(coffee).toBeFocused();
 
     // A second row is sorted while the first is still on its way.
@@ -247,7 +250,7 @@ test.describe("on a slow connection", () => {
       "That category no longer exists.",
       { timeout: 15_000 },
     );
-    await expect(shown(market)).toHaveText("Choose a category…");
+    await expect(chosen(market)).toHaveText("Choose a category…");
     await expect(headerFigure(page)).toHaveText("6");
   });
 });
@@ -272,7 +275,7 @@ test("a picker draws the categories when it is first used, complete on the first
   await page.keyboard.press("Tab");
   await expect(first).toBeFocused();
   await page.keyboard.type("R");
-  await expect(shown(first)).toHaveText("Rent");
+  await expect(chosen(first)).toHaveText("Rent");
 });
 
 test("a choice browsed with the keyboard is not saved when the window loses focus", async ({
@@ -281,11 +284,11 @@ test("a choice browsed with the keyboard is not saved when the window loses focu
   const first = firstPicker(page);
   await first.focus();
   await page.keyboard.type("R");
-  await expect(shown(first)).toHaveText("Rent");
+  await expect(chosen(first)).toHaveText("Rent");
   await windowLosesFocus(page);
   await page.waitForTimeout(500);
   await expect(headerFigure(page)).toHaveText("6");
-  await expect(shown(first)).toHaveText("Rent");
+  await expect(chosen(first)).toHaveText("Rent");
 });
 
 test("a regular can be sorted into the category used last time with Enter, Enter, Enter", async ({
@@ -298,7 +301,7 @@ test("a regular can be sorted into the category used last time with Enter, Enter
 
   await importFile(
     page,
-    bankFile([
+    generatedFile([
       ["20261122", "Acme Corp", 285_000],
       ["20261121", "  coffee bar", -350],
       ["20261120", "Fresh Market", -2_000],
@@ -327,11 +330,11 @@ test("a regular can be sorted into the category used last time with Enter, Enter
   await expect(headerFigure(page)).toHaveText("3");
 
   await page.getByRole("link", { name: /^All/ }).click();
-  await expect(shown(picker(page, "Acme Corp", "Nov 22, 2026"))).toHaveText(
+  await expect(chosen(picker(page, "Acme Corp", "Nov 22, 2026"))).toHaveText(
     "No category (income or transfer)",
   );
-  await expect(shown(picker(page, "  coffee bar", "Nov 21, 2026"))).toHaveText("Coffee");
-  await expect(shown(picker(page, "Fresh Market", "Nov 20, 2026"))).toHaveText("Groceries");
+  await expect(chosen(picker(page, "  coffee bar", "Nov 21, 2026"))).toHaveText("Coffee");
+  await expect(chosen(picker(page, "Fresh Market", "Nov 20, 2026"))).toHaveText("Groceries");
 });
 
 test("a list is shown in pages of 200 that never overlap", async ({ page }) => {
@@ -339,7 +342,7 @@ test("a list is shown in pages of 200 that never overlap", async ({ page }) => {
     const day = new Date(Date.UTC(2025, 0, 1) + i * 86_400_000);
     return [day.toISOString().slice(0, 10).replaceAll("-", ""), `Shop ${i}`, -(100 + i)];
   });
-  await importFile(page, bankFile(rows), 450);
+  await importFile(page, generatedFile(rows), 450);
   await page.getByRole("link", { name: /^Transactions/ }).click();
   await expect(headerFigure(page)).toHaveText("456");
 
@@ -478,7 +481,7 @@ test("a transaction can be deleted, and does not come back with the same file", 
   await expect(row).toHaveCount(0);
   await expect(page.getByRole("link", { name: /^To sort 5/ })).toBeVisible();
 
-  await importFile(page, path.join("e2e", "files", "ing.csv"), 6);
+  await importFile(page, bankFile("ing.csv"), 6);
   await expect(
     page.getByText("All 6 transactions in this file were already in LarchBudget."),
   ).toBeVisible();

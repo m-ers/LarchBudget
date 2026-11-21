@@ -16,7 +16,7 @@ import {
   newGroupField,
   slowConnection,
   spentLine,
-} from "./budget-page";
+} from "./helpers";
 import { expect, test } from "./fixtures";
 
 // The Assigned column: what a new amount shows, and when.

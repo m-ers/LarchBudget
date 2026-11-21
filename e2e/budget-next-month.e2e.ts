@@ -6,7 +6,7 @@ import {
   assignAndSave,
   assignedField,
   headerFigure,
-} from "./budget-page";
+} from "./helpers";
 import { expect, test } from "./fixtures";
 
 // Starting a month with what was assigned the month before.

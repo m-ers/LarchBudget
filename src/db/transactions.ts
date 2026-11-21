@@ -460,7 +460,7 @@ export function getCategoryOptions(db: Db): CategoryOptionGroup[] {
 /** What the "All" list can be narrowed to: every account, and every category even if archived. */
 export function getFilterOptions(db: Db): {
   accounts: { id: number; name: string; closed: boolean }[];
-  categories: { id: number; name: string; archived: boolean }[];
+  categories: { id: number; name: string; archived: boolean; income: boolean }[];
 } {
   return {
     // Open accounts first, each part in the order of the Accounts page.
@@ -470,7 +470,12 @@ export function getFilterOptions(db: Db): {
       .all()
       .sort((a, b) => Number(a.closed) - Number(b.closed) || byName(a, b)),
     categories: db
-      .select({ id: categories.id, name: categories.name, archived: categories.archived })
+      .select({
+        id: categories.id,
+        name: categories.name,
+        archived: categories.archived,
+        income: categories.income,
+      })
       .from(categories)
       .orderBy(categories.archived, categories.name)
       .all(),

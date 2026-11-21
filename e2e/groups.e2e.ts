@@ -11,7 +11,7 @@ import {
   menuItem,
   newCategoryField,
   openGroupMenu,
-} from "./budget-page";
+} from "./helpers";
 import { expect, test } from "./fixtures";
 
 /** Answers the next confirmation, and returns its question. */

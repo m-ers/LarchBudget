@@ -1,4 +1,4 @@
-import { addGroup, groupHeading } from "./budget-page";
+import { addGroup, groupHeading } from "./helpers";
 import { expect, test } from "./fixtures";
 
 test.describe("with a password", () => {
