@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BudgetMonth } from "@/db/budget";
+import type { CategoryIcon } from "@/lib/category-icons";
 import { applyChange, moveChanges, type BudgetChange } from "./budget-changes";
 
 /**
@@ -177,5 +178,41 @@ describe("counting income for the next month, before the server confirms it", ()
     expect(applyChange(budget, nextMonth(30, false))).toBe(budget);
     expect(applyChange(budget, nextMonth(10, true))).toBe(budget);
     expect(applyChange(budget, nextMonth(99, true))).toBe(budget);
+  });
+});
+
+describe("choosing an icon, before the server confirms it", () => {
+  const icon = (categoryId: number, id: CategoryIcon | null): BudgetChange => ({
+    type: "icon",
+    categoryId,
+    icon: id,
+  });
+
+  it("changes the icon of that one row, and no figure", () => {
+    const after = applyChange(budget, icon(10, "house"));
+    expect(after.groups[0].categories[0]).toEqual({
+      ...budget.groups[0].categories[0],
+      icon: "house",
+    });
+    expect(after.groups[0].categories[1]).toBe(budget.groups[0].categories[1]);
+    expect(after.groups[1]).toBe(budget.groups[1]);
+    expect(after.income).toBe(budget.income);
+    expect({ ...after, groups: budget.groups }).toEqual(budget);
+  });
+
+  it("works for an income category", () => {
+    const after = applyChange(budget, icon(30, "briefcase"));
+    expect(after.income.categories[0].icon).toBe("briefcase");
+    expect(after.income.received).toBe(285_000);
+    expect(after.groups).toBe(budget.groups);
+  });
+
+  it("goes back to the envelope with null", () => {
+    const after = [icon(20, "tree-palm"), icon(20, null)].reduce(applyChange, budget);
+    expect(after.groups[1].categories[0].icon).toBeUndefined();
+  });
+
+  it("changes nothing for a category that is not on the page", () => {
+    expect(applyChange(budget, icon(99, "house"))).toBe(budget);
   });
 });
