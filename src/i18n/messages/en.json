@@ -189,5 +189,130 @@
       "startingNotSortable": "A starting balance does not go into a category.",
       "startingNotDeletable": "A starting balance cannot be deleted."
     }
+  },
+  "import": {
+    "page": {
+      "title": "Import from bank",
+      "lead": "Download your transactions as a CSV file from your bank's website and add it here. Transactions you imported before are skipped, so files may overlap.",
+      "noAccountClosed": "Transactions are imported into an account, and all of yours are closed. Reopen one, or add a new one.",
+      "noAccountNone": "Transactions are imported into an account, and you have none yet.",
+      "goToAccounts": "Go to Accounts",
+      "addAccount": "Add an account"
+    },
+    "problems": {
+      "empty": "This file is empty.",
+      "tooManyRows": "This file has too many rows. Export a shorter period from your bank.",
+      "tooWide": "This does not look like a bank export: its rows are too wide or too long.",
+      "tooLarge": "This file is too large. Export a shorter period from your bank.",
+      "notCsv": "This is not a CSV file. Choose CSV when you download from your bank."
+    },
+    "dateOrders": {
+      "ymd": "Year, month, day (2026-11-03)",
+      "dmy": "Day, month, year (03-11-2026)",
+      "mdy": "Month, day, year (11/03/2026)"
+    },
+    "delimiters": {
+      "comma": "Comma",
+      "semicolon": "Semicolon",
+      "tab": "Tab",
+      "pipe": "Pipe"
+    },
+    "choose": {
+      "account": "Into account",
+      "dropHere": "Drop your bank's CSV file here, or",
+      "chooseFile": "Choose a file",
+      "fileInput": "Bank file"
+    },
+    "columns": {
+      "intro": "Check that the columns below were recognised correctly.",
+      "introFromLastTime": "Read with the settings from your last import into this account.",
+      "chooseAnotherFile": "Choose another file",
+      "unnamed": "Column {{number}}",
+      "none": "None",
+      "noSeparateColumn": "No separate column",
+      "chooseColumn": "Choose a column…",
+      "date": "Date",
+      "dateWrittenAs": "Date is written as",
+      "dateGuess": "Could be either; check this.",
+      "amount": "Amount",
+      "moneyIn": "Money in",
+      "moneyInTip": "For banks that put money in and money out in separate columns. Amount is then the money out.",
+      "outOrIn": "Out or in",
+      "outOrInTip": "For banks whose amounts have no plus or minus, with a column like Af/Bij or Debit/Credit that says which way the money went.",
+      "payee": "Payee",
+      "note": "Note",
+      "separator": "Separator",
+      "hasHeader": "First row holds column names",
+      "invert": "Spending is shown as positive numbers",
+      "notReady": "Choose which columns hold the date and the amount."
+    },
+    "summary": {
+      "count_one": "<b>{{count}} transaction</b> · {{from}} to {{to}} · {{moneyIn}} in · {{moneyOut}} out",
+      "count_other": "<b>{{count}} transactions</b> · {{from}} to {{to}} · {{moneyIn}} in · {{moneyOut}} out",
+      "newCount_one": "<b>{{count}} new transaction</b> · {{from}} to {{to}} · {{moneyIn}} in · {{moneyOut}} out",
+      "newCount_other": "<b>{{count}} new transactions</b> · {{from}} to {{to}} · {{moneyIn}} in · {{moneyOut}} out",
+      "allImported_one": "<b>Nothing new to import.</b> All {{count}} transaction in this file were imported before.",
+      "allImported_other": "<b>Nothing new to import.</b> All {{count}} transactions in this file were imported before.",
+      "unreadable": "No transactions could be read with these columns.",
+      "importedBefore_one": "{{count}} was imported before and will be skipped.",
+      "importedBefore_other": "{{count}} were imported before and will be skipped.",
+      "skipped": "Skipped: {{list}}.",
+      "skippedItem": "{{count}} × {{reason}}",
+      "skippedSeparator": ", "
+    },
+    "preview": {
+      "heading": "As they will be imported",
+      "label": "Transactions in this file",
+      "date": "Date",
+      "payee": "Payee",
+      "note": "Note",
+      "amount": "Amount",
+      "importedBefore": "Imported before"
+    },
+    "skipped": {
+      "heading": "Rows that will not be imported",
+      "label": "Rows that cannot be read",
+      "row": "Row",
+      "reason": "Reason",
+      "inFile": "In the file",
+      "reasons": {
+        "noDate": "No readable date",
+        "noAmount": "No readable amount",
+        "amountZero": "Amount is zero",
+        "unclearDirection": "Unclear if money in or out"
+      },
+      "reasonsInline": {
+        "noDate": "no readable date",
+        "noAmount": "no readable amount",
+        "amountZero": "amount is zero",
+        "unclearDirection": "unclear if money in or out"
+      }
+    },
+    "action": {
+      "importing": "Importing…",
+      "nothingNew": "Nothing new to import",
+      "import_one": "Import {{amount}} transaction into {{account}}",
+      "import_other": "Import {{amount}} transactions into {{account}}",
+      "importNew_one": "Import {{amount}} new transaction into {{account}}",
+      "importNew_other": "Import {{amount}} new transactions into {{account}}"
+    },
+    "result": {
+      "imported_one": "Imported {{count}} transaction into {{account}}.",
+      "imported_other": "Imported {{count}} transactions into {{account}}.",
+      "nothingNew": "Nothing new to import.",
+      "allDuplicates": "All {{count}} transactions in this file were already in LarchBudget.",
+      "duplicates_one": "{{count}} was already in LarchBudget and was skipped.",
+      "duplicates_other": "{{count}} were already in LarchBudget and were skipped.",
+      "balanceAllOne": "It is from {{date}} or earlier. The balance of {{balance}} you entered for that day already includes it.",
+      "balanceAllMany": "They are from {{date}} or earlier. The balance of {{balance}} you entered for that day already includes them.",
+      "balanceSome_one": "{{count}} of them is from {{date}} or earlier. The balance of {{balance}} you entered for that day already includes it.",
+      "balanceSome_other": "{{count}} of them are from {{date}} or earlier. The balance of {{balance}} you entered for that day already includes them.",
+      "sortNow": "Sort them now",
+      "importAnother": "Import another file",
+      "undo": "Undo this import",
+      "undoing": "Undoing…",
+      "undone_one": "Import undone. {{count}} transaction was removed.",
+      "undone_other": "Import undone. {{count}} transactions were removed."
+    }
   }
 }

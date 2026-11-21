@@ -4,12 +4,6 @@ import { pad, type IsoDate } from "../dates";
 export const dateOrders = ["ymd", "dmy", "mdy"] as const;
 export type DateOrder = (typeof dateOrders)[number];
 
-export const dateOrderLabels: Record<DateOrder, string> = {
-  ymd: "Year, month, day (2026-11-03)",
-  dmy: "Day, month, year (03-11-2026)",
-  mdy: "Month, day, year (11/03/2026)",
-};
-
 function build(year: number, month: number, day: number): IsoDate | null {
   if (year < 100) year += 2000;
   if (year < 1900 || year > 2200 || month < 1 || month > 12 || day < 1) return null;

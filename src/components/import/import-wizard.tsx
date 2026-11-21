@@ -1,19 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { checkImportAction, importTransactionsAction, undoImportAction } from "@/app/actions";
 import type { ImportAccount, ImportOutcome } from "@/db/transactions";
+import { useT } from "@/i18n/client";
 import { formatDate } from "@/lib/dates";
 import {
   decodeText,
-  delimiterLabels,
+  delimiterIds,
   delimiters,
   detectDelimiter,
   parseCsv,
   type Delimiter,
 } from "@/lib/import/csv";
-import { dateOrderLabels, isMonthFirstLocale, type DateOrder } from "@/lib/import/dates";
+import { dateOrders, isMonthFirstLocale, type DateOrder } from "@/lib/import/dates";
 import { MAX_CELL_LENGTH, MAX_COLUMNS, MAX_FILE_BYTES, MAX_ROWS } from "@/lib/import/limits";
 import {
   applyMapping,
@@ -23,7 +24,9 @@ import {
   readSavedMapping,
   savedDelimiter,
   type Mapping,
+  type SkipReason,
 } from "@/lib/import/mapping";
+import { richText } from "@/i18n/rich";
 import { formatAmount, formatMoney, minorUnitDigits } from "@/lib/money";
 import {
   ErrorText,
@@ -42,6 +45,9 @@ type Props = { accounts: ImportAccount[]; currency: string; locale: string };
 type LoadedFile = { name: string; text: string; delimiter: Delimiter; rows: string[][] };
 type Done = ImportOutcome & { batch: string; account: string };
 
+/** Draws the `<b>` parts of the summary texts. */
+const bold = { b: (chunks: ReactNode) => <b className="font-semibold">{chunks}</b> };
+
 /** The account of the last import in this browser, where the next file is most likely going. */
 const LAST_ACCOUNT_KEY = "larchbudget.import.account";
 
@@ -49,17 +55,18 @@ const LAST_ACCOUNT_KEY = "larchbudget.import.account";
 const CHECK_DELAY_MS = 300;
 
 /** The rows of a bank file, or what is wrong with it. */
-function readRows(text: string, delimiter: Delimiter): { rows: string[][] } | { problem: string } {
+function readRows(
+  text: string,
+  delimiter: Delimiter,
+): { rows: string[][] } | { problem: "empty" | "tooManyRows" | "tooWide" } {
   const rows = parseCsv(text, delimiter);
-  if (rows.length === 0) return { problem: "This file is empty." };
-  if (rows.length > MAX_ROWS) {
-    return { problem: "This file has too many rows. Export a shorter period from your bank." };
-  }
+  if (rows.length === 0) return { problem: "empty" };
+  if (rows.length > MAX_ROWS) return { problem: "tooManyRows" };
   const oversized = rows.some(
     (row) => row.length > MAX_COLUMNS || row.some((cell) => cell.length > MAX_CELL_LENGTH),
   );
   if (oversized) {
-    return { problem: "This does not look like a bank export: its rows are too wide or too long." };
+    return { problem: "tooWide" };
   }
   return { rows };
 }
@@ -93,6 +100,7 @@ const primaryButton = `${buttonBase} px-4 py-2.5 disabled:opacity-50`;
  * rows the account has already, and these are shown as skipped.
  */
 export function ImportWizard({ accounts, currency, locale }: Props) {
+  const t = useT();
   const digits = minorUnitDigits(currency);
   const input = useRef<HTMLInputElement>(null);
   const [accountId, setAccountId] = useState(accounts[0].id);
@@ -130,11 +138,11 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
     if (input.current) input.current.value = "";
     setError(null);
     if (chosen.size > MAX_FILE_BYTES) {
-      return setError("This file is too large. Export a shorter period from your bank.");
+      return setError(t("import.problems.tooLarge"));
     }
     const text = decodeText(await chosen.arrayBuffer());
     if (text.includes(String.fromCharCode(0))) {
-      return setError("This is not a CSV file. Choose CSV when you download from your bank.");
+      return setError(t("import.problems.notCsv"));
     }
     let delimiter = detectDelimiter(text);
     let read = readRows(text, delimiter);
@@ -151,7 +159,7 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
         }
       }
     }
-    if ("problem" in read) return setError(read.problem);
+    if ("problem" in read) return setError(t(`import.problems.${read.problem}`));
     const { rows } = read;
     setFile({ name: chosen.name, text, delimiter, rows });
     setEdited(false);
@@ -173,7 +181,7 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
   function changeDelimiter(delimiter: Delimiter) {
     if (!file) return;
     const read = readRows(file.text, delimiter);
-    if ("problem" in read) return setError(read.problem);
+    if ("problem" in read) return setError(t(`import.problems.${read.problem}`));
     setError(null);
     setFile({ ...file, delimiter, rows: read.rows });
     setEdited(false);
@@ -299,31 +307,31 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
 
   // ---- Step 3: done -------------------------------------------------------
   if (done) {
+    const balanceValues = (d: Done) => ({
+      count: d.beforeBalance,
+      date: d.balanceDate ? formatDate(d.balanceDate, locale) : "",
+      balance: d.startingBalance === null ? "" : formatMoney(d.startingBalance, currency, locale),
+    });
     return (
       <div className="max-w-2xl">
         {undone !== null ? (
-          <h2 className="text-lg font-semibold">
-            Import undone. {undone} {undone === 1 ? "transaction was" : "transactions were"}{" "}
-            removed.
-          </h2>
+          <h2 className="text-lg font-semibold">{t("import.result.undone", { count: undone })}</h2>
         ) : done.imported === 0 ? (
           <>
-            <h2 className="text-lg font-semibold">Nothing new to import.</h2>
+            <h2 className="text-lg font-semibold">{t("import.result.nothingNew")}</h2>
             <p className="mt-1 text-muted">
-              All {done.duplicates} transactions in this file were already in LarchBudget.
+              {t("import.result.allDuplicates", { count: done.duplicates })}
             </p>
           </>
         ) : (
           <>
             <h2 className="flex items-center gap-2 text-lg font-semibold">
               <CheckIcon className="text-brand" width={20} height={20} strokeWidth={2.4} />
-              Imported {done.imported} {done.imported === 1 ? "transaction" : "transactions"} into{" "}
-              {done.account}.
+              {t("import.result.imported", { count: done.imported, account: done.account })}
             </h2>
             {done.duplicates > 0 && (
               <p className="mt-1 text-muted">
-                {done.duplicates} {done.duplicates === 1 ? "was" : "were"} already in LarchBudget
-                and {done.duplicates === 1 ? "was" : "were"} skipped.
+                {t("import.result.duplicates", { count: done.duplicates })}
               </p>
             )}
             {done.beforeBalance > 0 &&
@@ -331,13 +339,13 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
               done.startingBalance !== null && (
                 <p className="mt-1 text-muted">
                   {done.beforeBalance === done.imported
-                    ? done.imported === 1
-                      ? "It is"
-                      : "They are"
-                    : `${done.beforeBalance} of them ${done.beforeBalance === 1 ? "is" : "are"}`}{" "}
-                  from {formatDate(done.balanceDate, locale)} or earlier. The balance of{" "}
-                  {formatMoney(done.startingBalance, currency, locale)} you entered for that day
-                  already includes {done.beforeBalance === 1 ? "it" : "them"}.
+                    ? t(
+                        done.imported === 1
+                          ? "import.result.balanceAllOne"
+                          : "import.result.balanceAllMany",
+                        balanceValues(done),
+                      )
+                    : t("import.result.balanceSome", balanceValues(done))}
                 </p>
               )}
           </>
@@ -346,11 +354,11 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
         <div className="mt-5 flex items-center gap-3">
           {undone === null && done.imported > 0 && (
             <Link href="/transactions" className={`${buttonBase} px-4 py-2.5`}>
-              Sort them now
+              {t("import.result.sortNow")}
             </Link>
           )}
           <button type="button" onClick={reset} className={quietButton}>
-            Import another file
+            {t("import.result.importAnother")}
           </button>
           {undone === null && done.imported > 0 && (
             <button
@@ -359,7 +367,7 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
               disabled={pending}
               className="ml-2 font-medium text-muted underline hover:text-ink disabled:opacity-50"
             >
-              {pending ? "Undoing…" : "Undo this import"}
+              {pending ? t("import.result.undoing") : t("import.result.undo")}
             </button>
           )}
         </div>
@@ -369,7 +377,7 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
   }
 
   const accountPicker = (
-    <Field label="Into account">
+    <Field label={t("import.choose.account")}>
       <select
         value={accountId}
         onChange={(e) => {
@@ -410,15 +418,15 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
           }`}
         >
           <UploadIcon width={26} height={26} className="text-muted" />
-          <p className="text-muted">Drop your bank&apos;s CSV file here, or</p>
+          <p className="text-muted">{t("import.choose.dropHere")}</p>
           <button type="button" onClick={() => input.current?.click()} className={primaryButton}>
-            Choose a file
+            {t("import.choose.chooseFile")}
           </button>
           <input
             ref={input}
             type="file"
             accept=".csv,.txt,.tsv,text/csv,text/plain"
-            aria-label="Bank file"
+            aria-label={t("import.choose.fileInput")}
             className="sr-only"
             onChange={(e) => void load(e.target.files?.[0])}
           />
@@ -434,7 +442,7 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
   const columnLabel = (i: number) => {
     const name = mapping.hasHeader ? file.rows[0][i] : "";
     const example = (sample[i] ?? "").slice(0, 22);
-    return `${name || `Column ${i + 1}`}${example ? `  ·  ${example}` : ""}`;
+    return `${name || t("import.columns.unnamed", { number: String(i + 1) })}${example ? `  ·  ${example}` : ""}`;
   };
   const set = (change: Partial<Mapping>) => {
     setMapping({ ...mapping, ...change });
@@ -448,9 +456,12 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
     value: number | null,
     onChange: (column: number) => void,
     optional: boolean,
-    { none = "None", tip }: { none?: string; tip?: string } = {},
+    {
+      none = t("import.columns.none"),
+      tip,
+      tipId,
+    }: { none?: string; tip?: string; tipId?: string } = {},
   ) => {
-    const tipId = tip ? `${label.toLowerCase().replace(/\W+/g, "-")}-tip` : undefined;
     return (
       <Field label={label} tip={tip} tipId={tipId}>
         <select
@@ -460,7 +471,7 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
           aria-invalid={!optional && (value === null || value < 0) ? true : undefined}
           className={`${selectField} ${!optional && (value === null || value < 0) ? "border-bad" : ""}`}
         >
-          <option value={-1}>{optional ? none : "Choose a column…"}</option>
+          <option value={-1}>{optional ? none : t("import.columns.chooseColumn")}</option>
           {Array.from({ length: width }, (_, i) => (
             <option key={i} value={i}>
               {columnLabel(i)}
@@ -471,14 +482,13 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
     );
   };
 
-  const reasons = new Map<string, number>();
+  const reasons = new Map<SkipReason, number>();
   for (const skipped of result?.skipped ?? []) {
     reasons.set(skipped.reason, (reasons.get(skipped.reason) ?? 0) + 1);
   }
   const total = result?.rows.length ?? 0;
-  const plural = (n: number) => (n === 1 ? "transaction" : "transactions");
-  // Said only once the server has told which rows are there already.
-  const newWord = skippedBefore > 0 ? "new " : "";
+  // "New" is said only once the server has told which rows are there already.
+  const anyKnown = skippedBefore > 0;
 
   return (
     <div>
@@ -486,21 +496,19 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
         <div>
           <h2 className="font-semibold">{file.name}</h2>
           <p className="text-sm text-muted">
-            {fromLastTime
-              ? "Read with the settings from your last import into this account."
-              : "Check that the columns below were recognised correctly."}
+            {fromLastTime ? t("import.columns.introFromLastTime") : t("import.columns.intro")}
           </p>
         </div>
         <button type="button" onClick={reset} className={quietButton}>
-          Choose another file
+          {t("import.columns.chooseAnotherFile")}
         </button>
       </div>
 
       <div className="mt-5 grid grid-cols-4 gap-x-4 gap-y-4">
         {accountPicker}
-        {columnSelect("Date", mapping.date, (date) => set({ date }), false)}
+        {columnSelect(t("import.columns.date"), mapping.date, (date) => set({ date }), false)}
         <div>
-          <Field label="Date is written as">
+          <Field label={t("import.columns.dateWrittenAs")}>
             <select
               value={mapping.dateOrder}
               onChange={(e) => {
@@ -510,55 +518,62 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
               aria-describedby={orderGuessed ? "date-order-guess" : undefined}
               className={selectField}
             >
-              {Object.entries(dateOrderLabels).map(([order, label]) => (
+              {dateOrders.map((order) => (
                 <option key={order} value={order}>
-                  {label}
+                  {t(`import.dateOrders.${order}`)}
                 </option>
               ))}
             </select>
           </Field>
           {orderGuessed && (
             <p id="date-order-guess" className="mt-1 text-sm text-muted">
-              Could be either; check this.
+              {t("import.columns.dateGuess")}
             </p>
           )}
         </div>
-        {columnSelect("Amount", mapping.amount, (amount) => set({ amount }), false)}
         {columnSelect(
-          "Money in",
+          t("import.columns.amount"),
+          mapping.amount,
+          (amount) => set({ amount }),
+          false,
+        )}
+        {columnSelect(
+          t("import.columns.moneyIn"),
           mapping.amountIn ?? null,
           (column) => set({ amountIn: column < 0 ? null : column }),
           true,
           {
-            none: "No separate column",
-            tip: "For banks that put money in and money out in separate columns. Amount is then the money out.",
+            none: t("import.columns.noSeparateColumn"),
+            tip: t("import.columns.moneyInTip"),
+            tipId: "money-in-tip",
           },
         )}
         {columnSelect(
-          "Out or in",
+          t("import.columns.outOrIn"),
           mapping.indicator,
           (column) => set({ indicator: column < 0 ? null : column }),
           true,
           {
-            none: "No separate column",
-            tip: "For banks whose amounts have no plus or minus, with a column like Af/Bij or Debit/Credit that says which way the money went.",
+            none: t("import.columns.noSeparateColumn"),
+            tip: t("import.columns.outOrInTip"),
+            tipId: "out-or-in-tip",
           },
         )}
         {columnSelect(
-          "Payee",
+          t("import.columns.payee"),
           mapping.payee,
           (column) => set({ payee: column < 0 ? null : column }),
           true,
         )}
         {columnSelect(
-          "Note",
+          t("import.columns.note"),
           mapping.note,
           (column) => set({ note: column < 0 ? null : column }),
           true,
         )}
         <div className="flex flex-col justify-end gap-2 text-sm">
           <label className="flex items-center gap-2">
-            Separator
+            {t("import.columns.separator")}
             <select
               value={file.delimiter}
               onChange={(e) => changeDelimiter(e.target.value as Delimiter)}
@@ -566,7 +581,7 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
             >
               {delimiters.map((delimiter) => (
                 <option key={delimiter} value={delimiter}>
-                  {delimiterLabels[delimiter]}
+                  {t(`import.delimiters.${delimiterIds[delimiter]}`)}
                 </option>
               ))}
             </select>
@@ -577,7 +592,7 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
               checked={mapping.hasHeader}
               onChange={(e) => set({ hasHeader: e.target.checked })}
             />
-            First row holds column names
+            {t("import.columns.hasHeader")}
           </label>
           <label className="flex items-center gap-2">
             <input
@@ -585,63 +600,69 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
               checked={mapping.invert}
               onChange={(e) => set({ invert: e.target.checked })}
             />
-            Spending is shown as positive numbers
+            {t("import.columns.invert")}
           </label>
         </div>
       </div>
 
       {!ready ? (
         <p className="mt-6 rounded-xl bg-bad-track px-4 py-3 text-bad-ink">
-          Choose which columns hold the date and the amount.
+          {t("import.columns.notReady")}
         </p>
       ) : (
         <>
           <div className="mt-6 rounded-xl bg-ok-track px-4 py-3">
             {summary ? (
               <p>
-                <b className="font-semibold">
-                  {count} {newWord}
-                  {plural(count)}
-                </b>
-                {" · "}
-                {formatDate(summary.from, locale)} to {formatDate(summary.to, locale)}
-                {" · "}
-                {formatMoney(summary.moneyIn, currency, locale)} in
-                {" · "}
-                {formatMoney(summary.moneyOut, currency, locale)} out
+                {richText(
+                  t,
+                  anyKnown ? "import.summary.newCount" : "import.summary.count",
+                  {
+                    count,
+                    from: formatDate(summary.from, locale),
+                    to: formatDate(summary.to, locale),
+                    moneyIn: formatMoney(summary.moneyIn, currency, locale),
+                    moneyOut: formatMoney(summary.moneyOut, currency, locale),
+                  },
+                  bold,
+                )}
               </p>
             ) : total > 0 ? (
-              <p>
-                <b className="font-semibold">Nothing new to import.</b> All {total} {plural(total)}{" "}
-                in this file were imported before.
-              </p>
+              <p>{richText(t, "import.summary.allImported", { count: total }, bold)}</p>
             ) : (
-              <p>No transactions could be read with these columns.</p>
+              <p>{t("import.summary.unreadable")}</p>
             )}
             {skippedBefore > 0 && count > 0 && (
               <p className="mt-1 text-sm text-muted">
-                {skippedBefore} {skippedBefore === 1 ? "was" : "were"} imported before and will be
-                skipped.
+                {t("import.summary.importedBefore", { count: skippedBefore })}
               </p>
             )}
             {reasons.size > 0 && (
               <p className="mt-1 text-sm text-muted">
-                Skipped:{" "}
-                {[...reasons].map(([reason, n]) => `${n} × ${reason.toLowerCase()}`).join(", ")}.
+                {t("import.summary.skipped", {
+                  list: [...reasons]
+                    .map(([reason, n]) =>
+                      t("import.summary.skippedItem", {
+                        count: n,
+                        reason: t(`import.skipped.reasonsInline.${reason}`),
+                      }),
+                    )
+                    .join(t("import.summary.skippedSeparator")),
+                })}
               </p>
             )}
           </div>
 
           {total > 0 && (
             <>
-              <p className="mt-4 pb-2 text-sm text-muted">As they will be imported</p>
+              <p className="mt-4 pb-2 text-sm text-muted">{t("import.preview.heading")}</p>
               <VirtualList
-                label="Transactions in this file"
+                label={t("import.preview.label")}
                 columns={[
-                  { name: "Date", width: "8rem" },
-                  { name: "Payee", width: "minmax(0, 1fr)" },
-                  { name: "Note", width: "minmax(0, 1fr)" },
-                  { name: "Amount", width: "8rem", align: "right" },
+                  { name: t("import.preview.date"), width: "8rem" },
+                  { name: t("import.preview.payee"), width: "minmax(0, 1fr)" },
+                  { name: t("import.preview.note"), width: "minmax(0, 1fr)" },
+                  { name: t("import.preview.amount"), width: "8rem", align: "right" },
                 ]}
                 count={total}
                 isMuted={(i) => known?.has(i) ?? false}
@@ -656,7 +677,7 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
                         <span className="truncate font-medium">{row.payee ?? "–"}</span>
                         {known?.has(i) && (
                           <span className="shrink-0 rounded-full border border-line px-2 text-xs">
-                            Imported before
+                            {t("import.preview.importedBefore")}
                           </span>
                         )}
                       </div>
@@ -676,13 +697,13 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
 
           {result!.skipped.length > 0 && (
             <>
-              <p className="mt-4 pb-2 text-sm text-muted">Rows that will not be imported</p>
+              <p className="mt-4 pb-2 text-sm text-muted">{t("import.skipped.heading")}</p>
               <VirtualList
-                label="Rows that cannot be read"
+                label={t("import.skipped.label")}
                 columns={[
-                  { name: "Row", width: "5rem" },
-                  { name: "Reason", width: "14rem" },
-                  { name: "In the file", width: "minmax(0, 1fr)" },
+                  { name: t("import.skipped.row"), width: "5rem" },
+                  { name: t("import.skipped.reason"), width: "14rem" },
+                  { name: t("import.skipped.inFile"), width: "minmax(0, 1fr)" },
                 ]}
                 count={result!.skipped.length}
                 renderRow={(i) => {
@@ -693,7 +714,7 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
                         {skipped.line}
                       </div>
                       <div role="cell" className="font-medium">
-                        {skipped.reason}
+                        {t(`import.skipped.reasons.${skipped.reason}`)}
                       </div>
                       <div role="cell" className="truncate text-muted">
                         {file.rows[skipped.line - 1].join(" · ")}
@@ -715,10 +736,15 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
           className={primaryButton}
         >
           {pending
-            ? "Importing…"
+            ? t("import.action.importing")
             : total > 0 && count === 0
-              ? "Nothing new to import"
-              : `Import ${count} ${newWord}${plural(count)} into ${account.name}`}
+              ? t("import.action.nothingNew")
+              : t(anyKnown ? "import.action.importNew" : "import.action.import", {
+                  count,
+                  // Written without a thousands separator, as the button always was.
+                  amount: String(count),
+                  account: account.name,
+                })}
         </button>
         <ErrorText error={error} />
       </div>

@@ -4,12 +4,13 @@
 export const delimiters = ["\t", ";", "|", ","] as const;
 export type Delimiter = (typeof delimiters)[number];
 
-export const delimiterLabels: Record<Delimiter, string> = {
-  ",": "Comma",
-  ";": "Semicolon",
-  "\t": "Tab",
-  "|": "Pipe",
-};
+/** Names the separators go by; the words people read are in the message files. */
+export const delimiterIds = {
+  ",": "comma",
+  ";": "semicolon",
+  "\t": "tab",
+  "|": "pipe",
+} as const satisfies Record<Delimiter, string>;
 
 /** How many lines are looked at. */
 const SAMPLE_LINES = 50;

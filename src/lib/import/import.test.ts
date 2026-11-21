@@ -341,8 +341,8 @@ describe("detectMapping and applyMapping", () => {
       const result = applyMapping(rows, mapping, 2);
       expect(result.rows.map((r) => r.amount)).toEqual([-1250, 500, 300]);
       expect(result.skipped).toEqual([
-        { line: 5, reason: "No readable amount" },
-        { line: 6, reason: "No readable amount" },
+        { line: 5, reason: "noAmount" },
+        { line: 6, reason: "noAmount" },
       ]);
     });
 
@@ -378,9 +378,9 @@ describe("detectMapping and applyMapping", () => {
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0].raw).toBe("2026-11-03\tShop\t12.50");
     expect(result.skipped).toEqual([
-      { line: 3, reason: "No readable date" },
-      { line: 4, reason: "Amount is zero" },
-      { line: 5, reason: "No readable date" },
+      { line: 3, reason: "noDate" },
+      { line: 4, reason: "amountZero" },
+      { line: 5, reason: "noDate" },
     ]);
   });
 
