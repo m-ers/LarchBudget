@@ -6,6 +6,7 @@
     "budget": "Budget",
     "transactions": "Transactions",
     "accounts": "Accounts",
+    "settings": "Settings",
     "import": "Import from bank",
     "toSort_one": ", {{count}} to sort",
     "toSort_other": ", {{count}} to sort",
@@ -443,6 +444,15 @@
       "cancel": "Cancel",
       "categoryHolds": "{{name}} holds {{amount}}; moving more leaves it overspent.",
       "onlyReady": "Only {{amount}} is ready to assign; moving more assigns more than you have."
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "lead": "How LarchBudget looks and works for you.",
+    "language": {
+      "label": "Language",
+      "tip": "Automatic follows the language of your browser. Your choice is kept in this browser.",
+      "automatic": "Automatic ({{language}})"
     }
   }
 }

@@ -4,7 +4,7 @@ import { getArchivedCategories, getBudgetMonth } from "@/app/queries";
 import { BudgetView } from "@/components/budget/budget-view";
 import { HeroTitle } from "@/components/hero";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
-import { getT } from "@/i18n/server";
+import { getDateLocale, getT } from "@/i18n/server";
 import { getConfig } from "@/lib/config";
 import {
   addMonths,
@@ -44,22 +44,15 @@ export default async function BudgetPage({ searchParams }: PageProps<"/">) {
       currency={currency}
       locale={locale}
       daysLeft={daysLeftInMonth(month)}
-      monthNav={<MonthNav month={month} thisMonth={thisMonth} locale={locale} />}
+      monthNav={<MonthNav month={month} thisMonth={thisMonth} />}
     />
   );
 }
 
 /** The month's title, with links to the months around it. */
-async function MonthNav({
-  month,
-  thisMonth,
-  locale,
-}: {
-  month: Month;
-  thisMonth: Month;
-  locale: string;
-}) {
+async function MonthNav({ month, thisMonth }: { month: Month; thisMonth: Month }) {
   const t = await getT();
+  const locale = await getDateLocale();
   return (
     <div className="flex items-center gap-2.5">
       <Link

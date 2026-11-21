@@ -1,7 +1,14 @@
 import { cookies, headers } from "next/headers";
 import { cache } from "react";
 import { getConfig } from "@/lib/config";
-import { LANGUAGE_COOKIE, languages, resolveLanguage } from "./languages";
+import {
+  dateLocale,
+  isLanguage,
+  LANGUAGE_COOKIE,
+  languages,
+  resolveLanguage,
+  type Language,
+} from "./languages";
 import { PSEUDO_LANGUAGE, pseudoMessages } from "./pseudo";
 import { createTranslator, withFallback, type MessageTree } from "./translate";
 
@@ -28,3 +35,18 @@ export const getMessages = cache(async (): Promise<MessageTree> => {
 export const getT = cache(async () =>
   createTranslator(await getLanguage(), await getMessages(), getConfig().locale),
 );
+
+/** The locale for dates and month names (see `dateLocale`). */
+export const getDateLocale = cache(async () => dateLocale(await getLanguage(), getConfig().locale));
+
+/** What this browser chose in Settings: a language, or "auto" for the browser's own. */
+export async function getLanguageChoice(): Promise<string> {
+  const chosen = (await cookies()).get(LANGUAGE_COOKIE)?.value;
+  if (chosen === PSEUDO_LANGUAGE && process.env.NODE_ENV !== "production") return chosen;
+  return isLanguage(chosen) ? chosen : "auto";
+}
+
+/** The language "Automatic" gives: the first of the browser's languages that LarchBudget has. */
+export async function getBrowserLanguage(): Promise<Language> {
+  return resolveLanguage(undefined, (await headers()).get("accept-language"));
+}

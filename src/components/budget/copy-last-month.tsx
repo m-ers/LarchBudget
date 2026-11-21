@@ -1,7 +1,7 @@
 "use client";
 
 import { copyLastMonthAction } from "@/app/actions";
-import { useT } from "@/i18n/client";
+import { useDateLocale, useT } from "@/i18n/client";
 import { addMonths, monthLabelParts, type Month } from "@/lib/dates";
 import { ErrorText } from "../form";
 import { useSave } from "../use-save";
@@ -16,7 +16,8 @@ const monthName = (month: Month, locale: string) =>
  * yet, while the month before it has: one click assigns the same again.
  */
 export function CopyLastMonth() {
-  const { month, locale } = useBudget();
+  const { month } = useBudget();
+  const locale = useDateLocale();
   const { error, pending, save } = useSave();
   const t = useT();
 

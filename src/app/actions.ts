@@ -1,7 +1,8 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { refresh } from "next/cache";
+import { refresh, revalidatePath } from "next/cache";
+import { cookies, headers } from "next/headers";
 import { z } from "zod";
 import { getDb, type Db } from "@/db";
 import * as accounts from "@/db/accounts";
@@ -23,6 +24,8 @@ import { applyMapping, isMapping, serializeMapping, type Mapping } from "@/lib/i
 import { EARLIEST_BALANCE_DATE, MAX_NAME_LENGTH } from "@/lib/limits";
 import { minorUnitDigits, parseMoney } from "@/lib/money";
 import type { ActionResult, Failure } from "@/lib/result";
+import { isLanguage, LANGUAGE_COOKIE } from "@/i18n/languages";
+import { PSEUDO_LANGUAGE } from "@/i18n/pseudo";
 import { getT } from "@/i18n/server";
 import type { MessageKey, Translate } from "@/i18n/translate";
 import { isLoggedIn } from "./session";
@@ -558,4 +561,31 @@ export async function deleteTransactionAction(transactionId: number): Promise<Ac
   if (result === "no-transaction") return transactionGone(t);
   if (result === "closed") return fail(t("errors.accounts.closed"));
   return result === "starting" ? fail(t("errors.transactions.startingNotDeletable")) : done();
+}
+
+/**
+ * Remembers the language chosen in Settings in this browser, or forgets it
+ * for "auto", so the browser's own language counts again. Every page,
+ * including those Next.js loaded in advance, is drawn again in it.
+ */
+export async function setLanguageAction(choice: string): Promise<ActionResult> {
+  const t = await getT();
+  if (!(await isLoggedIn())) return loggedOut(t);
+  const pseudo = choice === PSEUDO_LANGUAGE && process.env.NODE_ENV !== "production";
+  if (choice !== "auto" && !isLanguage(choice) && !pseudo) return unexpected(t);
+
+  const store = await cookies();
+  if (choice === "auto") {
+    store.delete(LANGUAGE_COOKIE);
+  } else {
+    store.set(LANGUAGE_COOKIE, choice, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: (await headers()).get("x-forwarded-proto") === "https",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365 * 2,
+    });
+  }
+  revalidatePath("/", "layout");
+  return { ok: true };
 }
