@@ -12,6 +12,10 @@ import { ToSortBadge } from "@/components/to-sort-badge";
  * one, so a skeleton per page made every first visit feel slow. The one
  * loading boundary sits here, above the pages: it shows on a fresh page
  * load, and stays out of the way when moving between pages.
+ *
+ * Next.js checks every page on its own for this, so each page under this
+ * layout says `instant = false` too. Without it, `next dev` reports the
+ * page for "uncached data".
  */
 export const instant = false;
 

@@ -31,6 +31,9 @@ const tab = (active: boolean) =>
     active ? "bg-ok-track text-ink" : "text-muted hover:bg-hover hover:text-ink"
   }`;
 
+// Opening this page waits for the server on purpose: see `layout.tsx`.
+export const instant = false;
+
 export default async function TransactionsPage({ searchParams }: PageProps<"/transactions">) {
   const { showAll, before, filter } = readAddress(await searchParams);
 

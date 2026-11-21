@@ -8,6 +8,9 @@ import { getConfig } from "@/lib/config";
 
 export const metadata: Metadata = { title: "Import from bank" };
 
+// Opening this page waits for the server on purpose: see `layout.tsx`.
+export const instant = false;
+
 export default function ImportPage() {
   return (
     <>
