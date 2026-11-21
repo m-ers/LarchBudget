@@ -29,6 +29,13 @@
       "when": 1795279090550,
       "tag": "0003_income_next_month",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1795280004858,
+      "tag": "0004_category_icons",
+      "breakpoints": true
     }
   ]
 }

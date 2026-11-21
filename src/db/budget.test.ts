@@ -18,6 +18,7 @@ import {
   restoreCategory,
   setAssigned,
   setNextMonth,
+  setCategoryIcon,
 } from "./budget";
 import { openDb, type Db } from "./index";
 import { assignments, categories, transactions } from "./schema";
@@ -1034,5 +1035,63 @@ describe("income that counts for the next month", () => {
     ).toEqual([false, false, false]);
     restoreCategory(db, benefits);
     expect(getBudgetMonth(db, "2026-11")).toEqual(before);
+  });
+});
+
+describe("category icons", () => {
+  const icons = () => {
+    const { groups, income } = getBudgetMonth(db, "2026-10");
+    return [...groups.flatMap((g) => g.categories), ...income.categories].map((c) => [
+      c.name,
+      c.icon,
+    ]);
+  };
+
+  it("start as the envelope, and keep the icon chosen until the envelope is chosen again", () => {
+    const rent = createCategory(db, "Rent");
+    const salary = createIncomeCategory("Salary");
+    expect(icons()).toEqual([
+      ["Rent", undefined],
+      ["Salary", undefined],
+    ]);
+
+    expect(setCategoryIcon(db, rent, "house")).toBe(true);
+    expect(setCategoryIcon(db, salary, "briefcase")).toBe(true);
+    expect(icons()).toEqual([
+      ["Rent", "house"],
+      ["Salary", "briefcase"],
+    ]);
+
+    expect(setCategoryIcon(db, rent, null)).toBe(true);
+    expect(icons()).toEqual([
+      ["Rent", undefined],
+      ["Salary", "briefcase"],
+    ]);
+    expect(db.select().from(categories).where(eq(categories.id, rent)).get()?.icon).toBeNull();
+  });
+
+  it("stay with a category that is moved, renamed, archived and restored", () => {
+    const rent = createCategory(db, "Rent");
+    const home = createGroup(db, "Home");
+    setCategoryIcon(db, rent, "house");
+    moveCategoryToGroup(db, rent, home);
+    renameCategory(db, rent, "Housing");
+    archiveCategory(db, rent);
+    restoreCategory(db, rent);
+    expect(icons()).toEqual([["Housing", "house"]]);
+  });
+
+  it("are refused for an archived category or one that is not there, and then nothing changes", () => {
+    const rent = createCategory(db, "Rent");
+    archiveCategory(db, rent);
+    expect(setCategoryIcon(db, rent, "house")).toBe(false);
+    expect(setCategoryIcon(db, 999, "house")).toBe(false);
+    expect(db.select().from(categories).where(eq(categories.id, rent)).get()?.icon).toBeNull();
+  });
+
+  it("show the envelope for an icon that is not in the set, as in a hand-edited database", () => {
+    const rent = createCategory(db, "Rent");
+    db.update(categories).set({ icon: "rocket" }).where(eq(categories.id, rent)).run();
+    expect(icons()).toEqual([["Rent", undefined]]);
   });
 });

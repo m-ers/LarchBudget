@@ -9,6 +9,7 @@ import * as accounts from "@/db/accounts";
 import * as budget from "@/db/budget";
 import * as transactions from "@/db/transactions";
 import { accountTypes } from "@/lib/account-types";
+import { isCategoryIcon, type CategoryIcon } from "@/lib/category-icons";
 import { getConfig } from "@/lib/config";
 import { addMonths, isMonth, today, type IsoDate } from "@/lib/dates";
 import { delimiters, parseCsv } from "@/lib/import/csv";
@@ -204,6 +205,21 @@ export async function setNextMonthAction(categoryId: number, on: boolean): Promi
   if (!id.safeParse(categoryId).success || typeof on !== "boolean") return unexpected(t);
 
   return budget.setNextMonth(db, categoryId, on) ? done() : categoryGone(t);
+}
+
+/** Gives a category one of the icons in the set, or the envelope again with null. */
+export async function setCategoryIconAction(
+  categoryId: number,
+  icon: CategoryIcon | null,
+): Promise<ActionResult> {
+  const t = await getT();
+  const db = await database();
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(categoryId).success || (icon !== null && !isCategoryIcon(icon))) {
+    return unexpected(t);
+  }
+
+  return budget.setCategoryIcon(db, categoryId, icon) ? done() : categoryGone(t);
 }
 
 export async function archiveCategoryAction(categoryId: number): Promise<ActionResult> {
