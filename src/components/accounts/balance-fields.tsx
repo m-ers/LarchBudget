@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { useT } from "@/i18n/client";
 import type { IsoDate } from "@/lib/dates";
 import { EARLIEST_BALANCE_DATE } from "@/lib/limits";
 import { Field, field } from "../form";
@@ -23,11 +24,12 @@ export function BalanceFields({
   autoFocus?: boolean;
 }) {
   const id = useId();
+  const t = useT();
   return (
     <>
       <Field
-        label="Balance"
-        hint="For a credit card you owe money on, enter a negative amount."
+        label={t("accounts.balance.label")}
+        hint={t("accounts.balance.hint")}
         hintId={`${id}-amount`}
       >
         <input
@@ -42,8 +44,8 @@ export function BalanceFields({
         />
       </Field>
       <Field
-        label="On"
-        hint="What the account held at the end of that day. Transactions from before that day that you import later are filled in behind it; they do not change this balance."
+        label={t("accounts.balance.on")}
+        hint={t("accounts.balance.onHint")}
         hintId={`${id}-date`}
       >
         <input

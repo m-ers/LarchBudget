@@ -8,7 +8,8 @@ import {
   setAccountBalanceAction,
   setAccountTypeAction,
 } from "@/app/actions";
-import { accountTypeLabels, accountTypes, type AccountType } from "@/lib/account-types";
+import { accountTypes, type AccountType } from "@/lib/account-types";
+import { useT } from "@/i18n/client";
 import type { IsoDate } from "@/lib/dates";
 import { RowAction } from "../budget/row-action";
 import { ErrorText, primaryButton, quietButton } from "../form";
@@ -30,30 +31,26 @@ type Props = {
   transactionCount: number;
   amountPlaceholder: string;
   today: IsoDate;
-  locale: string;
 };
-
-/** What deleting an account does, asked before it happens. */
-function deleteQuestion(name: string, transactionCount: number, locale: string): string {
-  if (transactionCount === 0) return `Delete "${name}"?`;
-  const transactions =
-    transactionCount === 1
-      ? "1 transaction"
-      : `${transactionCount.toLocaleString(locale)} transactions`;
-  return `Delete "${name}" and its ${transactions}? What was spent from it disappears from your categories. This cannot be undone.`;
-}
 
 /**
  * One account in the table: rename it by clicking its name, pick its type,
  * and on hover close or delete it, or edit its balance in a row below.
  */
 export function AccountRow(props: Props) {
-  const { id, name, type, balance, transactionCount, locale } = props;
+  const { id, name, type, balance, transactionCount } = props;
   const [editing, setEditing] = useState(false);
   const { error, pending, save } = useSave();
+  const t = useT();
+
+  /** What deleting an account does, asked before it happens. */
+  function deleteQuestion(): string {
+    if (transactionCount === 0) return t("accounts.row.deleteEmpty", { name });
+    return t("accounts.row.deleteWithTransactions", { name, count: transactionCount });
+  }
 
   function remove() {
-    if (window.confirm(deleteQuestion(name, transactionCount, locale))) {
+    if (window.confirm(deleteQuestion())) {
       save(() => deleteAccountAction(id));
     }
   }
@@ -65,21 +62,21 @@ export function AccountRow(props: Props) {
           <div className={`flex min-w-0 items-center gap-1 ${pending ? "opacity-60" : ""}`}>
             <InlineName
               value={name}
-              label="Account name"
+              label={t("accounts.row.nameLabel")}
               onSave={(text) => renameAccountAction(id, text)}
               className="text-[15.5px] font-medium"
             />
             <RowAction
-              label={`Close ${name}`}
-              title="Close account"
+              label={t("accounts.row.closeLabel", { name })}
+              title={t("accounts.row.closeTitle")}
               onClick={() => save(() => closeAccountAction(id))}
               revealOn="row"
             >
               <ArchiveIcon width={15} height={15} />
             </RowAction>
             <RowAction
-              label={`Delete ${name}`}
-              title="Delete account"
+              label={t("accounts.row.deleteLabel", { name })}
+              title={t("accounts.row.deleteTitle")}
               onClick={remove}
               revealOn="row"
             >
@@ -95,12 +92,12 @@ export function AccountRow(props: Props) {
           <div className="flex items-center justify-end gap-2">
             {!editing && (
               <RowAction
-                label={`Edit balance of ${name}`}
-                title="Edit balance"
+                label={t("accounts.row.editBalanceLabel", { name })}
+                title={t("accounts.row.editBalanceTitle")}
                 onClick={() => setEditing(true)}
                 revealOn="row"
               >
-                <span className="text-[13px] font-medium">Edit balance</span>
+                <span className="text-[13px] font-medium">{t("accounts.row.editBalance")}</span>
               </RowAction>
             )}
             <span className="font-semibold tabular-nums">{balance}</span>
@@ -117,6 +114,7 @@ function TypePicker({ id, name, type }: { id: number; name: string; type: Accoun
   // The type picked while it is being saved.
   const [draft, setDraft] = useState<AccountType | null>(null);
   const { error, pending, save } = useSave();
+  const t = useT();
 
   function pick(next: AccountType) {
     setDraft(next);
@@ -130,7 +128,7 @@ function TypePicker({ id, name, type }: { id: number; name: string; type: Accoun
   return (
     <span className="flex flex-col items-start">
       <select
-        aria-label={`Type of ${name}`}
+        aria-label={t("accounts.row.typeLabel", { name })}
         aria-invalid={error ? true : undefined}
         value={draft ?? type}
         onChange={(e) => pick(e.target.value as AccountType)}
@@ -140,7 +138,7 @@ function TypePicker({ id, name, type }: { id: number; name: string; type: Accoun
       >
         {accountTypes.map((option) => (
           <option key={option} value={option}>
-            {accountTypeLabels[option]}
+            {t(`accounts.types.${option}`)}
           </option>
         ))}
       </select>
@@ -160,6 +158,7 @@ function BalanceEditor({
   onClose,
 }: Props & { onClose: () => void }) {
   const { error, pending, save } = useSave();
+  const t = useT();
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -175,7 +174,7 @@ function BalanceEditor({
           onKeyDown={(e) => {
             if (e.key === "Escape") onClose();
           }}
-          aria-label={`Balance of ${name}`}
+          aria-label={t("accounts.row.balanceFormLabel", { name })}
           className="flex items-start gap-5 rounded-xl bg-hover p-4"
         >
           <div className="grid flex-1 grid-cols-2 gap-5">
@@ -193,10 +192,10 @@ function BalanceEditor({
               disabled={pending}
               className={`${primaryButton} px-3.5 py-2 disabled:opacity-60`}
             >
-              {pending ? "Saving…" : "Save"}
+              {pending ? t("accounts.row.saving") : t("accounts.row.save")}
             </button>
             <button type="button" onClick={onClose} className={`${quietButton} bg-surface`}>
-              Cancel
+              {t("accounts.row.cancel")}
             </button>
           </div>
         </form>

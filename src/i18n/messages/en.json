@@ -91,5 +91,103 @@
       "label": "Delete {{what}}",
       "title": "Delete"
     }
+  },
+  "accounts": {
+    "title": "Accounts",
+    "lead": "Where your money is. Transactions come in through bank imports.",
+    "total": "In all accounts",
+    "empty": "No accounts yet. Add the accounts your money is in, with what is in them today.",
+    "allClosed": "All your accounts are closed.",
+    "table": {
+      "account": "Account",
+      "type": "Type",
+      "balance": "Balance"
+    },
+    "types": {
+      "checking": "Checking",
+      "savings": "Savings",
+      "cash": "Cash",
+      "credit": "Credit card"
+    },
+    "add": {
+      "title": "Add an account",
+      "name": "Name",
+      "namePlaceholder": "e.g. Main account",
+      "type": "Type",
+      "submit": "Add account",
+      "submitting": "Adding…"
+    },
+    "balance": {
+      "label": "Balance",
+      "hint": "For a credit card you owe money on, enter a negative amount.",
+      "on": "On",
+      "onHint": "What the account held at the end of that day. Transactions from before that day that you import later are filled in behind it; they do not change this balance."
+    },
+    "row": {
+      "nameLabel": "Account name",
+      "closeLabel": "Close {{name}}",
+      "closeTitle": "Close account",
+      "deleteLabel": "Delete {{name}}",
+      "deleteTitle": "Delete account",
+      "editBalanceLabel": "Edit balance of {{name}}",
+      "editBalanceTitle": "Edit balance",
+      "editBalance": "Edit balance",
+      "typeLabel": "Type of {{name}}",
+      "balanceFormLabel": "Balance of {{name}}",
+      "save": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "deleteEmpty": "Delete \"{{name}}\"?",
+      "deleteWithTransactions_one": "Delete \"{{name}}\" and its {{count}} transaction? What was spent from it disappears from your categories. This cannot be undone.",
+      "deleteWithTransactions_other": "Delete \"{{name}}\" and its {{count}} transactions? What was spent from it disappears from your categories. This cannot be undone."
+    },
+    "closed": {
+      "title": "Closed accounts:",
+      "reopen": "Reopen",
+      "reopenLabel": "Reopen {{name}}"
+    }
+  },
+  "errors": {
+    "loggedOut": "Your session has ended. Reload the page to log in again.",
+    "unexpected": "Something went wrong. Reload the page and try again.",
+    "name": {
+      "required": "Give it a name.",
+      "tooLong": "Keep the name under {{max}} characters."
+    },
+    "budget": {
+      "categoryGone": "That category no longer exists.",
+      "groupGone": "That group no longer exists.",
+      "categoryNameTaken": "You already have a category called \"{{name}}\".",
+      "groupNameTaken": "You already have a group called \"{{name}}\".",
+      "notAnAmount": "That is not an amount.",
+      "amountNotPositive": "Enter an amount above zero.",
+      "amountsChanged": "These amounts changed in the meantime. Check them and try again.",
+      "restoreNameTaken": "Another category already has this name. Rename that one first.",
+      "restoreNoGroup": "There is no group to put it back in. Add a group first."
+    },
+    "accounts": {
+      "gone": "That account no longer exists.",
+      "closed": "Its account is closed. Reopen the account on the Accounts page first, then try again.",
+      "nameTaken": "You already have an account called \"{{name}}\".",
+      "notADate": "That is not a date.",
+      "futureDate": "The date cannot be in the future.",
+      "checkYear": "Check the year of the date.",
+      "balanceNotAnAmount": "The balance is not an amount.",
+      "notEmpty": "Only an account that holds nothing can be closed.",
+      "reopenNameTaken": "You already have an account with this name. Rename that one first."
+    },
+    "import": {
+      "cannotImport": "This file could not be imported.",
+      "noTransactions": "No transactions could be read from this file.",
+      "amountTooLarge": "This file holds an amount that is too large to be real.",
+      "cannotCheck": "This file could not be checked.",
+      "undoSorted_one": "One of these transactions has been sorted since, so this import can no longer be undone.",
+      "undoSorted_other": "{{count}} of these transactions have been sorted since, so this import can no longer be undone."
+    },
+    "transactions": {
+      "gone": "That transaction no longer exists. Reload the page.",
+      "startingNotSortable": "A starting balance does not go into a category.",
+      "startingNotDeletable": "A starting balance cannot be deleted."
+    }
   }
 }
