@@ -1,0 +1,32 @@
+name: Bug
+description: Something does not work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Leave out anything private: blur amounts and names in a screenshot, and do not attach your own bank file or database.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you see, and what did you expect to see? A screenshot helps.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The release you run, or the day you last updated.
+  - type: dropdown
+    id: how
+    attributes:
+      label: How do you run LarchBudget?
+      options:
+        - With Docker
+        - Without Docker
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      placeholder: Safari on a Mac

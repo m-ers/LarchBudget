@@ -1,0 +1,20 @@
+name: Idea
+description: Something LarchBudget could do, or do better.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        LarchBudget stays small on purpose. [What fits](https://github.com/m-ers/LarchBudget/blob/main/CONTRIBUTING.md#scope) lists what it deliberately leaves out.
+  - type: textarea
+    id: what
+    attributes:
+      label: What would you like to be able to do?
+      description: Describe the situation you are in, not only the solution.
+    validations:
+      required: true
+  - type: textarea
+    id: how
+    attributes:
+      label: How could it work?
+      description: Only if you already have something in mind.
