@@ -171,7 +171,7 @@ export function NewCategoryRow({
 }
 
 /**
- * Categories without a group. The app never makes these; the section
+ * Expense categories without a group. The app never makes these; the section
  * covers a hand-edited database, so it has no actions of its own.
  */
 export function UngroupedBody({ group }: { group: GroupRow }) {

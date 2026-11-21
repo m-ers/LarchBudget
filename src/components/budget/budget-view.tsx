@@ -164,7 +164,7 @@ export function BudgetView({
                 key={group.id}
                 group={group}
                 first={i === 0}
-                // Categories without a group come after every group.
+                // Expense categories without a group come after every group.
                 last={i === groupCount - 1}
               />
             ) : (

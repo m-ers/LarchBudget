@@ -407,7 +407,7 @@ export function deleteTransaction(
 const INCOME = "Income";
 
 export type CategoryOptionGroup = {
-  /** The group's id; "income" for the income categories, null for categories without a group. */
+  /** The group's id; "income" for the income categories, null for expense categories without a group. */
   id: number | "income" | null;
   name: string;
   categories: { id: number; name: string }[];
