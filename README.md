@@ -12,7 +12,6 @@
   <a href="#get-started">Get started</a> ·
   <a href="docs/using.md">How it works</a> ·
   <a href="docs/installing.md">Installing</a> ·
-  <a href="#roadmap">Roadmap</a> ·
   <a href="CONTRIBUTING.md">Contributing</a>
 </p>
 
@@ -60,19 +59,17 @@ money left.
 
 ## Get started
 
-You need [Docker](https://docs.docker.com/get-started/get-docker/) and
-[Git](https://git-scm.com).
+You need [Docker](https://docs.docker.com/get-started/get-docker/). In a new
+folder, download the file that tells Docker how to run LarchBudget:
 
 ```bash
-git clone https://github.com/m-ers/LarchBudget.git
+curl -O https://raw.githubusercontent.com/m-ers/LarchBudget/main/docker-compose.yml
 ```
 
-```bash
-cd LarchBudget
-```
+Then start it:
 
 ```bash
-docker compose up -d --build
+docker compose up -d
 ```
 
 Open http://localhost:3000 and add your first account.
@@ -83,26 +80,6 @@ settings, backing up, updating and running without Docker.
 
 To look around first, with demo data and without Docker, see
 [Development](docs/development.md#run-it-locally).
-
-## Roadmap
-
-**0.1.0** is the first release: accounts, a budget with groups and
-categories, income categories, importing from your bank, sorting
-transactions, and moving money between categories.
-
-Next, in this order:
-
-1. [More languages, starting with Dutch](https://github.com/m-ers/LarchBudget/issues/32)
-2. [Income that counts for the next month](https://github.com/m-ers/LarchBudget/issues/33)
-3. [Adding, editing and splitting transactions](https://github.com/m-ers/LarchBudget/issues/34)
-4. [Rules that sort transactions for you](https://github.com/m-ers/LarchBudget/issues/28)
-5. [Reports: where the money went over time](https://github.com/m-ers/LarchBudget/issues/35)
-6. [A target for a category](https://github.com/m-ers/LarchBudget/issues/36)
-7. [Backing up, restoring and exporting from the app](https://github.com/m-ers/LarchBudget/issues/37)
-
-Later: a [desktop app](https://github.com/m-ers/LarchBudget/issues/30),
-bringing in transactions from your bank automatically, a layout for phones,
-dark mode and undo.
 
 ## Documentation
 
@@ -115,6 +92,8 @@ dark mode and undo.
 - [Contributing](CONTRIBUTING.md): what fits in LarchBudget and how changes
   get in.
 - [Security](SECURITY.md): how to report a security problem.
+- [Issues](https://github.com/m-ers/LarchBudget/issues): bugs, ideas and what
+  is planned.
 
 ## License
 

@@ -1,0 +1,81 @@
+name: Release
+
+# Publishing a release on GitHub creates its version tag, such as v0.1.0.
+# That builds the Docker image for Intel/AMD and ARM computers and publishes
+# it as ghcr.io/m-ers/larchbudget, tagged 0.1.0, 0.1 and latest. Then it
+# starts the published image the way the README says, to check that it works.
+#
+# A pull request that changes this file builds the image, without publishing.
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths: [.github/workflows/release.yml]
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      # Builds for ARM on this Intel machine.
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/m-ers/larchbudget
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+      - if: github.event_name == 'push'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name == 'push' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  # Starts the published image from docker-compose.yml alone, as the README
+  # tells people to, and checks that it serves the budget.
+  try:
+    needs: image
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v7
+      # Until the package is made public, pulling it needs a login.
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Start it from docker-compose.yml alone
+        run: |
+          mkdir try
+          cp docker-compose.yml try/
+          cd try
+          docker compose up -d
+      - name: The budget page is served
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3000/ > page.html && break
+            sleep 1
+          done
+          grep -q "Ready to assign" page.html
+      - name: Server log
+        if: always()
+        working-directory: try
+        run: docker compose logs

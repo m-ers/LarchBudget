@@ -42,9 +42,14 @@ jobs:
           path: playwright-report/
           retention-days: 14
 
-  # Builds the Docker image and checks that it serves the budget from its volume.
+  # Builds the Docker image and checks that it serves the budget from its
+  # volume, on an Intel/AMD and on an ARM machine: the published image is
+  # made for both.
   docker:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
       - run: docker build -t larchbudget .
