@@ -26,5 +26,70 @@
   "common": {
     "rename": "Rename",
     "unreachable": "Could not reach LarchBudget. Check your connection and try again."
+  },
+  "transactions": {
+    "page": {
+      "title": "Transactions",
+      "lead": "Everything imported from your bank. Sort each one into a category.",
+      "allSorted": "Everything is sorted",
+      "toSort": "To sort",
+      "tabToSort": "To sort",
+      "tabAll": "All",
+      "startingBalance": "Starting balance",
+      "noName": "No name",
+      "emptyNone": "No transactions yet. They come in through a file you download from your bank.",
+      "emptyImport": "Import from bank",
+      "emptyNoMatch": "No transactions match.",
+      "emptySorted": "Everything is sorted. New transactions appear here after your next import.",
+      "headingDate": "Date",
+      "headingPayee": "Payee",
+      "headingAccount": "Account",
+      "headingCategory": "Category",
+      "headingAmount": "Amount",
+      "headingActions": "Actions",
+      "describedAs": "{{payee}} on {{date}}",
+      "describedAsNoPayee": "transaction on {{date}}",
+      "deleteQuestion": "Delete {{payee}} of {{amount}} on {{date}}? A later import of the same bank file will not bring it back.",
+      "deleteQuestionNoPayee": "Delete this transaction of {{amount}} on {{date}}? A later import of the same bank file will not bring it back.",
+      "showing": "Showing {{shown}} of {{total}}.",
+      "newest": "Newest",
+      "older": "Older"
+    },
+    "summary": {
+      "all_one": "<n>{{count}}</n> transaction. Money in <b>{{in}}</b>, money out <b>{{out}}</b>.",
+      "all_other": "<n>{{count}}</n> transactions. Money in <b>{{in}}</b>, money out <b>{{out}}</b>.",
+      "narrowed_one": "<n>{{count}}</n> transaction matches. Money in <b>{{in}}</b>, money out <b>{{out}}</b>.",
+      "narrowed_other": "<n>{{count}}</n> transactions match. Money in <b>{{in}}</b>, money out <b>{{out}}</b>."
+    },
+    "filters": {
+      "search": "Search payee or note",
+      "account": "Account",
+      "allAccounts": "All accounts",
+      "accountClosed": "{{name}} (closed)",
+      "category": "Category",
+      "allCategories": "All categories",
+      "noCategory": "No category",
+      "categoryIncome": "{{name}} (income)",
+      "categoryArchived": "{{name}} (archived)",
+      "categoryIncomeArchived": "{{name}} (income) (archived)",
+      "month": "Month",
+      "allMonths": "All months",
+      "clear": "Clear"
+    },
+    "picker": {
+      "label": "Category for {{what}}, {{amount}}",
+      "noCategory": "No category",
+      "noCategoryTransfer": "No category (transfer)",
+      "noCategoryIncomeOrTransfer": "No category (income or transfer)",
+      "choose": "Choose a category…",
+      "archived": "{{name}} (archived)",
+      "suggestedTitle": "Suggested: you chose {{name}} for this payee last time. Not sorted yet.",
+      "acceptLabel": "Sort {{what}} into {{name}}, as last time",
+      "acceptTitle": "Sort into {{name}}, as last time"
+    },
+    "delete": {
+      "label": "Delete {{what}}",
+      "title": "Delete"
+    }
   }
 }

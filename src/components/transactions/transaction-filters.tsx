@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useT } from "@/i18n/client";
 import type { Month } from "@/lib/dates";
 import {
   MAX_SEARCH_LENGTH,
@@ -26,6 +27,7 @@ const SEARCH_DELAY = 400;
  * a moment after typing stops.
  */
 export function TransactionFilters({ filter, accounts, categories, months }: Props) {
+  const t = useT();
   const router = useRouter();
   // What the controls show. A search is kept as typed, spaces and all.
   const [fields, setFields] = useState<TransactionFilter>(filter);
@@ -71,8 +73,8 @@ export function TransactionFilters({ filter, accounts, categories, months }: Pro
     >
       <input
         type="search"
-        aria-label="Search payee or note"
-        placeholder="Search payee or note"
+        aria-label={t("transactions.filters.search")}
+        placeholder={t("transactions.filters.search")}
         value={fields.q ?? ""}
         maxLength={MAX_SEARCH_LENGTH}
         onChange={(e) => {
@@ -84,21 +86,22 @@ export function TransactionFilters({ filter, accounts, categories, months }: Pro
         className={`${choice} w-60`}
       />
       <select
-        aria-label="Account"
+        aria-label={t("transactions.filters.account")}
         value={fields.accountId ?? ""}
         onChange={(e) => show({ ...fields, accountId: Number(e.target.value) || undefined })}
         className={`${choice} w-44`}
       >
-        <option value="">All accounts</option>
+        <option value="">{t("transactions.filters.allAccounts")}</option>
         {accounts.map((account) => (
           <option key={account.id} value={account.id}>
-            {account.name}
-            {account.closed ? " (closed)" : ""}
+            {account.closed
+              ? t("transactions.filters.accountClosed", { name: account.name })
+              : account.name}
           </option>
         ))}
       </select>
       <select
-        aria-label="Category"
+        aria-label={t("transactions.filters.category")}
         value={fields.category ?? ""}
         onChange={(e) => {
           const value = e.target.value;
@@ -109,26 +112,30 @@ export function TransactionFilters({ filter, accounts, categories, months }: Pro
         }}
         className={`${choice} w-52`}
       >
-        <option value="">All categories</option>
-        <option value="none">No category</option>
+        <option value="">{t("transactions.filters.allCategories")}</option>
+        <option value="none">{t("transactions.filters.noCategory")}</option>
         {categories.map((category) => (
           <option key={category.id} value={category.id}>
-            {category.name}
-            {category.income ? " (income)" : ""}
-            {category.archived ? " (archived)" : ""}
+            {category.income && category.archived
+              ? t("transactions.filters.categoryIncomeArchived", { name: category.name })
+              : category.income
+                ? t("transactions.filters.categoryIncome", { name: category.name })
+                : category.archived
+                  ? t("transactions.filters.categoryArchived", { name: category.name })
+                  : category.name}
           </option>
         ))}
       </select>
       {/* A list rather than a month field: Safari on the Mac has no month picker. */}
       <select
-        aria-label="Month"
+        aria-label={t("transactions.filters.month")}
         value={fields.month ?? ""}
         onChange={(e) =>
           show({ ...fields, month: (e.target.value || undefined) as Month | undefined })
         }
         className={`${choice} w-44`}
       >
-        <option value="">All months</option>
+        <option value="">{t("transactions.filters.allMonths")}</option>
         {months.map(({ month, label }) => (
           <option key={month} value={month}>
             {label}
@@ -137,7 +144,7 @@ export function TransactionFilters({ filter, accounts, categories, months }: Pro
       </select>
       {filtered && (
         <button type="button" onClick={() => show({})} className={`${quietButton} text-[14.5px]`}>
-          Clear
+          {t("transactions.filters.clear")}
         </button>
       )}
     </form>

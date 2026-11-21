@@ -2,6 +2,7 @@
 
 import { useContext, useRef, useState } from "react";
 import { sortTransactionAction } from "@/app/actions";
+import { useT } from "@/i18n/client";
 import type { SortTarget, Suggestion } from "@/db/transactions";
 import { ErrorText } from "../form";
 import { CheckIcon } from "../icons";
@@ -56,6 +57,7 @@ export function CategorySelect({
   toSort,
   suggestion,
 }: Props) {
+  const t = useT();
   const groups = useContext(CategoryChoices);
   const cell = useRef<HTMLSpanElement>(null);
   const browsingByKeyboard = useRef(false);
@@ -74,7 +76,7 @@ export function CategorySelect({
       ? NO_CATEGORY
       : String(suggested.categoryId)
     : null;
-  const suggestedName = suggested?.category ?? "No category";
+  const suggestedName = suggested?.category ?? t("transactions.picker.noCategory");
   const shown = draft ?? (suggested ? SUGGESTED : saved);
 
   function focusNextRow() {
@@ -120,7 +122,9 @@ export function CategorySelect({
   const shownIsCategory = shown !== UNSORTED && shown !== NO_CATEGORY && shown !== SUGGESTED;
   // Once there are income categories, "No category" is mostly for transfers between own accounts.
   const hasIncome = groups.some((group) => group.id === "income");
-  const noCategory = hasIncome ? "No category (transfer)" : "No category (income or transfer)";
+  const noCategory = hasIncome
+    ? t("transactions.picker.noCategoryTransfer")
+    : t("transactions.picker.noCategoryIncomeOrTransfer");
   const archivedIsCurrent = categoryArchived && categoryId !== null;
 
   return (
@@ -128,12 +132,10 @@ export function CategorySelect({
       <span className="flex items-center gap-1.5">
         <select
           data-sort-control
-          aria-label={`Category for ${describedAs}, ${amount}`}
+          aria-label={t("transactions.picker.label", { what: describedAs, amount })}
           aria-invalid={error ? true : undefined}
           title={
-            suggested
-              ? `Suggested: you chose ${suggestedName} for this payee last time. Not sorted yet.`
-              : undefined
+            suggested ? t("transactions.picker.suggestedTitle", { name: suggestedName }) : undefined
           }
           value={shown}
           onFocus={() => setListDrawn(true)}
@@ -176,9 +178,13 @@ export function CategorySelect({
               {suggested.categoryId === null ? noCategory : suggested.category}
             </option>
           )}
-          <option value={UNSORTED}>Choose a category…</option>
+          <option value={UNSORTED}>{t("transactions.picker.choose")}</option>
           <option value={NO_CATEGORY}>{noCategory}</option>
-          {archivedIsCurrent && <option value={categoryId}>{categoryName} (archived)</option>}
+          {archivedIsCurrent && (
+            <option value={categoryId}>
+              {t("transactions.picker.archived", { name: categoryName ?? "" })}
+            </option>
+          )}
           {listDrawn
             ? groups.map((group) => (
                 <optgroup key={String(group.id)} label={group.name}>
@@ -197,8 +203,11 @@ export function CategorySelect({
         {suggested && (
           <button
             type="button"
-            aria-label={`Sort ${describedAs} into ${suggestedName}, as last time`}
-            title={`Sort into ${suggestedName}, as last time`}
+            aria-label={t("transactions.picker.acceptLabel", {
+              what: describedAs,
+              name: suggestedName,
+            })}
+            title={t("transactions.picker.acceptTitle", { name: suggestedName })}
             onClick={() => save(SUGGESTED, true)}
             className="grid size-[34px] shrink-0 place-items-center rounded-[9px] border border-brand/50 text-brand transition-colors hover:bg-ok-track focus-visible:border-brand focus-visible:outline-none"
           >
