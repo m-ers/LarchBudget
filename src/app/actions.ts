@@ -157,16 +157,19 @@ export async function removeTargetAction(categoryId: number): Promise<ActionResu
 /**
  * Adds what each target still needs in a month to its category's Assigned
  * amount. The needs are worked out again here, never taken from the page,
- * so a second click adds nothing.
+ * so a second click adds nothing. `thisMonth` is the current month the page
+ * worked its needs out for; when the month has changed since, the page
+ * showed needs that may no longer hold, and nothing is assigned.
  */
-export async function assignTargetsAction(month: string): Promise<ActionResult> {
+export async function assignTargetsAction(month: string, thisMonth: string): Promise<ActionResult> {
   const t = await getT();
   const db = await database();
   if (!db) return loggedOut(t);
-  if (!isMonth(month)) return unexpected(t);
+  if (!isMonth(month) || !isMonth(thisMonth)) return unexpected(t);
 
-  budget.assignTargets(db, month);
-  return done();
+  return budget.assignTargets(db, month, thisMonth) === "month-changed"
+    ? fail(t("errors.budget.monthChanged"))
+    : done();
 }
 
 const seenAmounts = z.object({

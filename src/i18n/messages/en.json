@@ -163,6 +163,7 @@
       "notAnAmount": "That is not an amount.",
       "amountNotPositive": "Enter an amount above zero.",
       "amountsChanged": "These amounts changed in the meantime. Check them and try again.",
+      "monthChanged": "The month has changed. Reload the page and try again.",
       "restoreNameTaken": "Another category already has this name. Rename that one first.",
       "restoreNoGroup": "There is no group to put it back in. Add a group first."
     },

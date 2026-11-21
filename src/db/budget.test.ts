@@ -1633,11 +1633,14 @@ describe("targets", () => {
     const assignedIn = (m: Month) =>
       month(m).groups.flatMap((g) => g.categories.map((c) => [c.name, c.assigned]));
 
+    /** Assigns the targets of a month from a page drawn in November, while it is November. */
+    const assignAll = (m: Month) => assignTargets(db, m, NOW, NOW);
+
     it("adds each category's need to what it has assigned, and nothing else", () => {
       const before = month(NOW).readyToAssign;
       expect(month(NOW).needed).toBe(80_000 + 33_500 + 15_000);
 
-      expect(assignTargets(db, NOW, NOW)).toBe(3);
+      expect(assignAll(NOW)).toBe(3);
       expect(assignedIn(NOW)).toEqual([
         ["Rent", 110_000],
         ["Groceries", 33_500],
@@ -1653,26 +1656,26 @@ describe("targets", () => {
     });
 
     it("adds nothing a second time", () => {
-      assignTargets(db, NOW, NOW);
+      assignAll(NOW);
       const after = month(NOW);
-      expect(assignTargets(db, NOW, NOW)).toBe(0);
+      expect(assignAll(NOW)).toBe(0);
       expect(month(NOW)).toEqual(after);
     });
 
     it("assigns everything even when there is not enough money, and Ready to assign goes below zero", () => {
       setTarget(db, holiday, monthly(200_000));
-      assignTargets(db, NOW, NOW);
+      assignAll(NOW);
       expect(month(NOW).readyToAssign).toBe(100_000 - 6_500 - 110_000 - 33_500 - 200_000 - 11_000);
       expect(month(NOW).needed).toBe(0);
       expectEverythingAccountedFor();
     });
 
     it("fills a later month too, but not a month that is over", () => {
-      expect(assignTargets(db, "2026-10", NOW)).toBe(0);
+      expect(assignAll("2026-10")).toBe(0);
       expect(assignedIn("2026-10").map(([, a]) => a)).toEqual([0, 6_500, 0, 0, 0]);
 
       // Eating out keeps November's €110 into December, which tops it up already.
-      expect(assignTargets(db, "2026-12", NOW)).toBe(3);
+      expect(assignAll("2026-12")).toBe(3);
       expect(assignedIn("2026-12")).toEqual([
         ["Rent", 110_000],
         ["Groceries", 33_500],
@@ -1691,7 +1694,7 @@ describe("targets", () => {
         .set({ targetKind: "monthly", targetAmount: 4_000 })
         .where(eq(categories.id, salary))
         .run();
-      expect(assignTargets(db, NOW, NOW)).toBe(2);
+      expect(assignAll(NOW)).toBe(2);
       const given = db
         .select()
         .from(assignments)
@@ -1700,6 +1703,17 @@ describe("targets", () => {
         .map((a) => a.categoryId);
       expect(given).not.toContain(holiday);
       expect(given).not.toContain(salary);
+    });
+
+    it("assigns nothing when the month has changed since the page worked out the needs", () => {
+      // The page was drawn in November, but on the server it is December now.
+      const before = assignedIn(NOW);
+      expect(assignTargets(db, NOW, NOW, "2026-12")).toBe("month-changed");
+      expect(assignTargets(db, "2026-12", NOW, "2026-12")).toBe("month-changed");
+      expect(assignedIn(NOW)).toEqual(before);
+      expect(assignedIn("2026-12").map(([, a]) => a)).toEqual([0, 0, 0, 0, 0]);
+      // Drawn again in December, the page's needs hold.
+      expect(assignTargets(db, "2026-12", "2026-12", "2026-12")).toBe(3);
     });
 
     it("assigns all or nothing, in one transaction", () => {
@@ -1712,7 +1726,7 @@ describe("targets", () => {
         `),
       );
       const before = assignedIn(NOW);
-      expect(() => assignTargets(db, NOW, NOW)).toThrow();
+      expect(() => assignAll(NOW)).toThrow();
       expect(assignedIn(NOW)).toEqual(before);
     });
   });

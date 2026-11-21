@@ -377,8 +377,19 @@ export function copyAssignments(db: Db, from: Month, to: Month): number {
  * shows them. Once a target has what it needs it needs nothing more, so
  * doing this twice adds nothing the second time. Money that is not there
  * is assigned anyway: Ready to assign then goes below zero and says so.
+ *
+ * `seenThisMonth` is the current month the needs on the page were worked
+ * out for. A page left open across the start of a month shows needs that
+ * may no longer hold: then the answer is "month-changed", and nothing is
+ * assigned.
  */
-export function assignTargets(db: Db, month: Month, thisMonth: Month = currentMonth()): number {
+export function assignTargets(
+  db: Db,
+  month: Month,
+  seenThisMonth: Month,
+  thisMonth: Month = currentMonth(),
+): number | "month-changed" {
+  if (seenThisMonth !== thisMonth) return "month-changed";
   return db.transaction((tx) => {
     const needy = getBudgetMonth(tx, month, thisMonth)
       .groups.flatMap((g) => g.categories)

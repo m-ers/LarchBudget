@@ -30,7 +30,10 @@ export function AssignTargets({ state }: { state: ReturnType<typeof useSave> }) 
         disabled={state.pending}
         onClick={() =>
           state.save(
-            () => assignTargetsAction(month),
+            // With the current month the needs on the page were worked out
+            // for: when that has changed, nothing is assigned, and the line
+            // comes back with the reason.
+            () => assignTargetsAction(month, figures.thisMonth),
             undefined,
             undefined,
             () => {

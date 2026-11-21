@@ -163,6 +163,7 @@
       "notAnAmount": "Dat is geen bedrag.",
       "amountNotPositive": "Vul een bedrag groter dan nul in.",
       "amountsChanged": "Deze bedragen zijn intussen gewijzigd. Controleer ze en probeer het opnieuw.",
+      "monthChanged": "De maand is veranderd. Laad de pagina opnieuw en probeer het nog eens.",
       "restoreNameTaken": "Een andere categorie heeft al deze naam. Hernoem die eerst.",
       "restoreNoGroup": "Er is geen groep om de categorie in terug te zetten. Voeg eerst een groep toe."
     },
