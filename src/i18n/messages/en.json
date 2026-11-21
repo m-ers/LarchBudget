@@ -252,7 +252,7 @@
       "count_other": "<b>{{count}} transactions</b> · {{from}} to {{to}} · {{moneyIn}} in · {{moneyOut}} out",
       "newCount_one": "<b>{{count}} new transaction</b> · {{from}} to {{to}} · {{moneyIn}} in · {{moneyOut}} out",
       "newCount_other": "<b>{{count}} new transactions</b> · {{from}} to {{to}} · {{moneyIn}} in · {{moneyOut}} out",
-      "allImported_one": "<b>Nothing new to import.</b> All {{count}} transaction in this file were imported before.",
+      "allImported_one": "<b>Nothing new to import.</b> The transaction in this file was imported before.",
       "allImported_other": "<b>Nothing new to import.</b> All {{count}} transactions in this file were imported before.",
       "unreadable": "No transactions could be read with these columns.",
       "importedBefore_one": "{{count}} was imported before and will be skipped.",

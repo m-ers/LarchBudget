@@ -17,8 +17,15 @@ function flatten(tree: MessageTree, prefix = ""): Map<string, string> {
   return out;
 }
 
+/**
+ * The placeholders of a text, without `count`: a language may leave it out
+ * of a plural form, as English does in "The transaction in this file…".
+ */
 const placeholders = (text: string) =>
-  [...text.matchAll(/\{\{\s*(\w+)\s*\}\}/g)].map((m) => m[1]).sort();
+  [...text.matchAll(/\{\{\s*(\w+)\s*\}\}/g)]
+    .map((m) => m[1])
+    .filter((name) => name !== "count")
+    .sort();
 const tags = (text: string) => [...text.matchAll(/<\/?(\w+)>/g)].map((m) => m[0]).sort();
 const base = (key: string) => key.replace(PLURAL, "");
 

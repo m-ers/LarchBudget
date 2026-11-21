@@ -1,1 +1,458 @@
-{}
+{
+  "app": {
+    "description": "Een eenvoudige budgetapp voor één persoon, die je zelf host."
+  },
+  "nav": {
+    "budget": "Budget",
+    "transactions": "Transacties",
+    "accounts": "Rekeningen",
+    "settings": "Instellingen",
+    "import": "Importeren",
+    "toSort_one": ", {{count}} in te delen",
+    "toSort_other": ", {{count}} in te delen",
+    "logOut": "Uitloggen"
+  },
+  "login": {
+    "title": "Inloggen",
+    "password": "Wachtwoord",
+    "submit": "Inloggen",
+    "submitting": "Inloggen…",
+    "wrongPassword": "Onjuist wachtwoord."
+  },
+  "pageError": {
+    "title": "Deze pagina kon niet worden geladen.",
+    "text": "Er is niets gewijzigd. Als LarchBudget opnieuw opstartte of de verbinding wegviel, lukt het meestal bij een nieuwe poging.",
+    "retry": "Opnieuw proberen"
+  },
+  "common": {
+    "rename": "Hernoemen",
+    "unreachable": "LarchBudget is niet bereikbaar. Controleer je verbinding en probeer het opnieuw."
+  },
+  "transactions": {
+    "page": {
+      "title": "Transacties",
+      "lead": "Alles wat je van je bank hebt geïmporteerd. Deel elke transactie in bij een categorie.",
+      "allSorted": "Alles is ingedeeld",
+      "toSort": "In te delen",
+      "tabToSort": "In te delen",
+      "tabAll": "Alle",
+      "startingBalance": "Beginsaldo",
+      "noName": "Geen naam",
+      "emptyNone": "Nog geen transacties. Ze komen binnen via een bestand dat je bij je bank downloadt.",
+      "emptyImport": "Importeren van bank",
+      "emptyNoMatch": "Geen transacties gevonden.",
+      "emptySorted": "Alles is ingedeeld. Nieuwe transacties verschijnen hier na je volgende import.",
+      "headingDate": "Datum",
+      "headingPayee": "Tegenpartij",
+      "headingAccount": "Rekening",
+      "headingCategory": "Categorie",
+      "headingAmount": "Bedrag",
+      "headingActions": "Acties",
+      "describedAs": "{{payee}} op {{date}}",
+      "describedAsNoPayee": "transactie op {{date}}",
+      "deleteQuestion": "{{payee}} van {{amount}} op {{date}} verwijderen? Importeer je hetzelfde bankbestand later opnieuw, dan komt hij niet terug.",
+      "deleteQuestionNoPayee": "Deze transactie van {{amount}} op {{date}} verwijderen? Importeer je hetzelfde bankbestand later opnieuw, dan komt hij niet terug.",
+      "showing": "{{shown}} van {{total}} getoond.",
+      "newest": "Nieuwste",
+      "older": "Oudere"
+    },
+    "summary": {
+      "all_one": "<n>{{count}}</n> transactie. Bij <b>{{in}}</b>, af <b>{{out}}</b>.",
+      "all_other": "<n>{{count}}</n> transacties. Bij <b>{{in}}</b>, af <b>{{out}}</b>.",
+      "narrowed_one": "<n>{{count}}</n> transactie gevonden. Bij <b>{{in}}</b>, af <b>{{out}}</b>.",
+      "narrowed_other": "<n>{{count}}</n> transacties gevonden. Bij <b>{{in}}</b>, af <b>{{out}}</b>."
+    },
+    "filters": {
+      "search": "Zoeken op tegenpartij of notitie",
+      "account": "Rekening",
+      "allAccounts": "Alle rekeningen",
+      "accountClosed": "{{name}} (gesloten)",
+      "category": "Categorie",
+      "allCategories": "Alle categorieën",
+      "noCategory": "Geen categorie",
+      "categoryIncome": "{{name}} (inkomsten)",
+      "categoryArchived": "{{name}} (gearchiveerd)",
+      "categoryIncomeArchived": "{{name}} (inkomsten) (gearchiveerd)",
+      "month": "Maand",
+      "allMonths": "Alle maanden",
+      "clear": "Wissen"
+    },
+    "picker": {
+      "label": "Categorie voor {{what}}, {{amount}}",
+      "noCategory": "Geen categorie",
+      "noCategoryTransfer": "Geen categorie (overboeking)",
+      "noCategoryIncomeOrTransfer": "Geen categorie (inkomsten of overboeking)",
+      "choose": "Kies een categorie…",
+      "archived": "{{name}} (gearchiveerd)",
+      "suggestedTitle": "Voorstel: de vorige keer koos je {{name}} voor deze tegenpartij. Nog niet ingedeeld.",
+      "acceptLabel": "{{what}} indelen bij {{name}}, zoals de vorige keer",
+      "acceptTitle": "Indelen bij {{name}}, zoals de vorige keer"
+    },
+    "delete": {
+      "label": "{{what}} verwijderen",
+      "title": "Verwijderen"
+    }
+  },
+  "accounts": {
+    "title": "Rekeningen",
+    "lead": "Waar je geld staat. Transacties komen binnen via imports van je bank.",
+    "total": "Op alle rekeningen",
+    "empty": "Nog geen rekeningen. Voeg de rekeningen toe waar je geld op staat, met het saldo van vandaag.",
+    "allClosed": "Al je rekeningen zijn gesloten.",
+    "table": {
+      "account": "Rekening",
+      "type": "Type",
+      "balance": "Saldo"
+    },
+    "types": {
+      "checking": "Betaalrekening",
+      "savings": "Spaarrekening",
+      "cash": "Contant",
+      "credit": "Creditcard"
+    },
+    "add": {
+      "title": "Rekening toevoegen",
+      "name": "Naam",
+      "namePlaceholder": "bijv. Hoofdrekening",
+      "type": "Type",
+      "submit": "Rekening toevoegen",
+      "submitting": "Toevoegen…"
+    },
+    "balance": {
+      "label": "Saldo",
+      "hint": "Voor een creditcard met een openstaand bedrag vul je een negatief bedrag in.",
+      "on": "Datum",
+      "onHint": "Wat er aan het eind van die dag op de rekening stond. Transacties van vóór die dag die je later importeert, worden daarvóór ingevoegd; dit saldo verandert er niet door."
+    },
+    "row": {
+      "nameLabel": "Rekeningnaam",
+      "closeLabel": "{{name}} sluiten",
+      "closeTitle": "Rekening sluiten",
+      "deleteLabel": "{{name}} verwijderen",
+      "deleteTitle": "Rekening verwijderen",
+      "editBalanceLabel": "Saldo van {{name}} wijzigen",
+      "editBalanceTitle": "Saldo wijzigen",
+      "editBalance": "Saldo wijzigen",
+      "typeLabel": "Type van {{name}}",
+      "balanceFormLabel": "Saldo van {{name}}",
+      "save": "Opslaan",
+      "saving": "Opslaan…",
+      "cancel": "Annuleren",
+      "deleteEmpty": "\"{{name}}\" verwijderen?",
+      "deleteWithTransactions_one": "\"{{name}}\" en de {{count}} transactie erop verwijderen? Wat ervan is uitgegeven, verdwijnt uit je categorieën. Dit kan niet ongedaan worden gemaakt.",
+      "deleteWithTransactions_other": "\"{{name}}\" en de {{count}} transacties erop verwijderen? Wat ervan is uitgegeven, verdwijnt uit je categorieën. Dit kan niet ongedaan worden gemaakt."
+    },
+    "closed": {
+      "title": "Gesloten rekeningen:",
+      "reopen": "Heropenen",
+      "reopenLabel": "{{name}} heropenen"
+    }
+  },
+  "errors": {
+    "loggedOut": "Je sessie is verlopen. Laad de pagina opnieuw om weer in te loggen.",
+    "unexpected": "Er ging iets mis. Laad de pagina opnieuw en probeer het nog eens.",
+    "name": {
+      "required": "Geef het een naam.",
+      "tooLong": "Gebruik maximaal {{max}} tekens voor de naam."
+    },
+    "budget": {
+      "categoryGone": "Die categorie bestaat niet meer.",
+      "groupGone": "Die groep bestaat niet meer.",
+      "categoryNameTaken": "Je hebt al een categorie met de naam \"{{name}}\".",
+      "groupNameTaken": "Je hebt al een groep met de naam \"{{name}}\".",
+      "notAnAmount": "Dat is geen bedrag.",
+      "amountNotPositive": "Vul een bedrag groter dan nul in.",
+      "amountsChanged": "Deze bedragen zijn intussen gewijzigd. Controleer ze en probeer het opnieuw.",
+      "restoreNameTaken": "Een andere categorie heeft al deze naam. Hernoem die eerst.",
+      "restoreNoGroup": "Er is geen groep om de categorie in terug te zetten. Voeg eerst een groep toe."
+    },
+    "accounts": {
+      "gone": "Die rekening bestaat niet meer.",
+      "closed": "De rekening is gesloten. Heropen die eerst bij Rekeningen en probeer het dan opnieuw.",
+      "nameTaken": "Je hebt al een rekening met de naam \"{{name}}\".",
+      "notADate": "Dat is geen datum.",
+      "futureDate": "De datum kan niet in de toekomst liggen.",
+      "checkYear": "Controleer het jaar van de datum.",
+      "balanceNotAnAmount": "Het saldo is geen bedrag.",
+      "notEmpty": "Je kunt alleen een rekening sluiten waar niets op staat.",
+      "reopenNameTaken": "Je hebt al een rekening met deze naam. Hernoem die eerst."
+    },
+    "import": {
+      "cannotImport": "Dit bestand kon niet worden geïmporteerd.",
+      "noTransactions": "Er konden geen transacties uit dit bestand worden gelezen.",
+      "amountTooLarge": "Dit bestand bevat een bedrag dat te groot is om echt te zijn.",
+      "cannotCheck": "Dit bestand kon niet worden gecontroleerd.",
+      "undoSorted_one": "Een van deze transacties is inmiddels ingedeeld, dus deze import kan niet meer ongedaan worden gemaakt.",
+      "undoSorted_other": "{{count}} van deze transacties zijn inmiddels ingedeeld, dus deze import kan niet meer ongedaan worden gemaakt."
+    },
+    "transactions": {
+      "gone": "Die transactie bestaat niet meer. Laad de pagina opnieuw.",
+      "startingNotSortable": "Een beginsaldo wordt niet bij een categorie ingedeeld.",
+      "startingNotDeletable": "Een beginsaldo kan niet worden verwijderd."
+    }
+  },
+  "import": {
+    "page": {
+      "title": "Importeren van bank",
+      "lead": "Download je transacties als CSV-bestand op de website van je bank en voeg het hier toe. Transacties die je eerder hebt geïmporteerd, worden overgeslagen, dus bestanden mogen overlappen.",
+      "noAccountClosed": "Transacties worden in een rekening geïmporteerd, en al je rekeningen zijn gesloten. Heropen er een, of voeg een nieuwe toe.",
+      "noAccountNone": "Transacties worden in een rekening geïmporteerd, en je hebt er nog geen.",
+      "goToAccounts": "Naar Rekeningen",
+      "addAccount": "Rekening toevoegen"
+    },
+    "problems": {
+      "empty": "Dit bestand is leeg.",
+      "tooManyRows": "Dit bestand heeft te veel rijen. Exporteer een kortere periode bij je bank.",
+      "tooWide": "Dit lijkt geen export van een bank: de rijen zijn te breed of te lang.",
+      "tooLarge": "Dit bestand is te groot. Exporteer een kortere periode bij je bank.",
+      "notCsv": "Dit is geen CSV-bestand. Kies CSV als je downloadt bij je bank."
+    },
+    "dateOrders": {
+      "ymd": "Jaar, maand, dag (2026-11-03)",
+      "dmy": "Dag, maand, jaar (03-11-2026)",
+      "mdy": "Maand, dag, jaar (11/03/2026)"
+    },
+    "delimiters": {
+      "comma": "Komma",
+      "semicolon": "Puntkomma",
+      "tab": "Tab",
+      "pipe": "Verticale streep"
+    },
+    "choose": {
+      "account": "Naar rekening",
+      "dropHere": "Sleep het CSV-bestand van je bank hierheen, of",
+      "chooseFile": "Bestand kiezen",
+      "fileInput": "Bankbestand"
+    },
+    "columns": {
+      "intro": "Controleer of de kolommen hieronder goed zijn herkend.",
+      "introFromLastTime": "Gelezen met de instellingen van je vorige import in deze rekening.",
+      "chooseAnotherFile": "Ander bestand kiezen",
+      "unnamed": "Kolom {{number}}",
+      "none": "Geen",
+      "noSeparateColumn": "Geen aparte kolom",
+      "chooseColumn": "Kies een kolom…",
+      "date": "Datum",
+      "dateWrittenAs": "Datumnotatie",
+      "dateGuess": "Kan beide zijn; controleer dit.",
+      "amount": "Bedrag",
+      "moneyIn": "Bij",
+      "moneyInTip": "Voor banken die bijschrijvingen en afschrijvingen in aparte kolommen zetten. Bedrag is dan de kolom met afschrijvingen.",
+      "outOrIn": "Af of bij",
+      "outOrInTip": "Voor banken waarvan de bedragen geen plus of min hebben, met een kolom zoals Af/Bij of Debet/Credit die zegt welke kant het geld op ging.",
+      "payee": "Tegenpartij",
+      "note": "Notitie",
+      "separator": "Scheidingsteken",
+      "hasHeader": "Eerste rij bevat kolomnamen",
+      "invert": "Uitgaven staan als positieve bedragen",
+      "notReady": "Kies in welke kolommen de datum en het bedrag staan."
+    },
+    "summary": {
+      "count_one": "<b>{{count}} transactie</b> · {{from}} t/m {{to}} · {{moneyIn}} bij · {{moneyOut}} af",
+      "count_other": "<b>{{count}} transacties</b> · {{from}} t/m {{to}} · {{moneyIn}} bij · {{moneyOut}} af",
+      "newCount_one": "<b>{{count}} nieuwe transactie</b> · {{from}} t/m {{to}} · {{moneyIn}} bij · {{moneyOut}} af",
+      "newCount_other": "<b>{{count}} nieuwe transacties</b> · {{from}} t/m {{to}} · {{moneyIn}} bij · {{moneyOut}} af",
+      "allImported_one": "<b>Niets nieuws om te importeren.</b> De transactie in dit bestand is al eerder geïmporteerd.",
+      "allImported_other": "<b>Niets nieuws om te importeren.</b> Alle {{count}} transacties in dit bestand zijn al eerder geïmporteerd.",
+      "unreadable": "Met deze kolommen konden geen transacties worden gelezen.",
+      "importedBefore_one": "{{count}} is al eerder geïmporteerd en wordt overgeslagen.",
+      "importedBefore_other": "{{count}} zijn al eerder geïmporteerd en worden overgeslagen.",
+      "skipped": "Overgeslagen: {{list}}.",
+      "skippedItem": "{{count}} × {{reason}}",
+      "skippedSeparator": ", "
+    },
+    "preview": {
+      "heading": "Zoals ze worden geïmporteerd",
+      "label": "Transacties in dit bestand",
+      "date": "Datum",
+      "payee": "Tegenpartij",
+      "note": "Notitie",
+      "amount": "Bedrag",
+      "importedBefore": "Eerder geïmporteerd"
+    },
+    "skipped": {
+      "heading": "Rijen die niet worden geïmporteerd",
+      "label": "Rijen die niet te lezen zijn",
+      "row": "Rij",
+      "reason": "Reden",
+      "inFile": "In het bestand",
+      "reasons": {
+        "noDate": "Geen leesbare datum",
+        "noAmount": "Geen leesbaar bedrag",
+        "amountZero": "Bedrag is nul",
+        "unclearDirection": "Onduidelijk of het af of bij is"
+      },
+      "reasonsInline": {
+        "noDate": "geen leesbare datum",
+        "noAmount": "geen leesbaar bedrag",
+        "amountZero": "bedrag is nul",
+        "unclearDirection": "onduidelijk of het af of bij is"
+      }
+    },
+    "action": {
+      "importing": "Importeren…",
+      "nothingNew": "Niets nieuws om te importeren",
+      "import_one": "{{count}} transactie importeren in {{account}}",
+      "import_other": "{{count}} transacties importeren in {{account}}",
+      "importNew_one": "{{count}} nieuwe transactie importeren in {{account}}",
+      "importNew_other": "{{count}} nieuwe transacties importeren in {{account}}"
+    },
+    "result": {
+      "imported_one": "{{count}} transactie geïmporteerd in {{account}}.",
+      "imported_other": "{{count}} transacties geïmporteerd in {{account}}.",
+      "nothingNew": "Niets nieuws om te importeren.",
+      "duplicates_one": "{{count}} stond al in LarchBudget en is overgeslagen.",
+      "duplicates_other": "{{count}} stonden al in LarchBudget en zijn overgeslagen.",
+      "balanceSome_one": "{{count}} daarvan is van {{date}} of eerder. Die zit al in het saldo van {{balance}} dat je voor die dag hebt ingevuld.",
+      "balanceSome_other": "{{count}} daarvan zijn van {{date}} of eerder. Die zitten al in het saldo van {{balance}} dat je voor die dag hebt ingevuld.",
+      "sortNow": "Nu indelen",
+      "importAnother": "Nog een bestand importeren",
+      "undo": "Deze import ongedaan maken",
+      "undoing": "Ongedaan maken…",
+      "undone_one": "Import ongedaan gemaakt. {{count}} transactie is verwijderd.",
+      "undone_other": "Import ongedaan gemaakt. {{count}} transacties zijn verwijderd.",
+      "balanceAll_one": "Die is van {{date}} of eerder en zit al in het saldo van {{balance}} dat je voor die dag hebt ingevuld.",
+      "balanceAll_other": "Ze zijn van {{date}} of eerder en zitten al in het saldo van {{balance}} dat je voor die dag hebt ingevuld.",
+      "allDuplicates_one": "De transactie in dit bestand stond al in LarchBudget.",
+      "allDuplicates_other": "Alle {{count}} transacties in dit bestand stonden al in LarchBudget."
+    }
+  },
+  "budget": {
+    "header": {
+      "previousMonth": "Vorige maand",
+      "nextMonth": "Volgende maand",
+      "thisMonth": "Deze maand",
+      "received": "<b>{{amount}}</b> ontvangen",
+      "spent": "<b>{{spent}}</b> uitgegeven van {{assigned}} toegewezen",
+      "daysToGo_one": "nog <b>{{count}} dag</b>",
+      "daysToGo_other": "nog <b>{{count}} dagen</b>",
+      "readyWithOverspent": "{{inAccounts}} op je rekeningen + {{overspent}} te veel uitgegeven in categorieën",
+      "readyMinusCategories": "{{inAccounts}} op je rekeningen − {{inCategories}} in categorieën"
+    },
+    "ready": {
+      "assignedMore": "Meer toegewezen dan je hebt",
+      "readyToAssign": "Nog toe te wijzen",
+      "allAssigned": "Elke cent is toegewezen"
+    },
+    "welcome": {
+      "text": "<b>Welkom bij LarchBudget.</b> Voeg eerst de rekeningen toe waar je geld op staat. Hun saldo wordt geld dat je kunt toewijzen, en dat verdeel je daarna over categorieën.",
+      "addAccount": "Rekening toevoegen"
+    },
+    "empty": {
+      "noCategoriesYet": "Nog geen categorieën. Een categorie is een doel waarvoor je geld opzijzet, zoals Huur, Boodschappen of Vakantie. Categorieën staan in groepen, dus begin met een naam voor je eerste groep, bijvoorbeeld Vaste lasten.",
+      "aboutCategories": "Een categorie is een doel waarvoor je geld opzijzet, zoals Huur, Boodschappen of Vakantie. Categorieën staan in groepen, dus begin met een naam voor je eerste groep, bijvoorbeeld Vaste lasten."
+    },
+    "newGroup": {
+      "label": "Naam nieuwe groep",
+      "placeholderFirst": "Geef je eerste groep een naam",
+      "placeholder": "Nieuwe groep"
+    },
+    "table": {
+      "groupColour": "Groepskleur",
+      "category": "Categorie",
+      "assigned": "Toegewezen",
+      "spent": "Uitgegeven",
+      "available": "Beschikbaar"
+    },
+    "row": {
+      "seeTransactions": "Deze transacties bekijken",
+      "assignedTo": "Toegewezen aan {{name}}"
+    },
+    "gauge": {
+      "overspent": "Te veel uitgegeven:",
+      "explain": {
+        "overspent": "{{amount}} te veel uitgegeven: wijs meer toe om het tekort aan te vullen. {{sum}}",
+        "nothing": "Deze maand niets toegewezen of uitgegeven.",
+        "earlier": "{{amount}} uit eerdere maanden",
+        "assigned": "{{amount}} toegewezen",
+        "spent": "{{amount}} uitgegeven",
+        "refunded": "{{amount}} teruggekregen"
+      }
+    },
+    "menu": {
+      "actionsFor": "Acties voor {{name}}",
+      "actionsForGroup": "Acties voor de groep {{name}}",
+      "categoryName": "Categorienaam",
+      "groupName": "Groepsnaam",
+      "moveUp": "Omhoog",
+      "moveDown": "Omlaag",
+      "moveTo": "Verplaatsen naar {{group}}",
+      "moveMoney": "Geld verplaatsen…",
+      "coverOverspending": "Tekort aanvullen…",
+      "archive": "Archiveren",
+      "deleteGroup": "Groep verwijderen"
+    },
+    "archiveConfirm": {
+      "plain": "\"{{name}}\" archiveren?",
+      "positive": "\"{{name}}\" archiveren? De {{amount}} die erin zit, gaat terug naar Nog toe te wijzen.",
+      "negative": "\"{{name}}\" archiveren? Het tekort van {{amount}} gaat dan af van Nog toe te wijzen."
+    },
+    "group": {
+      "addCategoryLabel": "Categorie toevoegen aan {{name}}",
+      "addCategoryTitle": "Categorie toevoegen",
+      "newCategoryLabel": "Nieuwe categorie in {{name}}",
+      "newCategoryPlaceholder": "Nieuwe categorie",
+      "deleteEmpty": "De groep \"{{name}}\" verwijderen?",
+      "deleteWithCategories_one": "De groep \"{{name}}\" verwijderen? De categorie wordt gearchiveerd en het geld erin gaat terug naar Nog toe te wijzen.",
+      "deleteWithCategories_other": "De groep \"{{name}}\" verwijderen? De {{count}} categorieën worden gearchiveerd en het geld erin gaat terug naar Nog toe te wijzen."
+    },
+    "income": {
+      "title": "Inkomsten",
+      "addLabel": "Inkomstencategorie toevoegen",
+      "addTitle": "Inkomstencategorie toevoegen",
+      "newLabel": "Nieuwe inkomstencategorie",
+      "newPlaceholder": "Nieuwe inkomstencategorie",
+      "newPlaceholderFirst": "Nieuwe inkomstencategorie, bijv. Salaris",
+      "received": "{{amount}} ontvangen"
+    },
+    "addByName": {
+      "adding": "Toevoegen…",
+      "hint": "Enter om toe te voegen"
+    },
+    "archived": {
+      "count_one": "{{count}} gearchiveerde categorie",
+      "count_other": "{{count}} gearchiveerde categorieën",
+      "hide": "Verbergen",
+      "show": "Tonen",
+      "listLabel": "Gearchiveerde categorieën",
+      "income": "Inkomsten",
+      "restore": "Terugzetten",
+      "restoreLabel": "{{name}} terugzetten",
+      "restoringTakes": "Terugzetten haalt {{amount}} af van Nog toe te wijzen.",
+      "restoringAdds": "Terugzetten voegt {{amount}} toe aan Nog toe te wijzen."
+    },
+    "copyLastMonth": {
+      "nothing": "In {{month}} is nog niets toegewezen.",
+      "assign": "Hetzelfde toewijzen als in {{month}}",
+      "assigning": "Toewijzen…"
+    },
+    "moveMoney": {
+      "moveLead": "Verplaats",
+      "coverLead": "Vul",
+      "moveTo": "naar",
+      "coverFrom": "aan vanuit",
+      "moveSubmit": "Verplaatsen",
+      "coverSubmit": "Aanvullen",
+      "moveFormLabel": "Geld verplaatsen uit {{name}}",
+      "coverFormLabel": "Tekort van {{name}} aanvullen",
+      "moveAmountLabel": "Te verplaatsen bedrag",
+      "coverAmountLabel": "Aan te vullen bedrag",
+      "moveToLabel": "Verplaatsen naar",
+      "coverFromLabel": "Aanvullen vanuit",
+      "readyOption": "Nog toe te wijzen ({{amount}})",
+      "categoryOption": "{{name}} ({{amount}})",
+      "cancel": "Annuleren",
+      "categoryHolds": "{{name}} heeft {{amount}}; verplaats je meer, dan ontstaat er een tekort.",
+      "onlyReady": "Er is maar {{amount}} nog toe te wijzen; verplaats je meer, dan wijs je meer toe dan je hebt."
+    }
+  },
+  "settings": {
+    "title": "Instellingen",
+    "lead": "Hoe LarchBudget er voor jou uitziet en werkt.",
+    "language": {
+      "label": "Taal",
+      "tip": "Automatisch volgt de taal van je browser. Je keuze wordt in deze browser bewaard.",
+      "automatic": "Automatisch ({{language}})"
+    }
+  }
+}
