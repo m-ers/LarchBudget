@@ -139,8 +139,8 @@ LarchBudget's texts are in one file per language, in
    line with its name in the language itself (`Deutsch`).
 5. Run `npm test`. It lists every key that does not exist in English, every
    placeholder or tag that does not match, and every missing plural form.
-6. Look at every screen in your language: run `npm run dev`, set your
-   browser's language to it, and check that nothing is cut off.
+6. Look at every screen in your language: run `npm run dev`, choose it in
+   **Settings**, and check that nothing is cut off.
 
 A text you have not translated yet shows in English, so a translation can be
 added bit by bit. Open the pull request when the main screens are done.

@@ -15,7 +15,7 @@ import { CategoryChoicesProvider } from "@/components/transactions/category-choi
 import { CategorySelect } from "@/components/transactions/category-select";
 import { DeleteTransaction } from "@/components/transactions/delete-transaction";
 import { TransactionFilters } from "@/components/transactions/transaction-filters";
-import { getT } from "@/i18n/server";
+import { getDateLocale, getT } from "@/i18n/server";
 import { richText } from "@/i18n/rich";
 import { getConfig } from "@/lib/config";
 import { formatDate, formatMonth } from "@/lib/dates";
@@ -64,6 +64,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
     getSuggestions(rows.flatMap((row) => (row.toSort && row.payee ? [row.payee] : []))),
   ]);
   const { currency, locale } = getConfig();
+  const dates = await getDateLocale();
   const total = summary ? summary.count : counts.toSort;
   const narrowed = Object.keys(filter).length > 0;
 
@@ -119,7 +120,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
               ]
                 .sort()
                 .reverse()
-                .map((month) => ({ month, label: formatMonth(month, locale) }))}
+                .map((month) => ({ month, label: formatMonth(month, dates) }))}
             />
             <p className="px-1 pb-2.5 text-[14.5px] text-muted">
               {richText(
@@ -183,7 +184,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
               </thead>
               <tbody>
                 {rows.map((row) => {
-                  const date = formatDate(row.date, locale);
+                  const date = formatDate(row.date, dates);
                   const payee = row.starting ? t("transactions.page.startingBalance") : row.payee;
                   const describedAs = payee
                     ? t("transactions.page.describedAs", { payee, date })

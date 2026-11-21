@@ -4,9 +4,11 @@
  */
 import type { MessageTree } from "./translate";
 import en from "./messages/en.json";
+import nl from "./messages/nl.json";
 
 export const languages = {
   en: { name: "English", messages: en },
+  nl: { name: "Nederlands", messages: nl },
 } satisfies Record<string, { name: string; messages: MessageTree }>;
 
 export type Language = keyof typeof languages;
@@ -46,4 +48,16 @@ export function resolveLanguage(
     if (isLanguage(primary)) return primary;
   }
   return defaultLanguage;
+}
+
+/**
+ * The locale for dates: the words of the language, in the order of the
+ * region of the number format. English with LOCALE nl-NL writes
+ * "20 Nov 2026", Dutch with LOCALE en-US "20 nov 2026".
+ */
+export function dateLocale(language: string, numberLocale: string): string {
+  const base = new Intl.Locale(language).language;
+  const region = new Intl.Locale(numberLocale).region;
+  const candidate = region ? `${base}-${region}` : base;
+  return Intl.DateTimeFormat.supportedLocalesOf(candidate).length > 0 ? candidate : base;
 }
