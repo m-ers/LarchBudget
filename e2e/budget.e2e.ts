@@ -3,6 +3,7 @@ import {
   addAccount,
   addCategories,
   addGroup,
+  addIncomeCategories,
   alert,
   assign,
   assignAndSave,
@@ -15,6 +16,7 @@ import {
   groupTotal,
   headerFigure,
   menuItem,
+  newGroupField,
   openMenu,
   openNewCategory,
   slowConnection,
@@ -29,6 +31,16 @@ test("an empty budget shows where to start", async ({ page }) => {
 
   await page.getByRole("link", { name: "Add an account" }).click();
   await expect(page).toHaveURL(/\/accounts$/);
+});
+
+test("a budget with only income categories still explains where to start", async ({ page }) => {
+  await page.goto("/");
+  await addIncomeCategories(page, ["Salary"]);
+  await expect(page.getByText(/^No categories yet\./)).toHaveCount(0);
+  await expect(
+    page.getByText(/^A category is a purpose you set money aside for, such as Rent/),
+  ).toBeVisible();
+  await expect(newGroupField(page)).toHaveAttribute("placeholder", "Name your first group");
 });
 
 test("an account's balance becomes money to assign", async ({ page }) => {
