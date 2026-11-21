@@ -1,51 +1,73 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Suspense } from "react";
-import { getCategoryOptions, getTransactionCounts, getTransactions } from "@/app/queries";
+import { redirect } from "next/navigation";
+import {
+  getCategoryOptions,
+  getFilterOptions,
+  getSuggestions,
+  getTransactionCounts,
+  getTransactionSummary,
+  getTransactions,
+} from "@/app/queries";
 import { primaryButton } from "@/components/form";
-import { Hero, HeroFigure, HeroLead, HeroTitle, PageSkeleton } from "@/components/hero";
+import { Hero, HeroFigure, HeroLead, HeroTitle } from "@/components/hero";
+import { CategoryChoicesProvider } from "@/components/transactions/category-choices";
 import { CategorySelect } from "@/components/transactions/category-select";
+import { DeleteTransaction } from "@/components/transactions/delete-transaction";
+import { TransactionFilters } from "@/components/transactions/transaction-filters";
 import { getConfig } from "@/lib/config";
-import { formatDate } from "@/lib/dates";
-import { formatAmount } from "@/lib/money";
+import { formatDate, formatMonth } from "@/lib/dates";
+import { formatAmount, formatMoney } from "@/lib/money";
+import { readAddress, transactionsHref } from "@/lib/transactions-address";
 
 export const metadata: Metadata = { title: "Transactions" };
 
 const PAGE_SIZE = 200;
 
-export default function TransactionsPage({ searchParams }: PageProps<"/transactions">) {
-  return (
-    <Suspense fallback={<PageSkeleton />}>
-      <Transactions searchParams={searchParams} />
-    </Suspense>
-  );
-}
+const LEAD = "Everything imported from your bank. Sort each one into a category.";
 
-async function Transactions({ searchParams }: Pick<PageProps<"/transactions">, "searchParams">) {
-  const params = await searchParams;
-  const showAll = params.show === "all";
-  // Whole numbers only: the database refuses a limit like 200.5.
-  const limit = Math.min(5000, Math.max(PAGE_SIZE, Math.floor(Number(params.limit)) || PAGE_SIZE));
+const tab = (active: boolean) =>
+  `rounded-[9px] px-3 py-1.5 text-[14.5px] font-medium transition-colors ${
+    active ? "bg-ok-track text-ink" : "text-muted hover:bg-hover hover:text-ink"
+  }`;
 
-  const [counts, rows, groups] = await Promise.all([
+export default async function TransactionsPage({ searchParams }: PageProps<"/transactions">) {
+  const { showAll, before, filter } = readAddress(await searchParams);
+
+  const [counts, found, groups] = await Promise.all([
     getTransactionCounts(),
-    getTransactions({ only: showAll ? undefined : "to-sort", limit }),
+    // One more than a page, to know whether there is an older page.
+    getTransactions({
+      only: showAll ? undefined : "to-sort",
+      before,
+      filter,
+      limit: PAGE_SIZE + 1,
+    }),
     getCategoryOptions(),
   ]);
+  const rows = found.slice(0, PAGE_SIZE);
+  // An older page that has emptied (its last rows were sorted or deleted)
+  // would claim there is nothing left: go back to the newest page.
+  if (before && rows.length === 0) redirect(transactionsHref({ showAll, filter }));
+  const last = rows.at(-1);
+  const hasOlder = found.length > PAGE_SIZE;
+  const [summary, filterOptions, suggestions] = await Promise.all([
+    showAll ? getTransactionSummary(filter) : null,
+    showAll ? getFilterOptions() : null,
+    getSuggestions(rows.flatMap((row) => (row.toSort && row.payee ? [row.payee] : []))),
+  ]);
   const { currency, locale } = getConfig();
-  const total = showAll ? counts.all : counts.toSort;
+  const total = summary ? summary.count : counts.toSort;
+  const narrowed = Object.keys(filter).length > 0;
 
-  const tab = (active: boolean) =>
-    `rounded-[9px] px-3 py-1.5 text-[14.5px] font-medium transition-colors ${
-      active ? "bg-ok-track text-ink" : "text-muted hover:bg-hover hover:text-ink"
-    }`;
+  const heading = "sticky top-0 z-10 h-[38px] border-y border-line bg-surface font-medium";
 
   return (
     <>
       <Hero>
         <div className="relative">
           <HeroTitle>Transactions</HeroTitle>
-          <HeroLead>Everything imported from your bank. Sort each one into a category.</HeroLead>
+          <HeroLead>{LEAD}</HeroLead>
         </div>
         <HeroFigure
           label={counts.toSort === 0 && counts.all > 0 ? "Everything is sorted" : "To sort"}
@@ -72,6 +94,36 @@ async function Transactions({ searchParams }: Pick<PageProps<"/transactions">, "
           </Link>
         </div>
 
+        {filterOptions && summary && (
+          <>
+            <TransactionFilters
+              filter={filter}
+              accounts={filterOptions.accounts}
+              categories={filterOptions.categories}
+              // The month in the address is offered too, even when it has no transactions.
+              months={[
+                ...new Set([...filterOptions.months, ...(filter.month ? [filter.month] : [])]),
+              ]
+                .sort()
+                .reverse()
+                .map((month) => ({ month, label: formatMonth(month, locale) }))}
+            />
+            <p className="px-1 pb-2.5 text-[14.5px] text-muted">
+              <span className="tabular-nums">{summary.count}</span>{" "}
+              {summary.count === 1 ? "transaction" : "transactions"}
+              {narrowed && (summary.count === 1 ? " matches" : " match")}. Money in{" "}
+              <span className="font-medium text-ink tabular-nums">
+                {formatMoney(summary.moneyIn, currency, locale)}
+              </span>
+              , money out{" "}
+              <span className="font-medium text-ink tabular-nums">
+                {formatMoney(Math.abs(summary.moneyOut), currency, locale)}
+              </span>
+              .
+            </p>
+          </>
+        )}
+
         {rows.length === 0 ? (
           <div className="px-3.5 py-6 text-muted">
             {counts.all === 0 ? (
@@ -81,72 +133,115 @@ async function Transactions({ searchParams }: Pick<PageProps<"/transactions">, "
                   Import from bank
                 </Link>
               </>
+            ) : showAll ? (
+              <p>No transactions match.</p>
             ) : (
               <p>Everything is sorted. New transactions appear here after your next import.</p>
             )}
           </div>
         ) : (
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-y border-line text-[12.5px] text-muted">
-                <th scope="col" className="h-[38px] w-32 pl-3.5 text-left font-medium">
-                  Date
-                </th>
-                <th scope="col" className="text-left font-medium">
-                  Payee
-                </th>
-                <th scope="col" className="w-40 text-left font-medium">
-                  Account
-                </th>
-                <th scope="col" className="w-60 text-left font-medium">
-                  Category
-                </th>
-                <th scope="col" className="w-32 pr-3.5 text-right font-medium">
-                  Amount
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id} className="data-row">
-                  <td className="h-[50px] pl-3.5 whitespace-nowrap text-muted tabular-nums">
-                    {formatDate(row.date, locale)}
-                  </td>
-                  <td className="max-w-0 pr-4">
-                    <p className="truncate text-[15.5px] font-medium">{row.payee ?? "No name"}</p>
-                    {row.note && <p className="truncate text-[13px] text-muted">{row.note}</p>}
-                  </td>
-                  <td className="truncate text-muted">{row.account}</td>
-                  <td>
-                    <CategorySelect
-                      transactionId={row.id}
-                      describedAs={`${row.payee ?? "transaction"} on ${formatDate(row.date, locale)}`}
-                      categoryId={row.categoryId}
-                      categoryName={row.category}
-                      categoryArchived={row.categoryArchived}
-                      toSort={row.toSort}
-                      groups={groups}
-                    />
-                  </td>
-                  <td className="pr-3.5 text-right font-semibold whitespace-nowrap tabular-nums">
-                    {row.amount > 0 ? "+" : ""}
-                    {formatAmount(row.amount, currency, locale)}
-                  </td>
+          <CategoryChoicesProvider groups={groups}>
+            <table className="w-full border-separate border-spacing-0">
+              <thead>
+                <tr className="text-[12.5px] text-muted">
+                  <th scope="col" className={`${heading} w-32 pl-3.5 text-left`}>
+                    Date
+                  </th>
+                  <th scope="col" className={`${heading} text-left`}>
+                    Payee
+                  </th>
+                  <th scope="col" className={`${heading} w-28 text-left`}>
+                    Account
+                  </th>
+                  <th scope="col" className={`${heading} w-60 text-left xl:w-80`}>
+                    Category
+                  </th>
+                  <th scope="col" className={`${heading} w-28 text-right`}>
+                    Amount
+                  </th>
+                  <th scope="col" className={`${heading} w-14 pr-2.5`}>
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {rows.map((row) => {
+                  const date = formatDate(row.date, locale);
+                  const describedAs = `${row.payee ?? "transaction"} on ${date}`;
+                  const amount = formatAmount(row.amount, currency, locale);
+                  return (
+                    <tr key={row.id} className="data-row group/row">
+                      <td className="h-[50px] pl-3.5 whitespace-nowrap text-muted tabular-nums">
+                        {date}
+                      </td>
+                      <td className="max-w-0 pr-4">
+                        <p className="truncate text-[15.5px] font-medium">
+                          {row.payee ?? "No name"}
+                        </p>
+                        {row.note && <p className="truncate text-[13px] text-muted">{row.note}</p>}
+                      </td>
+                      <td className="truncate text-muted">{row.account}</td>
+                      <td>
+                        {row.starting ? (
+                          <span className="text-muted">Starting balance</span>
+                        ) : (
+                          <CategorySelect
+                            transactionId={row.id}
+                            describedAs={describedAs}
+                            amount={amount}
+                            categoryId={row.categoryId}
+                            categoryName={row.category}
+                            categoryArchived={row.categoryArchived}
+                            toSort={row.toSort}
+                            suggestion={row.payee ? suggestions.get(row.payee) : undefined}
+                          />
+                        )}
+                      </td>
+                      <td className="text-right font-semibold whitespace-nowrap tabular-nums">
+                        {row.amount > 0 ? "+" : ""}
+                        {amount}
+                      </td>
+                      <td className="pr-2.5">
+                        {!row.starting && (
+                          <DeleteTransaction
+                            transactionId={row.id}
+                            describedAs={describedAs}
+                            question={`Delete ${row.payee ?? "this transaction"} of ${formatMoney(row.amount, currency, locale)} on ${date}? A later import of the same bank file will not bring it back.`}
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </CategoryChoicesProvider>
         )}
 
-        {total > rows.length && (
+        {(hasOlder || before) && (
           <p className="px-3.5 pt-4 text-muted">
-            Showing the latest {rows.length} of {total}.{" "}
-            <Link
-              href={`/transactions?${showAll ? "show=all&" : ""}limit=${limit + PAGE_SIZE * 2}`}
-              className="font-medium text-brand underline"
-            >
-              Show more
-            </Link>
+            Showing {rows.length} of {total}.{" "}
+            {before && (
+              <Link
+                href={transactionsHref({ showAll, filter })}
+                className="font-medium text-brand underline"
+              >
+                Newest
+              </Link>
+            )}
+            {before && hasOlder && " "}
+            {last && hasOlder && (
+              <Link
+                href={transactionsHref({
+                  showAll,
+                  filter,
+                  before: { date: last.date, id: last.id },
+                })}
+                className="font-medium text-brand underline"
+              >
+                Older
+              </Link>
+            )}
           </p>
         )}
       </section>

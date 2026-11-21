@@ -12,6 +12,8 @@
   --muted: #6c7079;
   --line: #ececee;
   --rule: #f4f4f5;
+  /* Dashed outlines that mark a place where something can be added. */
+  --dash: #c3c5cb;
   --hover: #f5f5f4;
 
   /* Brand: the rail, the header block and its envelope flap. */
@@ -34,6 +36,7 @@
   --color-ink: var(--ink);
   --color-muted: var(--muted);
   --color-line: var(--line);
+  --color-dash: var(--dash);
   --color-hover: var(--hover);
   --color-rail: var(--rail);
   --color-brand: var(--brand);
@@ -55,8 +58,22 @@ body {
   font-size: 15px;
 }
 
+/* Keyboard focus is a ring around buttons, links and tick boxes. */
 :focus-visible {
   outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+/* Text fields and pickers show focus with their border; a ring on top of
+   that doubled the line. */
+:is(input:not([type="checkbox"], [type="radio"], [type="file"]), select, textarea):focus-visible {
+  outline: none;
+}
+
+/* A field with an error has a red border whether it has focus or not, so
+   there the ring stays, in the same red. */
+:is(input, select, textarea)[aria-invalid="true"]:focus-visible {
+  outline: 2px solid var(--bad);
   outline-offset: 2px;
 }
 

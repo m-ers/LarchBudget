@@ -1,40 +1,88 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { setAssignedAction } from "@/app/actions";
-import type { Month } from "@/lib/dates";
-import { formatAmount, toInputValue } from "@/lib/money";
+import { formatAmount, parseMoney, toInputValue } from "@/lib/money";
 import { ErrorText } from "../form";
-import { useInlineEdit, windowLostFocus } from "../use-inline-edit";
+import { useSaveOnLeave } from "../use-inline-edit";
+import { useSave } from "../use-save";
+import { useBudget } from "./budget-context";
 
 type Props = {
   categoryId: number;
   categoryName: string;
-  month: Month;
+  /** Assigned in the viewed month, including a change still being saved. */
   value: number;
-  currency: string;
-  locale: string;
 };
 
 /**
- * The amount assigned to one category this month. Shows a formatted number
- * until focused; saves on blur or Enter (Enter also jumps to the next row).
+ * The Assigned field `step` rows up (-1) or down (1) from this one, if any.
+ * Only in this table: Next.js can keep other visited pages mounted but hidden.
  */
-export function AssignedInput({ categoryId, categoryName, month, value, currency, locale }: Props) {
-  const edit = useInlineEdit(toInputValue(value, currency, locale), (typed) =>
-    setAssignedAction(categoryId, month, typed),
+function nearbyField(field: HTMLInputElement, step: number): HTMLInputElement | undefined {
+  const table = field.closest("table");
+  const fields = Array.from(
+    table?.querySelectorAll<HTMLInputElement>("input[data-assigned]") ?? [],
   );
+  return fields[fields.indexOf(field) + step];
+}
+
+/**
+ * The amount assigned to one category this month. Shows a formatted number
+ * until focused; saves when it is left. Enter, Tab and the arrow keys move
+ * down or up the column, so amounts can be typed one after another;
+ * Shift+Tab stays the browser's own, to reach the buttons in between.
+ *
+ * Leaving the field shows the new amount straight away, and every figure it
+ * moves; the save follows. If the save fails, the old amount comes back with
+ * the reason, and editing again starts from what was typed.
+ */
+export function AssignedInput({ categoryId, categoryName, value }: Props) {
+  const { month, currency, locale, show } = useBudget();
+  // null = not being edited, so the amount is shown.
+  const [text, setText] = useState<string | null>(null);
+  // What was typed for a save that failed, to start the next edit from.
+  const [retry, setRetry] = useState<string | null>(null);
+  const { error, setError, save } = useSave();
   const input = useRef<HTMLInputElement>(null);
   const selectOnEdit = useRef(false);
 
   // Select the whole amount when editing starts. This runs right after the
   // value switches to its editable form, before the next keystroke lands.
   useLayoutEffect(() => {
-    if (selectOnEdit.current && edit.text !== null) {
+    if (selectOnEdit.current && text !== null) {
       selectOnEdit.current = false;
       input.current?.select();
     }
-  }, [edit.text]);
+  }, [text]);
+
+  function saveTyped() {
+    if (text === null) return;
+    const typed = text;
+    setText(null);
+    // Read the way the server reads it. What cannot be read is not shown;
+    // the server says why.
+    const amount = typed.trim() === "" ? 0 : parseMoney(typed, currency);
+    if (amount === value) {
+      setRetry(null);
+      setError(null);
+      return;
+    }
+    save(
+      () => setAssignedAction(categoryId, month, typed),
+      () => setRetry(null),
+      () => setRetry(typed),
+      () => {
+        if (amount !== null) show({ type: "assign", categoryId, amount });
+      },
+    );
+  }
+
+  const { commit, cancel } = useSaveOnLeave(saveTyped, () => {
+    setText(null);
+    setRetry(null);
+    setError(null);
+  });
 
   return (
     <div className="-mr-2 flex flex-col items-end">
@@ -45,40 +93,41 @@ export function AssignedInput({ categoryId, categoryName, month, value, currency
         inputMode="decimal"
         autoComplete="off"
         aria-label={`Assigned to ${categoryName}`}
-        aria-invalid={edit.error ? true : undefined}
-        title={edit.error ?? undefined}
+        aria-invalid={error ? true : undefined}
+        title={error ?? undefined}
         placeholder={formatAmount(0, currency, locale)}
-        value={edit.text ?? (value === 0 ? "" : formatAmount(value, currency, locale))}
-        onChange={(e) => edit.setText(e.target.value)}
+        value={text ?? (value === 0 ? "" : formatAmount(value, currency, locale))}
+        onChange={(e) => setText(e.target.value)}
         onFocus={() => {
-          if (edit.text === null) {
+          if (text === null) {
             selectOnEdit.current = true;
-            edit.start();
+            setText(retry ?? toInputValue(value, currency, locale));
           }
         }}
-        onBlur={(e) => {
-          if (!windowLostFocus(e)) edit.commit();
-        }}
+        onBlur={commit}
         onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            // Only this table: Next.js can keep other visited pages mounted but hidden.
-            const table = e.currentTarget.closest("table");
-            const inputs = Array.from(
-              table?.querySelectorAll<HTMLInputElement>("input[data-assigned]") ?? [],
-            );
-            const next = inputs[inputs.indexOf(e.currentTarget) + 1];
-            if (next) next.focus();
-            else e.currentTarget.blur();
-          } else if (e.key === "Escape") {
-            edit.cancel(e.currentTarget);
+          // Keys that pick a character from an input method are not ours.
+          if (e.nativeEvent.isComposing) return;
+          const field = e.currentTarget;
+          if (e.key === "Escape") {
+            cancel(field);
+            return;
           }
+          const down =
+            e.key === "Enter" || e.key === "ArrowDown" || (e.key === "Tab" && !e.shiftKey);
+          if (!down && e.key !== "ArrowUp") return;
+          const next = nearbyField(field, down ? 1 : -1);
+          // On the last field, Tab leaves the table and Enter just saves.
+          if (next || e.key === "Enter") e.preventDefault();
+          if (next) next.focus();
+          else if (e.key === "Enter") field.blur();
         }}
-        className={`w-28 rounded-md border bg-transparent px-2 py-[3px] text-right text-[15px] tabular-nums transition-colors placeholder:text-muted/40 focus:bg-surface focus:outline-none ${
-          edit.error ? "border-bad" : "border-transparent hover:border-line focus:border-brand"
-        } ${edit.pending ? "opacity-60" : ""}`}
+        // scroll-mt: a field that gets focus scrolls into view below the sticky column headings.
+        className={`w-28 scroll-mt-14 rounded-md border bg-transparent px-2 py-[3px] text-right text-[15px] tabular-nums transition-colors placeholder:text-muted/40 focus:bg-surface focus:outline-none ${
+          error ? "border-bad" : "border-transparent hover:border-line focus:border-brand"
+        }`}
       />
-      <ErrorText error={edit.error} className="mt-1 text-xs" />
+      <ErrorText error={error} className="mt-1 text-xs" />
     </div>
   );
 }

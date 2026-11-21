@@ -1,10 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { MAX_NAME_LENGTH } from "@/lib/limits";
 import type { ActionResult } from "@/lib/result";
 import { ErrorText } from "../form";
-import { windowLostFocus } from "../use-inline-edit";
+import { useSaveOnLeave } from "../use-inline-edit";
 import { useSave } from "../use-save";
 
 /**
@@ -14,7 +14,6 @@ import { useSave } from "../use-save";
 export function useAddByName(add: (name: string) => Promise<ActionResult>) {
   const [draft, setDraft] = useState("");
   const { error, setError, pending, save } = useSave();
-  const cancelled = useRef(false);
 
   function addDraft() {
     const submitted = draft;
@@ -29,6 +28,11 @@ export function useAddByName(add: (name: string) => Promise<ActionResult>) {
       () => setDraft((current) => (current === "" ? submitted : current)),
     );
   }
+
+  const { commit, cancel } = useSaveOnLeave(addDraft, () => {
+    setDraft("");
+    setError(null);
+  });
 
   return {
     draft,
@@ -48,25 +52,14 @@ export function useAddByName(add: (name: string) => Promise<ActionResult>) {
       addDraft();
     },
 
-    /** For the field's `onBlur`: clicking away adds what was typed, like Enter. */
-    commit() {
-      if (cancelled.current) {
-        cancelled.current = false;
-      } else {
-        addDraft();
-      }
-    },
-
     /**
-     * For the Escape key: drops what was typed and any error. Blurring the
-     * field here makes `commit` run now and see the cancel.
+     * For the field's `onBlur`: clicking away adds what was typed, like
+     * Enter. Returns whether the field was really left.
      */
-    cancel(field: HTMLElement) {
-      cancelled.current = true;
-      setDraft("");
-      setError(null);
-      field.blur();
-    },
+    commit,
+
+    /** For the Escape key: drops what was typed and any error. */
+    cancel,
   };
 }
 
@@ -76,6 +69,7 @@ export function AddByNameField({
   label,
   placeholder,
   autoFocus,
+  wide,
   onLeave,
   className = "",
 }: {
@@ -84,6 +78,8 @@ export function AddByNameField({
   label: string;
   placeholder: string;
   autoFocus?: boolean;
+  /** Room for a longer placeholder, such as one with an example. */
+  wide?: boolean;
   /** Runs when the field loses focus, after what was typed was added or dropped. */
   onLeave?: () => void;
   /** Size, weight and spacing of the text. */
@@ -100,14 +96,12 @@ export function AddByNameField({
         value={state.draft}
         onChange={(e) => state.type(e.target.value)}
         onBlur={(e) => {
-          if (windowLostFocus(e)) return;
-          state.commit();
-          onLeave?.();
+          if (state.commit(e)) onLeave?.();
         }}
         onKeyDown={(e) => {
           if (e.key === "Escape") state.cancel(e.currentTarget);
         }}
-        className={`-ml-2 w-56 rounded-md border bg-transparent px-[7px] py-[3px] placeholder:font-normal placeholder:text-muted focus:bg-surface focus:outline-none ${className} ${
+        className={`-ml-2 ${wide ? "w-80" : "w-56"} rounded-md border bg-transparent px-[7px] py-[3px] placeholder:font-normal placeholder:text-muted focus:bg-surface focus:outline-none ${className} ${
           state.error ? "border-bad" : "border-transparent hover:border-line focus:border-brand"
         }`}
       />

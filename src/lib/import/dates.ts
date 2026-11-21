@@ -44,17 +44,35 @@ export function looksLikeDate(raw: string): boolean {
   return dateOrders.some((order) => parseBankDate(raw, order) !== null);
 }
 
-/**
- * Works out the order from a column of dates. Day-first and month-first only
- * differ when a number above 12 shows up; with nothing to go on, day-first
- * wins because most of the world writes dates that way.
- */
-export function detectDateOrder(values: string[]): DateOrder {
+/** How many of the values read as a date in each order. */
+function countByOrder(values: string[]): Record<DateOrder, number> {
   const count = (order: DateOrder) =>
     values.filter((value) => parseBankDate(value, order) !== null).length;
-  const ymd = count("ymd");
-  const dmy = count("dmy");
-  const mdy = count("mdy");
+  return { ymd: count("ymd"), dmy: count("dmy"), mdy: count("mdy") };
+}
+
+/**
+ * Day-first and month-first only differ when a number above 12 shows up. True
+ * when the values read equally well both ways ("11/03/2026"), so the order is
+ * a guess.
+ */
+export function isDateOrderAmbiguous(values: string[]): boolean {
+  const { ymd, dmy, mdy } = countByOrder(values);
+  return dmy === mdy && dmy > 0 && ymd < dmy;
+}
+
+/**
+ * Works out the order from a column of dates. When the file cannot tell,
+ * the reader's own habit decides: month first for `monthFirst`, else day first.
+ */
+export function detectDateOrder(values: string[], monthFirst = false): DateOrder {
+  const { ymd, dmy, mdy } = countByOrder(values);
   if (ymd >= dmy && ymd >= mdy && ymd > 0) return "ymd";
+  if (mdy === dmy) return monthFirst ? "mdy" : "dmy";
   return mdy > dmy ? "mdy" : "dmy";
+}
+
+/** Whether this locale writes the month before the day. Only the US does it among the common ones. */
+export function isMonthFirstLocale(locale: string): boolean {
+  return locale.toLowerCase() === "en-us";
 }

@@ -18,6 +18,15 @@ export const accounts = sqliteTable("accounts", {
    * import of the same layout needs no setting up.
    */
   importMapping: text("import_mapping"),
+  /**
+   * What the account held at the end of `balanceDate`, in minor units, as
+   * entered by its owner. The account's "Starting balance" transaction is
+   * kept in step with it: starting balance = this amount minus every other
+   * transaction dated on or before `balanceDate`. So importing older history
+   * later never changes what the account holds on that date.
+   */
+  startingBalance: integer("starting_balance"),
+  balanceDate: text("balance_date").$type<IsoDate>(),
   createdAt,
 });
 
@@ -43,6 +52,11 @@ export const categories = sqliteTable("categories", {
   name: text("name").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
   archived: integer("archived", { mode: "boolean" }).notNull().default(false),
+  /**
+   * True for an income category (Salary, Benefits). It holds no money:
+   * what comes in through it goes to Ready to assign, and it has no group.
+   */
+  income: integer("income", { mode: "boolean" }).notNull().default(false),
   createdAt,
 });
 
@@ -85,6 +99,8 @@ export const transactions = sqliteTable(
     amount: integer("amount").notNull(),
     payee: text("payee"),
     note: text("note"),
+    /** True for an account's "Starting balance" transaction; there is at most one per account. */
+    starting: integer("starting", { mode: "boolean" }).notNull().default(false),
     /**
      * True for an imported transaction nobody has looked at yet. Choosing a
      * category, or marking it as income or a transfer, clears it.
@@ -110,4 +126,21 @@ export const transactions = sqliteTable(
       .where(sql`${t.toSort} = 1`),
     uniqueIndex("transactions_account_import_unique").on(t.accountId, t.importId),
   ],
+);
+
+/**
+ * Fingerprints of imported transactions that were deleted by hand, so a
+ * later import of the same bank file does not bring them back.
+ */
+export const deletedImports = sqliteTable(
+  "deleted_imports",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    accountId: integer("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    importId: text("import_id").notNull(),
+    createdAt,
+  },
+  (t) => [uniqueIndex("deleted_imports_account_import_unique").on(t.accountId, t.importId)],
 );

@@ -4,7 +4,8 @@
  * mix fake rows into real ones.
  */
 import { databasePath, getDb } from "../src/db";
-import { createAccount, createCategory, createGroup, setAssigned } from "../src/db/budget";
+import { createAccount } from "../src/db/accounts";
+import { createCategory, createGroup, createIncomeCategory, setAssigned } from "../src/db/budget";
 import { accounts, transactions } from "../src/db/schema";
 import { created } from "../src/db/created";
 import { importTransactions } from "../src/db/transactions";
@@ -35,19 +36,28 @@ const money = (major: number) => Math.round(major * unit);
 const months = [-2, -1, 0].map((offset) => addMonths(currentMonth(), offset));
 const day = (month: Month, n: number) => `${month}-${pad(n)}` as IsoDate;
 
+// The accounts' balances are from the day before the demo history starts,
+// so all of that history adds on top of them.
+const [firstYear, firstMonth] = months[0].split("-").map(Number);
+const balanceDate = today(new Date(firstYear, firstMonth - 1, 0));
+
 db.transaction((tx) => {
-  const checking = createAccount(tx, {
-    name: "Checking",
-    type: "checking",
-    startingBalance: money(1200),
-    date: day(months[0], 1),
-  });
-  createAccount(tx, {
-    name: "Savings",
-    type: "savings",
-    startingBalance: money(5000),
-    date: day(months[0], 1),
-  });
+  const checking = created(
+    createAccount(tx, {
+      name: "Checking",
+      type: "checking",
+      startingBalance: money(1200),
+      balanceDate,
+    }),
+  );
+  created(
+    createAccount(tx, {
+      name: "Savings",
+      type: "savings",
+      startingBalance: money(5000),
+      balanceDate,
+    }),
+  );
 
   const plan = [
     { group: "Fixed costs", name: "Rent", assign: 1100 },
@@ -60,6 +70,8 @@ db.transaction((tx) => {
   ];
   const group: Record<string, number> = {};
   const category: Record<string, number> = {};
+  // What comes in has a category of its own, outside the groups.
+  category["Salary"] = created(createIncomeCategory(tx, "Salary"));
   for (const { group: groupName, name } of plan) {
     group[groupName] ??= created(createGroup(tx, groupName));
     category[name] = created(createCategory(tx, name, group[groupName]));
@@ -82,7 +94,7 @@ db.transaction((tx) => {
       });
     };
 
-    add(1, 2850, "Acme Corp salary");
+    add(1, 2850, "Acme Corp salary", "Salary");
     add(2, -1100, "Landlord", "Rent");
     add(5, -between(60, 95), "Power & Water Co", "Utilities");
     add(8, -49, "City Transit", "Transport");

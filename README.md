@@ -20,6 +20,9 @@ Groceries, Holiday), and spending comes out of them.
 - **Available** is what the category holds. Leftovers and overspending roll
   over into the next month. It is drawn as a gauge that empties as you spend.
 - **Groups** such as Fixed costs, Everyday and Goals keep categories organised.
+- **Income categories** such as Salary show what came in each month, above
+  the groups. They hold no money: what comes in through them is ready to
+  assign. They tell your salary apart from a refund or a transfer.
 
 One rule always holds: the money in your accounts equals Ready to assign plus
 what is available in all categories.
@@ -34,8 +37,9 @@ website; there is no direct bank connection.
    transactions as they will be imported. Correct a column if it guessed wrong.
 3. Import. Transactions you imported before are skipped, so files may
    overlap, and an import can be undone straight away.
-4. Open **Transactions** and sort each one into a category. Income and
-   transfers between your own accounts get "No category".
+4. Open **Transactions** and sort each one into a category: spending into
+   the category it came out of, income into an income category such as
+   Salary. Transfers between your own accounts get "No category".
 
 The column settings are remembered per account, so the next import of the
 same bank's file needs no setting up. The file goes to your own LarchBudget
@@ -55,7 +59,8 @@ automatic bank connections. The interface is designed for desktop first.
 
 ## Run it locally
 
-Requires Node.js 26 or newer.
+Requires Node.js 24 or newer. The Docker image and the automated checks use
+Node.js 26.
 
 ```bash
 npm install
@@ -142,7 +147,9 @@ Three rules keep the numbers trustworthy:
   transactions.
 - **A transaction without a category counts towards Ready to assign.**
   Income adds to it, spending that is not in a category yet reduces it, and
-  a transfer between two accounts cancels out.
+  a transfer between two accounts cancels out. A transaction in an income
+  category (`categories.income`) counts the same way: such a category only
+  says where money came from, and holds none.
 
 Imported transactions carry a fingerprint of their line in the bank file,
 unique per account; that is how duplicates are skipped, whichever columns
@@ -210,11 +217,18 @@ budget, and nothing more.
 - Importing transactions from a bank CSV file.
 - Sorting imported transactions into categories.
 
-**After 0.1.0**, features arrive one at a time, each in its own pull request:
+**Since 0.1.0:**
 
-- Moving money between categories.
-- Moving and reordering categories and groups.
-- Suggested categories for imported transactions.
+- Moving money between categories, and covering an overspent one.
+- Moving and reordering categories and groups, and restoring archived
+  categories.
+- Starting a month with what was assigned the month before.
+- Suggested categories for imported transactions, from where the same payee
+  went last time.
+- Income categories, to see what came in each month.
+
+**Later**, in no particular order:
+
 - Undo for changes.
 - Savings targets.
 - Several months side by side.

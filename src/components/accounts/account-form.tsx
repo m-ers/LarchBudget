@@ -2,11 +2,19 @@
 
 import { createAccountAction } from "@/app/actions";
 import { accountTypeLabels, accountTypes } from "@/lib/account-types";
+import type { IsoDate } from "@/lib/dates";
 import { MAX_NAME_LENGTH } from "@/lib/limits";
-import { ErrorText, Field, field, primaryButton } from "../form";
+import { ErrorText, Field, field, primaryButton, selectField } from "../form";
 import { useSave } from "../use-save";
+import { BalanceFields } from "./balance-fields";
 
-export function AccountForm({ amountPlaceholder }: { amountPlaceholder: string }) {
+export function AccountForm({
+  amountPlaceholder,
+  today,
+}: {
+  amountPlaceholder: string;
+  today: IsoDate;
+}) {
   const { error, pending, save } = useSave();
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
@@ -31,7 +39,7 @@ export function AccountForm({ amountPlaceholder }: { amountPlaceholder: string }
         />
       </Field>
       <Field label="Type">
-        <select name="type" defaultValue="checking" className={`${field} px-3`}>
+        <select name="type" defaultValue="checking" className={`${selectField} px-3`}>
           {accountTypes.map((type) => (
             <option key={type} value={type}>
               {accountTypeLabels[type]}
@@ -39,18 +47,7 @@ export function AccountForm({ amountPlaceholder }: { amountPlaceholder: string }
           ))}
         </select>
       </Field>
-      <Field label="Balance today">
-        <input
-          name="startingBalance"
-          inputMode="decimal"
-          autoComplete="off"
-          placeholder={amountPlaceholder}
-          className={`${field} px-3 tabular-nums`}
-        />
-        <span className="text-xs font-normal text-muted">
-          For a credit card you owe money on, enter a negative amount.
-        </span>
-      </Field>
+      <BalanceFields amountPlaceholder={amountPlaceholder} today={today} />
       <ErrorText error={error} className="text-sm" />
       <button
         type="submit"

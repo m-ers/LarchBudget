@@ -74,9 +74,25 @@ export const TrashIcon = (props: SVGProps<SVGSVGElement>) => (
   </Icon>
 );
 
+/** Three dots in a row: "more actions". */
+export const MoreIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props} fill="currentColor" stroke="none">
+    <circle cx="5.5" cy="12" r="1.7" />
+    <circle cx="12" cy="12" r="1.7" />
+    <circle cx="18.5" cy="12" r="1.7" />
+  </Icon>
+);
+
 export const CheckIcon = (props: SVGProps<SVGSVGElement>) => (
   <Icon {...props}>
     <path d="m5 12.5 4.5 4.5L19 7.5" />
+  </Icon>
+);
+
+export const InfoIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5M12 8h.01" />
   </Icon>
 );
 
@@ -113,7 +129,7 @@ export const EnvelopeToken = ({ color }: { color: string }) => (
 export const EmptyToken = () => (
   <span
     aria-hidden="true"
-    className="flex h-[19px] w-[26px] shrink-0 items-center justify-center rounded-[4px] border-[1.5px] border-dashed border-[#c3c5cb] text-sm leading-none text-muted"
+    className="flex h-[19px] w-[26px] shrink-0 items-center justify-center rounded-[4px] border-[1.5px] border-dashed border-dash text-sm leading-none text-muted"
   >
     +
   </span>

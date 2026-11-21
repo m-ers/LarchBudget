@@ -1,5 +1,17 @@
 import type { Page } from "@playwright/test";
-import { addGroup, category, groupHeading, headerFigure, newCategoryField } from "./budget-page";
+import {
+  addCategories,
+  addGroup,
+  category,
+  clickAway,
+  groupHeading,
+  groupMenuButton,
+  groupTotal,
+  headerFigure,
+  menuItem,
+  newCategoryField,
+  openGroupMenu,
+} from "./helpers";
 import { expect, test } from "./fixtures";
 
 /** Answers the next confirmation, and returns its question. */
@@ -13,8 +25,8 @@ function answerNextQuestion(page: Page, accept: boolean): Promise<string> {
 }
 
 async function clickDelete(page: Page, group: string) {
-  await groupHeading(page, group).hover();
-  await page.getByRole("button", { name: `Delete the group ${group}` }).click();
+  await openGroupMenu(page, group);
+  await menuItem(page, "Delete group").click();
 }
 
 test.describe("deleting a group with categories", () => {
@@ -40,9 +52,7 @@ test.describe("deleting a group with categories", () => {
     // Read from the page: what the demo data holds depends on the day of the month.
     const cents = (money: string) => Math.round(Number(money.replace(/[^0-9.-]/g, "")) * 100);
     const before = cents(await headerFigure(page).innerText());
-    const held = cents(
-      await groupHeading(page, "Everyday").locator("xpath=..").getByRole("cell").innerText(),
-    );
+    const held = cents(await groupTotal(page, "Everyday").innerText());
     expect(held).not.toBe(0);
 
     const question = answerNextQuestion(page, true);
@@ -68,12 +78,36 @@ test.describe("deleting an empty group", () => {
     await expect(groupHeading(page, "Goals")).toHaveCount(0);
   });
 
-  test("does not first add a category half-typed in its field", async ({ page }) => {
+  test("opening the menu adds a category half-typed in its field, and the question counts it", async ({
+    page,
+  }) => {
     await newCategoryField(page, "Goals").fill("Car");
-    const question = answerNextQuestion(page, true);
-    await clickDelete(page, "Goals");
-    await question;
-    await expect(groupHeading(page, "Goals")).toHaveCount(0);
-    await expect(category(page, "Car")).toHaveCount(0);
+    // Like any other way of leaving the field.
+    await openGroupMenu(page, "Goals");
+    await expect(category(page, "Car")).toBeVisible();
+    const question = answerNextQuestion(page, false);
+    await menuItem(page, "Delete group").click();
+    expect(await question).toBe(
+      'Delete the group "Goals"? Its category will be archived, and the money in it goes back to Ready to assign.',
+    );
   });
+});
+
+test("a group heading always shows how to add a category; its menu shows on hover", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await addGroup(page, "Fixed");
+  await addCategories(page, "Fixed", ["Rent"]);
+  await clickAway(page);
+
+  const add = page.getByRole("button", { name: "Add a category to Fixed" });
+  const menu = groupMenuButton(page, "Fixed");
+  await expect(add).toHaveCSS("opacity", "1");
+  await expect(menu).toHaveCSS("opacity", "0");
+
+  await groupHeading(page, "Fixed").hover();
+  await expect(menu).toHaveCSS("opacity", "1");
+  await add.click();
+  await expect(newCategoryField(page, "Fixed")).toBeFocused();
 });

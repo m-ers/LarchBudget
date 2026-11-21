@@ -1,11 +1,16 @@
 "use client";
 
+import { useImperativeHandle, useRef } from "react";
 import { MAX_NAME_LENGTH } from "@/lib/limits";
 import type { ActionResult } from "@/lib/result";
 import { ErrorText } from "./form";
-import { useInlineEdit, windowLostFocus } from "./use-inline-edit";
+import { useInlineEdit } from "./use-inline-edit";
+
+/** Lets a menu item start the rename, as clicking the name does. */
+export type InlineNameHandle = { startEditing: () => void };
 
 type Props = {
+  ref?: React.Ref<InlineNameHandle>;
   value: string;
   /** Accessible name of the text field, e.g. "Category name". */
   label: string;
@@ -18,8 +23,20 @@ type Props = {
  * A name you click to rename in place. Enter or clicking away saves,
  * Escape cancels.
  */
-export function InlineName({ value, label, onSave, className = "" }: Props) {
+export function InlineName({ ref, value, label, onSave, className = "" }: Props) {
   const edit = useInlineEdit(value, onSave);
+  const field = useRef<HTMLInputElement>(null);
+  useImperativeHandle(ref, () => ({
+    startEditing() {
+      // Already open (a refused name stays in the field): go back to it,
+      // and keep what was typed.
+      if (edit.text === null) edit.start();
+      else {
+        field.current?.focus();
+        field.current?.select();
+      }
+    },
+  }));
 
   if (edit.text === null) {
     return (
@@ -39,6 +56,7 @@ export function InlineName({ value, label, onSave, className = "" }: Props) {
   return (
     <span className="flex min-w-0 items-center gap-2">
       <input
+        ref={field}
         autoFocus
         aria-label={label}
         aria-invalid={edit.error ? true : undefined}
@@ -51,9 +69,7 @@ export function InlineName({ value, label, onSave, className = "" }: Props) {
           e.currentTarget.dataset.selected = "true";
           e.currentTarget.select();
         }}
-        onBlur={(e) => {
-          if (!windowLostFocus(e)) edit.commit();
-        }}
+        onBlur={edit.commit}
         onKeyDown={(e) => {
           if (e.key === "Enter") e.currentTarget.blur();
           if (e.key === "Escape") edit.cancel(e.currentTarget);

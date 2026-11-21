@@ -1,18 +1,25 @@
+import { eq, isNull } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { IsoDate, Month } from "../lib/dates";
+import { createAccount, getAccounts } from "./accounts";
 import * as budget from "./budget";
 import {
   archiveCategory,
-  createAccount,
+  copyAssignments,
   deleteGroup,
-  getAccounts,
+  getArchivedCategories,
   getBudgetMonth,
+  moveCategory,
+  moveCategoryToGroup,
+  moveGroup,
+  moveMoney,
   renameCategory,
   renameGroup,
+  restoreCategory,
   setAssigned,
 } from "./budget";
 import { openDb, type Db } from "./index";
-import { transactions } from "./schema";
+import { assignments, categories, transactions } from "./schema";
 import { created } from "./created";
 
 let db: Db;
@@ -24,6 +31,8 @@ const createCategory = (database: Db, name: string, groupId = group) =>
   created(budget.createCategory(database, name, groupId));
 
 const createGroup = (database: Db, name: string) => created(budget.createGroup(database, name));
+
+const createIncomeCategory = (name: string) => created(budget.createIncomeCategory(db, name));
 
 /** All category rows of a budget month, across groups. */
 const rows = (month: Month) => getBudgetMonth(db, month).groups.flatMap((g) => g.categories);
@@ -37,17 +46,23 @@ function expectEverythingAccountedFor() {
   const farFuture = getBudgetMonth(db, "2999-12");
   const inAccounts = getAccounts(db).reduce((sum, a) => sum + a.balance, 0);
   expect(farFuture.readyToAssign + farFuture.totals.available).toBe(inAccounts);
+  // The two parts Ready to assign is explained with, in any month.
+  const month = getBudgetMonth(db, "2026-10");
+  expect(month.inAccounts).toBe(inAccounts);
+  expect(month.inCategories).toBe(farFuture.totals.available);
 }
 
 beforeEach(() => {
   db = openDb(":memory:");
   group = createGroup(db, "Everyday");
-  checking = createAccount(db, {
-    name: "Checking",
-    type: "checking",
-    startingBalance: 100_000,
-    date: "2026-10-01",
-  });
+  checking = created(
+    createAccount(db, {
+      name: "Checking",
+      type: "checking",
+      startingBalance: 100_000,
+      balanceDate: "2026-10-01",
+    }),
+  );
 });
 
 describe("ready to assign", () => {
@@ -85,12 +100,14 @@ describe("ready to assign", () => {
   });
 
   it("is not changed by a transfer between accounts", () => {
-    const savings = createAccount(db, {
-      name: "Savings",
-      type: "savings",
-      startingBalance: 0,
-      date: "2026-10-01",
-    });
+    const savings = created(
+      createAccount(db, {
+        name: "Savings",
+        type: "savings",
+        startingBalance: 0,
+        balanceDate: "2026-10-01",
+      }),
+    );
     spend(null, "2026-10-10", -20_000, checking);
     spend(null, "2026-10-10", 20_000, savings);
     expect(getBudgetMonth(db, "2026-10").readyToAssign).toBe(100_000);
@@ -117,6 +134,7 @@ describe("category balances", () => {
       assigned: 30_000,
       activity: -10_000,
       available: 20_000,
+      balance: 20_000,
     });
   });
 
@@ -140,6 +158,22 @@ describe("category balances", () => {
       activity: 0,
       available: 45_000,
     });
+  });
+
+  it("tell their balance over all time, which a later month can change", () => {
+    const holiday = createCategory(db, "Holiday");
+    setAssigned(db, holiday, "2026-10", 30_000);
+    setAssigned(db, holiday, "2026-11", 20_000);
+    spend(holiday, "2026-12-01", -5_000);
+
+    const [october] = rows("2026-10");
+    expect(october.available).toBe(30_000);
+    expect(october.balance).toBe(45_000);
+
+    // That balance is what archiving gives back.
+    const before = getBudgetMonth(db, "2026-10").readyToAssign;
+    archiveCategory(db, holiday);
+    expect(getBudgetMonth(db, "2026-10").readyToAssign).toBe(before + october.balance);
   });
 
   it("roll overspending over as a negative balance", () => {
@@ -227,7 +261,7 @@ describe("categories", () => {
 });
 
 describe("groups", () => {
-  it("list their categories and add up what they hold", () => {
+  it("list their categories and add up what was assigned, spent and is held", () => {
     const goals = createGroup(db, "Goals");
     const groceries = createCategory(db, "Groceries");
     const holiday = createCategory(db, "Holiday", goals);
@@ -238,9 +272,17 @@ describe("groups", () => {
     spend(holiday, "2026-10-12", -4_000);
 
     const { groups } = getBudgetMonth(db, "2026-10");
-    expect(groups.map((g) => [g.name, g.categories.map((e) => e.name), g.available])).toEqual([
-      ["Everyday", ["Groceries"], 30_000],
-      ["Goals", ["Holiday", "Car"], 21_000],
+    expect(
+      groups.map((g) => [
+        g.name,
+        g.categories.map((e) => e.name),
+        g.assigned,
+        g.activity,
+        g.available,
+      ]),
+    ).toEqual([
+      ["Everyday", ["Groceries"], 30_000, 0, 30_000],
+      ["Goals", ["Holiday", "Car"], 25_000, -4_000, 21_000],
     ]);
   });
 
@@ -308,16 +350,558 @@ describe("groups", () => {
   });
 });
 
-describe("accounts", () => {
-  it("derive their balance from the ledger", () => {
-    spend(null, "2026-10-03", -2_500);
-    expect(getAccounts(db)).toEqual([
-      { id: checking, name: "Checking", type: "checking", balance: 97_500 },
+describe("reordering", () => {
+  /** The names in each group, in the order the budget page shows them. */
+  const layout = () =>
+    Object.fromEntries(
+      getBudgetMonth(db, "2026-10").groups.map((g) => [g.name, g.categories.map((c) => c.name)]),
+    );
+
+  it("swaps a category with its neighbour in the same group", () => {
+    const goals = createGroup(db, "Goals");
+    createCategory(db, "Rent");
+    const water = createCategory(db, "Water");
+    createCategory(db, "Holiday", goals);
+    createCategory(db, "Phone");
+
+    expect(moveCategory(db, water, "up")).toBe("moved");
+    expect(layout()).toEqual({ Everyday: ["Water", "Rent", "Phone"], Goals: ["Holiday"] });
+    expect(moveCategory(db, water, "down")).toBe("moved");
+    expect(moveCategory(db, water, "down")).toBe("moved");
+    expect(layout()).toEqual({ Everyday: ["Rent", "Phone", "Water"], Goals: ["Holiday"] });
+  });
+
+  it("does nothing for the first category going up or the last going down", () => {
+    const rent = createCategory(db, "Rent");
+    const water = createCategory(db, "Water");
+    expect(moveCategory(db, rent, "up")).toBe("at-edge");
+    expect(moveCategory(db, water, "down")).toBe("at-edge");
+    expect(layout()).toEqual({ Everyday: ["Rent", "Water"] });
+  });
+
+  it("skips archived categories, and refuses to move one", () => {
+    createCategory(db, "Rent");
+    const old = createCategory(db, "Old");
+    const water = createCategory(db, "Water");
+    archiveCategory(db, old);
+    expect(moveCategory(db, water, "up")).toBe("moved");
+    expect(layout()).toEqual({ Everyday: ["Water", "Rent"] });
+    expect(moveCategory(db, old, "up")).toBe("gone");
+    expect(moveCategory(db, 9999, "up")).toBe("gone");
+  });
+
+  it("still swaps two categories that share a place", () => {
+    const rent = createCategory(db, "Rent");
+    createCategory(db, "Water");
+    db.update(categories).set({ sortOrder: 0 }).run();
+    expect(moveCategory(db, rent, "down")).toBe("moved");
+    expect(layout()).toEqual({ Everyday: ["Water", "Rent"] });
+  });
+
+  it("swaps a group with its neighbour", () => {
+    const goals = createGroup(db, "Goals");
+    createGroup(db, "Fixed");
+    expect(moveGroup(db, goals, "up")).toBe("moved");
+    expect(Object.keys(layout())).toEqual(["Goals", "Everyday", "Fixed"]);
+    expect(moveGroup(db, goals, "up")).toBe("at-edge");
+    expect(moveGroup(db, goals, "down")).toBe("moved");
+    expect(moveGroup(db, goals, "down")).toBe("moved");
+    expect(moveGroup(db, goals, "down")).toBe("at-edge");
+    expect(Object.keys(layout())).toEqual(["Everyday", "Fixed", "Goals"]);
+    expect(moveGroup(db, 9999, "up")).toBe("gone");
+  });
+
+  it("keeps a new group or category at the end after reordering", () => {
+    const goals = createGroup(db, "Goals");
+    const rent = createCategory(db, "Rent");
+    createCategory(db, "Water");
+    moveGroup(db, goals, "up");
+    moveCategory(db, rent, "down");
+    createGroup(db, "Fixed");
+    createCategory(db, "Phone");
+    expect(layout()).toEqual({ Goals: [], Everyday: ["Water", "Rent", "Phone"], Fixed: [] });
+  });
+});
+
+describe("moving a category to another group", () => {
+  it("puts it at the end of that group, with its money and history", () => {
+    const goals = createGroup(db, "Goals");
+    const holiday = createCategory(db, "Holiday");
+    createCategory(db, "Groceries");
+    createCategory(db, "Car", goals);
+    setAssigned(db, holiday, "2026-10", 30_000);
+    spend(holiday, "2026-10-12", -4_000);
+    const before = getBudgetMonth(db, "2026-10");
+
+    expect(moveCategoryToGroup(db, holiday, goals)).toBe("moved");
+    const after = getBudgetMonth(db, "2026-10");
+    expect(after.groups.map((g) => [g.name, g.categories.map((c) => c.name), g.available])).toEqual(
+      [
+        ["Everyday", ["Groceries"], 0],
+        ["Goals", ["Car", "Holiday"], 26_000],
+      ],
+    );
+    expect(after.groups[1].categories[1]).toEqual(before.groups[0].categories[0]);
+    expect(after.readyToAssign).toBe(before.readyToAssign);
+    expectEverythingAccountedFor();
+  });
+
+  it("refuses a category or group that is not there, and an income category", () => {
+    const goals = createGroup(db, "Goals");
+    const old = createCategory(db, "Old");
+    archiveCategory(db, old);
+    expect(moveCategoryToGroup(db, old, goals)).toBe("no-category");
+    expect(moveCategoryToGroup(db, 9999, goals)).toBe("no-category");
+    const salary = createIncomeCategory("Salary");
+    expect(moveCategoryToGroup(db, salary, goals)).toBe("no-category");
+    expect(getBudgetMonth(db, "2026-10").income.categories.map((c) => c.name)).toEqual(["Salary"]);
+    const rent = createCategory(db, "Rent");
+    expect(moveCategoryToGroup(db, rent, 9999)).toBe("no-group");
+    expect(getBudgetMonth(db, "2026-10").groups[0].categories.map((c) => c.name)).toEqual(["Rent"]);
+  });
+});
+
+describe("moving money", () => {
+  let groceries: number;
+  let holiday: number;
+  beforeEach(() => {
+    groceries = createCategory(db, "Groceries");
+    holiday = createCategory(db, "Holiday");
+    setAssigned(db, groceries, "2026-10", 30_000);
+    setAssigned(db, holiday, "2026-10", 10_000);
+  });
+
+  /** Assigned in October, per category name. */
+  const assigned = () => Object.fromEntries(rows("2026-10").map((c) => [c.name, c.assigned]));
+  const ready = () => getBudgetMonth(db, "2026-10").readyToAssign;
+
+  /** Moves money the way the form does: from the Assigned amounts on screen at that moment. */
+  function move(input: {
+    from: budget.MoneyEnd;
+    to: budget.MoneyEnd;
+    month: Month;
+    amount: number;
+  }) {
+    const shown = (end: budget.MoneyEnd) =>
+      rows(input.month).find((c) => c.id === end)?.assigned ?? null;
+    return moveMoney(db, { ...input, seen: { from: shown(input.from), to: shown(input.to) } });
+  }
+
+  it("between two categories changes their Assigned amounts and leaves Ready to assign", () => {
+    const before = ready();
+    expect(move({ from: groceries, to: holiday, month: "2026-10", amount: 5_000 })).toBe("moved");
+    expect(assigned()).toEqual({ Groceries: 25_000, Holiday: 15_000 });
+    expect(ready()).toBe(before);
+    expectEverythingAccountedFor();
+  });
+
+  it("from Ready to assign puts it in one category", () => {
+    move({ from: "ready", to: holiday, month: "2026-10", amount: 7_500 });
+    expect(assigned()).toEqual({ Groceries: 30_000, Holiday: 17_500 });
+    expect(ready()).toBe(52_500);
+    expectEverythingAccountedFor();
+  });
+
+  it("to Ready to assign takes it out of one category", () => {
+    move({ from: groceries, to: "ready", month: "2026-10", amount: 30_000 });
+    expect(assigned()).toEqual({ Groceries: 0, Holiday: 10_000 });
+    expect(ready()).toBe(90_000);
+    expectEverythingAccountedFor();
+  });
+
+  it("covers an overspent category in the month it is viewed in", () => {
+    spend(holiday, "2026-11-03", -16_000);
+    expect(rows("2026-11")[1].available).toBe(-6_000);
+    move({ from: groceries, to: holiday, month: "2026-11", amount: 6_000 });
+    expect(rows("2026-11").map((c) => [c.name, c.assigned, c.available])).toEqual([
+      ["Groceries", -6_000, 24_000],
+      ["Holiday", 6_000, 0],
+    ]);
+    // October is left as it was.
+    expect(assigned()).toEqual({ Groceries: 30_000, Holiday: 10_000 });
+    expectEverythingAccountedFor();
+  });
+
+  it("moves the money once when the same move is asked for twice", () => {
+    // What the form showed, sent again because the first answer never came back.
+    const sameRequest = {
+      from: groceries,
+      to: holiday,
+      month: "2026-10",
+      amount: 5_000,
+      seen: { from: 30_000, to: 10_000 },
+    } as const;
+    expect(moveMoney(db, sameRequest)).toBe("moved");
+    expect(moveMoney(db, sameRequest)).toBe("moved");
+    expect(assigned()).toEqual({ Groceries: 25_000, Holiday: 15_000 });
+
+    // With Ready to assign at one end, too.
+    const fromReady = {
+      from: "ready",
+      to: holiday,
+      month: "2026-10",
+      amount: 1_000,
+      seen: { from: null, to: 15_000 },
+    } as const;
+    expect(moveMoney(db, fromReady)).toBe("moved");
+    expect(moveMoney(db, fromReady)).toBe("moved");
+    expect(assigned()).toEqual({ Groceries: 25_000, Holiday: 16_000 });
+    expectEverythingAccountedFor();
+  });
+
+  it("moves nothing when the amounts changed since they were looked at", () => {
+    setAssigned(db, groceries, "2026-10", 28_000);
+    expect(
+      moveMoney(db, {
+        from: groceries,
+        to: holiday,
+        month: "2026-10",
+        amount: 5_000,
+        seen: { from: 30_000, to: 10_000 },
+      }),
+    ).toBe("changed");
+    expect(assigned()).toEqual({ Groceries: 28_000, Holiday: 10_000 });
+  });
+
+  it("refuses amounts that are not above zero, and a move to the same place", () => {
+    for (const amount of [0, -5_000, 0.5]) {
+      expect(move({ from: groceries, to: holiday, month: "2026-10", amount })).toBe("not-positive");
+    }
+    expect(move({ from: holiday, to: holiday, month: "2026-10", amount: 1 })).toBe("same");
+    expect(move({ from: "ready", to: "ready", month: "2026-10", amount: 1 })).toBe("same");
+    expect(assigned()).toEqual({ Groceries: 30_000, Holiday: 10_000 });
+  });
+
+  it("refuses archived, income and missing categories, and then changes nothing", () => {
+    archiveCategory(db, holiday);
+    const salary = createIncomeCategory("Salary");
+    for (const [from, to] of [
+      [groceries, holiday],
+      [holiday, "ready"],
+      [salary, groceries],
+      ["ready", salary],
+      [groceries, 9999],
+    ] as const) {
+      expect(move({ from, to, month: "2026-10", amount: 1_000 })).toBe("no-category");
+    }
+    expect(rows("2026-10").find((c) => c.name === "Groceries")?.assigned).toBe(30_000);
+    expectEverythingAccountedFor();
+  });
+});
+
+describe("archived categories", () => {
+  it("are listed by name with what they hold over all time", () => {
+    const water = createCategory(db, "water");
+    const fun = createCategory(db, "Fun");
+    createCategory(db, "Rent");
+    setAssigned(db, water, "2026-10", 5_000);
+    setAssigned(db, water, "2026-12", 2_000);
+    spend(fun, "2026-10-04", -3_000);
+    archiveCategory(db, water);
+    archiveCategory(db, fun);
+    expect(getArchivedCategories(db)).toEqual([
+      { id: fun, name: "Fun", balance: -3_000, income: false },
+      { id: water, name: "water", balance: 7_000, income: false },
     ]);
   });
 
-  it("can start empty", () => {
-    createAccount(db, { name: "Cash", type: "cash", startingBalance: 0, date: "2026-10-01" });
-    expect(getAccounts(db).find((a) => a.name === "Cash")?.balance).toBe(0);
+  it("come back at the end of their group, with their history and balance", () => {
+    const goals = createGroup(db, "Goals");
+    const holiday = createCategory(db, "Holiday", goals);
+    createCategory(db, "Car", goals);
+    setAssigned(db, holiday, "2026-10", 16_000);
+    spend(holiday, "2026-10-20", -1_000);
+    archiveCategory(db, holiday);
+    expect(getBudgetMonth(db, "2026-10").readyToAssign).toBe(99_000);
+
+    expect(restoreCategory(db, holiday)).toBe("restored");
+    const month = getBudgetMonth(db, "2026-10");
+    expect(month.groups[1].categories.map((c) => [c.name, c.assigned, c.available])).toEqual([
+      ["Car", 0, 0],
+      ["Holiday", 16_000, 15_000],
+    ]);
+    // Its balance leaves Ready to assign again.
+    expect(month.readyToAssign).toBe(84_000);
+    expect(getArchivedCategories(db)).toEqual([]);
+    expectEverythingAccountedFor();
+  });
+
+  it("come back in the first group when theirs was deleted", () => {
+    const goals = createGroup(db, "Goals");
+    const holiday = createCategory(db, "Holiday", goals);
+    deleteGroup(db, goals);
+    expect(restoreCategory(db, holiday)).toBe("restored");
+    expect(getBudgetMonth(db, "2026-10").groups.map((g) => [g.name, g.categories.length])).toEqual([
+      ["Everyday", 1],
+    ]);
+  });
+
+  it("are not restored while a visible category has their name, or when there is no group", () => {
+    const fun = createCategory(db, "Fun");
+    archiveCategory(db, fun);
+    const newFun = createCategory(db, "FUN");
+    expect(restoreCategory(db, fun)).toBe("name-taken");
+    archiveCategory(db, newFun);
+    deleteGroup(db, group);
+    expect(restoreCategory(db, fun)).toBe("no-group");
+    expect(getArchivedCategories(db).map((c) => c.name)).toEqual(["Fun", "FUN"]);
+    expect(restoreCategory(db, 9999)).toBe("no-category");
+  });
+
+  it("restoring a visible category changes nothing", () => {
+    const salary = createIncomeCategory("Salary");
+    expect(restoreCategory(db, salary)).toBe("restored");
+    expect(getBudgetMonth(db, "2026-10").income.categories.map((c) => c.name)).toEqual(["Salary"]);
+    const rent = createCategory(db, "Rent");
+    expect(restoreCategory(db, rent)).toBe("restored");
+    expect(rows("2026-10").map((c) => c.name)).toEqual(["Rent"]);
+  });
+});
+
+describe("starting a month from the one before", () => {
+  it("is offered once something was assigned to a visible expense category in the month before", () => {
+    const fun = createCategory(db, "Fun");
+    expect(getBudgetMonth(db, "2026-11").assignedLastMonth).toBe(false);
+    setAssigned(db, fun, "2026-10", 5_000);
+    expect(getBudgetMonth(db, "2026-11").assignedLastMonth).toBe(true);
+    expect(getBudgetMonth(db, "2026-12").assignedLastMonth).toBe(false);
+    archiveCategory(db, fun);
+    expect(getBudgetMonth(db, "2026-11").assignedLastMonth).toBe(false);
+  });
+
+  it("copies what each visible category got, unless it already has an amount", () => {
+    const rent = createCategory(db, "Rent");
+    const water = createCategory(db, "Water");
+    const fun = createCategory(db, "Fun");
+    const old = createCategory(db, "Old");
+    createCategory(db, "New");
+    setAssigned(db, rent, "2026-10", 50_000);
+    setAssigned(db, water, "2026-10", 2_000);
+    setAssigned(db, fun, "2026-10", 3_000);
+    setAssigned(db, old, "2026-10", 1_000);
+    archiveCategory(db, old);
+    setAssigned(db, water, "2026-11", 2_500);
+    const before = getBudgetMonth(db, "2026-11").readyToAssign;
+
+    expect(copyAssignments(db, "2026-10", "2026-11")).toBe(2);
+    expect(rows("2026-11").map((c) => [c.name, c.assigned])).toEqual([
+      ["Rent", 50_000],
+      ["Water", 2_500],
+      ["Fun", 3_000],
+      ["New", 0],
+    ]);
+    expect(getBudgetMonth(db, "2026-11").readyToAssign).toBe(before - 53_000);
+    expectEverythingAccountedFor();
+
+    // A second time there is nothing left to fill in.
+    expect(copyAssignments(db, "2026-10", "2026-11")).toBe(0);
+  });
+
+  it("does not repeat money that was moved out of a category", () => {
+    const rent = createCategory(db, "Rent");
+    const repairs = createCategory(db, "Repairs");
+    setAssigned(db, rent, "2026-09", 50_000);
+    // October: nothing assigned to Rent, and 200.00 of what it holds moved to Repairs.
+    expect(
+      moveMoney(db, {
+        from: rent,
+        to: repairs,
+        month: "2026-10",
+        amount: 20_000,
+        seen: { from: 0, to: 0 },
+      }),
+    ).toBe("moved");
+    expect(rows("2026-10").map((c) => [c.name, c.assigned])).toEqual([
+      ["Rent", -20_000],
+      ["Repairs", 20_000],
+    ]);
+
+    // November starts with what was given, not with what was taken away.
+    expect(copyAssignments(db, "2026-10", "2026-11")).toBe(1);
+    expect(rows("2026-11").map((c) => [c.name, c.assigned])).toEqual([
+      ["Rent", 0],
+      ["Repairs", 20_000],
+    ]);
+    expectEverythingAccountedFor();
+  });
+});
+
+describe("income categories", () => {
+  let salary: number;
+  let groceries: number;
+  beforeEach(() => {
+    salary = createIncomeCategory("Salary");
+    groceries = createCategory(db, "Groceries");
+  });
+
+  const income = (month: Month) => getBudgetMonth(db, month).income;
+
+  it("have no group and are listed apart from the groups", () => {
+    const benefits = createIncomeCategory("Benefits");
+    const { groups, income } = getBudgetMonth(db, "2026-10");
+    expect(groups.map((g) => [g.name, g.categories.map((c) => c.name)])).toEqual([
+      ["Everyday", ["Groceries"]],
+    ]);
+    expect(income).toEqual({
+      categories: [
+        { id: salary, name: "Salary", received: 0 },
+        { id: benefits, name: "Benefits", received: 0 },
+      ],
+      received: 0,
+    });
+    const stored = db.select().from(categories).where(eq(categories.id, salary)).get();
+    expect(stored).toMatchObject({ groupId: null, income: true, archived: false });
+  });
+
+  it("hold no money: what comes in through them goes to Ready to assign", () => {
+    setAssigned(db, groceries, "2026-10", 30_000);
+    spend(salary, "2026-10-25", 285_000);
+    spend(groceries, "2026-10-26", -4_500);
+
+    const month = getBudgetMonth(db, "2026-10");
+    expect(month.readyToAssign).toBe(100_000 + 285_000 - 30_000);
+    expect(month.inAccounts).toBe(100_000 + 285_000 - 4_500);
+    expect(month.inCategories).toBe(30_000 - 4_500);
+    expect(month.totals).toEqual({ assigned: 30_000, spent: 4_500, available: 25_500 });
+    expectEverythingAccountedFor();
+  });
+
+  it("give the same Ready to assign as no category, in every month", () => {
+    setAssigned(db, groceries, "2026-10", 30_000);
+    spend(null, "2026-10-25", 285_000);
+    spend(null, "2026-11-25", -2_000);
+    spend(groceries, "2026-11-02", -4_500);
+    const months = ["2026-09", "2026-10", "2026-11", "2999-12"] as const;
+    const figures = () =>
+      months.map((month) => {
+        const { readyToAssign, inAccounts, inCategories, totals, groups } = getBudgetMonth(
+          db,
+          month,
+        );
+        return { readyToAssign, inAccounts, inCategories, totals, groups };
+      });
+    const withoutCategory = figures();
+
+    // The same money sorted into Salary instead: a salary, and a correction of it.
+    db.update(transactions)
+      .set({ categoryId: salary })
+      .where(isNull(transactions.categoryId))
+      .run();
+    expect(figures()).toEqual(withoutCategory);
+    expectEverythingAccountedFor();
+  });
+
+  it("say what came in through each of them in the viewed month, and in total", () => {
+    const benefits = createIncomeCategory("Benefits");
+    spend(salary, "2026-09-30", 270_000);
+    spend(salary, "2026-10-01", 285_000);
+    // A correction by the employer is netted out.
+    spend(salary, "2026-10-15", -5_000);
+    spend(benefits, "2026-10-31", 12_000);
+    spend(salary, "2026-11-01", 285_000);
+    // Money in without a category, or in an expense category, is not income.
+    spend(null, "2026-10-20", 40_000);
+    spend(groceries, "2026-10-21", 3_000);
+
+    expect(income("2026-10")).toEqual({
+      categories: [
+        { id: salary, name: "Salary", received: 280_000 },
+        { id: benefits, name: "Benefits", received: 12_000 },
+      ],
+      received: 292_000,
+    });
+    expect(income("2026-09").received).toBe(270_000);
+    expect(income("2026-12")).toMatchObject({
+      categories: [{ received: 0 }, { received: 0 }],
+      received: 0,
+    });
+    expectEverythingAccountedFor();
+  });
+
+  it("cannot be assigned to, and are skipped when copying a month", () => {
+    expect(setAssigned(db, salary, "2026-10", 5_000)).toBe(false);
+    expect(getBudgetMonth(db, "2026-10").readyToAssign).toBe(100_000);
+
+    // Even an amount put there by hand in the database counts nowhere.
+    db.insert(assignments).values({ categoryId: salary, month: "2026-10", amount: 5_000 }).run();
+    const november = getBudgetMonth(db, "2026-11");
+    expect(november.readyToAssign).toBe(100_000);
+    expect(november.assignedLastMonth).toBe(false);
+    expect(copyAssignments(db, "2026-10", "2026-11")).toBe(0);
+    expectEverythingAccountedFor();
+  });
+
+  it("stay out of the section for categories without a group", () => {
+    const loose = createCategory(db, "Loose");
+    db.update(categories).set({ groupId: null }).where(eq(categories.id, loose)).run();
+    const { groups, income } = getBudgetMonth(db, "2026-10");
+    expect(groups.map((g) => [g.name, g.categories.map((c) => c.name)])).toEqual([
+      ["Everyday", ["Groceries"]],
+      [budget.UNGROUPED, ["Loose"]],
+    ]);
+    expect(income.categories.map((c) => c.name)).toEqual(["Salary"]);
+  });
+
+  it("share one set of names with the expense categories", () => {
+    expect(budget.createIncomeCategory(db, "groceries")).toBe("name-taken");
+    expect(budget.createCategory(db, "SALARY", group)).toBe("name-taken");
+    expect(renameCategory(db, groceries, "Salary")).toBe(false);
+    expect(renameCategory(db, salary, "Groceries")).toBe(false);
+    expect(renameCategory(db, salary, "Wages")).toBe(true);
+    expect(income("2026-10").categories.map((c) => c.name)).toEqual(["Wages"]);
+  });
+
+  it("move up and down among themselves only", () => {
+    const benefits = createIncomeCategory("Benefits");
+    const interest = createIncomeCategory("Interest");
+    createCategory(db, "Rent");
+    const names = () => income("2026-10").categories.map((c) => c.name);
+
+    expect(moveCategory(db, interest, "up")).toBe("moved");
+    expect(names()).toEqual(["Salary", "Interest", "Benefits"]);
+    expect(moveCategory(db, salary, "up")).toBe("at-edge");
+    expect(moveCategory(db, benefits, "down")).toBe("at-edge");
+    expect(moveCategory(db, salary, "down")).toBe("moved");
+    expect(names()).toEqual(["Interest", "Salary", "Benefits"]);
+    expect(rows("2026-10").map((c) => c.name)).toEqual(["Groceries", "Rent"]);
+  });
+
+  it("change no figure when archived or restored, and come back as income", () => {
+    spend(salary, "2026-10-01", 285_000);
+    setAssigned(db, groceries, "2026-10", 30_000);
+    const before = getBudgetMonth(db, "2026-10");
+
+    archiveCategory(db, salary);
+    const archived = getBudgetMonth(db, "2026-10");
+    expect(archived.income).toEqual({ categories: [], received: 0 });
+    expect(archived.readyToAssign).toBe(before.readyToAssign);
+    // Nothing to give back or take out again.
+    expect(getArchivedCategories(db)).toEqual([
+      { id: salary, name: "Salary", balance: 0, income: true },
+    ]);
+    expectEverythingAccountedFor();
+
+    // Without any group left, it still comes back: it needs none.
+    deleteGroup(db, group);
+    createIncomeCategory("Benefits");
+    expect(restoreCategory(db, salary)).toBe("restored");
+    const restored = getBudgetMonth(db, "2026-10");
+    expect(restored.income.categories.map((c) => [c.name, c.received])).toEqual([
+      ["Benefits", 0],
+      ["Salary", 285_000],
+    ]);
+    expect(restored.groups).toEqual([]);
+    expect(db.select().from(categories).where(eq(categories.id, salary)).get()).toMatchObject({
+      groupId: null,
+      income: true,
+    });
+    expectEverythingAccountedFor();
+  });
+
+  it("are not restored while a visible category has their name", () => {
+    archiveCategory(db, salary);
+    createCategory(db, "salary");
+    expect(restoreCategory(db, salary)).toBe("name-taken");
+    expect(income("2026-10").categories).toEqual([]);
   });
 });

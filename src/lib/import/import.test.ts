@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { parseBankAmount } from "./amount";
 import { detectDelimiter, parseCsv } from "./csv";
-import { detectDateOrder, parseBankDate } from "./dates";
+import { detectDateOrder, isDateOrderAmbiguous, isMonthFirstLocale, parseBankDate } from "./dates";
 import {
   applyMapping,
   detectMapping,
+  isDateOrderGuess,
   isMapping,
   layoutSignature,
   readSavedMapping,
+  savedDelimiter,
   serializeMapping,
+  type Mapping,
 } from "./mapping";
 
 describe("parseCsv", () => {
@@ -17,6 +20,48 @@ describe("parseCsv", () => {
     expect(detectDelimiter('a;b;c\n1;"2,50";3')).toBe(";");
     expect(detectDelimiter("a\tb\tc\n1\t2,50\t3")).toBe("\t");
     expect(detectDelimiter('"Datum";"Bedrag"\n"20261103";"12,50"')).toBe(";");
+    expect(detectDelimiter("a|b|c\n1|2|3")).toBe("|");
+    expect(detectDelimiter("just one column\nanother line")).toBe(",");
+  });
+
+  it("is not thrown off by a stray tab or semicolon inside one cell", () => {
+    const tab = "Date,Description,Amount\n2026-11-03,SHOP\tAMSTERDAM,-12.50";
+    expect(detectDelimiter(tab)).toBe(",");
+    expect(parseCsv(tab)[1]).toEqual(["2026-11-03", "SHOP\tAMSTERDAM", "-12.50"]);
+    const semicolons = "Date,Description,Amount\n2026-11-03,a;b;c,-12.50";
+    expect(detectDelimiter(semicolons)).toBe(",");
+    expect(parseCsv(semicolons)[1]).toEqual(["2026-11-03", "a;b;c", "-12.50"]);
+  });
+
+  it("reads with the separator it is given, whatever the guess would be", () => {
+    // Both separators split every line evenly; the comma gives more cells and wins the guess.
+    const text = "1;x,y,z\n2;x,y,z\n3;x,y,z";
+    expect(detectDelimiter(text)).toBe(",");
+    expect(parseCsv(text, ";")[1]).toEqual(["2", "x,y,z"]);
+  });
+
+  it("finds the table under a few lines of account details", () => {
+    const table = ["Date;Payee;Purpose;IBAN;BIC;Amount;Currency;Balance;Note"].concat(
+      Array.from(
+        { length: 14 },
+        (_, i) => `2026-11-${10 + i};Shop, the;x;NL01;BIC;-1,50;EUR;10,00;`,
+      ),
+    );
+    // Twelve lines of two cells first, as some banks write them.
+    const long = Array.from({ length: 12 }, (_, i) => `Detail ${i};value, with a comma`);
+    expect(detectDelimiter([...long, ...table].join("\n"))).toBe(";");
+    // Five such lines, where a comma splits them into two cells as well.
+    const short = Array.from({ length: 5 }, (_, i) => `Detail ${i},value`);
+    expect(detectDelimiter([...short, ...table].join("\n"))).toBe(";");
+  });
+
+  it("looks at the whole sample, ignores quoted text and prefers more columns on a tie", () => {
+    // Decimal commas are in every line, but the semicolon splits into more cells.
+    expect(detectDelimiter("a;b;c\n1;2,5;3,5\n4;5,5;6,5")).toBe(";");
+    expect(detectDelimiter('a;b\n"x;y;z";"1,5"')).toBe(";");
+    // One odd line among many does not matter.
+    const lines = Array.from({ length: 9 }, () => "1;2;3").concat("1;2;3,4,5");
+    expect(detectDelimiter(["a;b;c", ...lines].join("\n"))).toBe(";");
   });
 
   it("handles quotes, doubled quotes and line breaks inside cells", () => {
@@ -50,7 +95,22 @@ describe("parseBankAmount", () => {
     expect(parseBankAmount("1.234", 2)).toBe(123400);
     expect(parseBankAmount("1,234", 2)).toBe(123400);
     expect(parseBankAmount("1.234.567", 2)).toBe(123456700);
+    expect(parseBankAmount("12.500", 2)).toBe(1250000);
+    expect(parseBankAmount("123,456", 2)).toBe(12345600);
+  });
+
+  it("reads three decimals as decimals unless 1 to 3 digits without a leading zero come before", () => {
     expect(parseBankAmount("1.234", 3)).toBe(1234);
+    expect(parseBankAmount("0.500", 2)).toBe(50);
+    expect(parseBankAmount("0,500", 2)).toBe(50);
+    expect(parseBankAmount(".500", 2)).toBe(50);
+    expect(parseBankAmount("1234.500", 2)).toBe(123450);
+    expect(parseBankAmount("01.500", 2)).toBe(150);
+  });
+
+  it("refuses three decimals that would lose a digit", () => {
+    expect(parseBankAmount("0.505", 2)).toBeNull();
+    expect(parseBankAmount("1234.567", 2)).toBeNull();
   });
 
   it("reads every way of writing a negative", () => {
@@ -59,6 +119,16 @@ describe("parseBankAmount", () => {
     expect(parseBankAmount("(12.50)", 2)).toBe(-1250);
     expect(parseBankAmount("+12,50", 2)).toBe(1250);
     expect(parseBankAmount("- 12,50", 2)).toBe(-1250);
+  });
+
+  it("reads the sign before or after the currency", () => {
+    expect(parseBankAmount("-$12.50", 2)).toBe(-1250);
+    expect(parseBankAmount("-€12,50", 2)).toBe(-1250);
+    expect(parseBankAmount("+$5.00", 2)).toBe(500);
+    expect(parseBankAmount("-EUR 12,50", 2)).toBe(-1250);
+    expect(parseBankAmount("€ -12,50", 2)).toBe(-1250);
+    expect(parseBankAmount("12,50-EUR", 2)).toBe(-1250);
+    expect(parseBankAmount("-€12,50-", 2)).toBeNull();
   });
 
   it("ignores currency symbols and spaces", () => {
@@ -103,8 +173,22 @@ describe("bank dates", () => {
     expect(detectDateOrder(["20261103", "20261104"])).toBe("ymd");
     expect(detectDateOrder(["03-11-2026", "25-11-2026"])).toBe("dmy");
     expect(detectDateOrder(["11/03/2026", "11/25/2026"])).toBe("mdy");
-    // Ambiguous: day-first wins.
+    // Ambiguous: day-first wins, unless the locale writes the month first.
     expect(detectDateOrder(["03-11-2026", "04-11-2026"])).toBe("dmy");
+    expect(detectDateOrder(["11/03/2026", "11/04/2026"], true)).toBe("mdy");
+    // What the file says beats the locale.
+    expect(detectDateOrder(["13/03/2026", "11/04/2026"], true)).toBe("dmy");
+    expect(detectDateOrder(["20261103", "20261104"], true)).toBe("ymd");
+  });
+
+  it("says when the order is only a guess", () => {
+    expect(isDateOrderAmbiguous(["11/03/2026", "11/04/2026"])).toBe(true);
+    expect(isDateOrderAmbiguous(["11/25/2026", "11/04/2026"])).toBe(false);
+    expect(isDateOrderAmbiguous(["20261103", "20261104"])).toBe(false);
+    expect(isDateOrderAmbiguous([])).toBe(false);
+    expect(isMonthFirstLocale("en-US")).toBe(true);
+    expect(isMonthFirstLocale("nl-NL")).toBe(false);
+    expect(isMonthFirstLocale("en-GB")).toBe(false);
   });
 });
 
@@ -178,16 +262,106 @@ describe("detectMapping and applyMapping", () => {
     ]);
   });
 
-  it("finds the date in a file without a header and lets the rest be chosen", () => {
+  it("finds the date in a file without a header and the amount beside the balance", () => {
     const rows = parseCsv(noHeader);
     const mapping = detectMapping(rows, 2);
-    expect(mapping).toMatchObject({ hasHeader: false, date: 2, dateOrder: "ymd" });
-    // The first column with decimals is a balance; the user picks the right one.
-    const result = applyMapping(rows, { ...mapping, amount: 6, payee: 7 }, 2);
+    // Column 4 is the balance after the first row; column 7 is what moved it.
+    expect(mapping).toMatchObject({ hasHeader: false, date: 2, dateOrder: "ymd", amount: 6 });
+    const result = applyMapping(rows, { ...mapping, payee: 7 }, 2);
     expect(result.rows).toMatchObject([
       { date: "2026-11-03", amount: -4510, payee: "BEA Fresh Market" },
       { date: "2026-11-01", amount: 285000, payee: "SEPA Acme Corp Salary" },
     ]);
+  });
+
+  it("does not take the running balance for the amount, whichever way the rows run", () => {
+    const newestFirst =
+      "2026-11-03;-45,10;1954,90\n2026-11-02;-5,00;2000,00\n2026-11-01;2850,00;2005,00";
+    expect(detectMapping(parseCsv(newestFirst), 2).amount).toBe(1);
+    const oldestFirst =
+      "2026-11-01;2850,00;2005,00\n2026-11-02;-5,00;2000,00\n2026-11-03;-45,10;1954,90";
+    expect(detectMapping(parseCsv(oldestFirst), 2).amount).toBe(1);
+    // Amounts that move nothing are left alone: the first numeric column is taken.
+    expect(detectMapping(parseCsv("2026-11-03;12,50;99,00\n2026-11-02;3,50;77,00"), 2).amount).toBe(
+      1,
+    );
+  });
+
+  it("does not take a column of only C (Cleared) for money out or in", () => {
+    const rows = parseCsv(
+      "Date,Payee,Cleared,Amount\n2026-11-03,Shop,C,-12.50\n2026-11-04,Cafe,C,-3.50",
+    );
+    const mapping = detectMapping(rows, 2);
+    expect(mapping).toMatchObject({ amount: 3, indicator: null });
+    expect(applyMapping(rows, mapping, 2).rows.map((r) => r.amount)).toEqual([-1250, -350]);
+  });
+
+  it("still finds an unnamed column that holds both out and in values", () => {
+    const rows = parseCsv("2026-11-03;Shop;D;12,50\n2026-11-04;Pay;C;100,00");
+    expect(detectMapping(rows, 2)).toMatchObject({ hasHeader: false, amount: 3, indicator: 2 });
+  });
+
+  it("breaks a day-or-month tie with the locale", () => {
+    const rows = parseCsv("Date,Name,Amount\n11/03/2026,Shop,-12.50\n11/04/2026,Cafe,-3.50");
+    expect(detectMapping(rows, 2)).toMatchObject({ dateOrder: "dmy" });
+    const mapping = detectMapping(rows, 2, true);
+    expect(mapping.dateOrder).toBe("mdy");
+    expect(isDateOrderGuess(rows, mapping)).toBe(true);
+    expect(isDateOrderGuess(parseCsv("Date,Name,Amount\n11/25/2026,Shop,-12.50"), mapping)).toBe(
+      false,
+    );
+  });
+
+  describe("separate columns for money out and in", () => {
+    const layouts: Record<string, string> = {
+      "Debit/Credit":
+        "Date,Description,Debit,Credit\n2026-11-03,Shop,12.50,\n2026-11-01,Pay,,2850.00",
+      "Af/Bij": "Datum;Naam;Af;Bij\n20261103;Shop;12,50;\n20261101;Pay;;2850,00",
+      "Withdrawal/Deposit":
+        "Date,Memo,Withdrawal,Deposit\n2026-11-03,Shop,12.50,\n2026-11-01,Pay,,2850.00",
+      "Uit/In": "Datum;Naam;Uit;In\n20261103;Shop;12,50;\n20261101;Pay;;2850,00",
+      "Bedrag af/Bedrag bij":
+        "Datum;Naam;Bedrag af;Bedrag bij\n20261103;Shop;12,50;\n20261101;Pay;;2850,00",
+    };
+
+    for (const [name, text] of Object.entries(layouts)) {
+      it(`are found from the headers: ${name}`, () => {
+        const rows = parseCsv(text);
+        const mapping = detectMapping(rows, 2);
+        expect(mapping).toMatchObject({ amount: 2, amountIn: 3, indicator: null });
+        expect(applyMapping(rows, mapping, 2).rows.map((r) => r.amount)).toEqual([-1250, 285000]);
+      });
+    }
+
+    it("use whichever cell is filled, and in minus out when both are", () => {
+      const rows = parseCsv(
+        "Date,Name,Debit,Credit\n2026-11-03,A,-12.50,\n2026-11-04,B,,5.00\n2026-11-05,C,2.00,5.00\n2026-11-06,D,,\n2026-11-07,E,x,",
+      );
+      const mapping = { ...detectMapping(rows, 2), amount: 2, amountIn: 3 };
+      const result = applyMapping(rows, mapping, 2);
+      expect(result.rows.map((r) => r.amount)).toEqual([-1250, 500, 300]);
+      expect(result.skipped).toEqual([
+        { line: 5, reason: "No readable amount" },
+        { line: 6, reason: "No readable amount" },
+      ]);
+    });
+
+    it("are not taken when Af Bij is one column saying out or in", () => {
+      expect(detectMapping(parseCsv(ing), 2)).toMatchObject({
+        amount: 6,
+        amountIn: null,
+        indicator: 5,
+      });
+    });
+
+    it("can be chosen by hand and are saved with the mapping", () => {
+      const rows = parseCsv("a,b,c,d\n2026-11-03,Shop,12.50,\n2026-11-01,Pay,,2850.00");
+      const mapping = { ...detectMapping(rows, 2), amount: 2, amountIn: 3 };
+      expect(applyMapping(rows, mapping, 2).rows.map((r) => r.amount)).toEqual([-1250, 285000]);
+      expect(readSavedMapping(serializeMapping(rows, mapping, ";"), rows)).toEqual(mapping);
+      expect(isMapping({ ...mapping, amountIn: 999 })).toBe(false);
+      expect(isMapping({ ...mapping, amountIn: 1.5 })).toBe(false);
+    });
   });
 
   it("can flip the sign for exports that list spending as positive", () => {
@@ -238,17 +412,32 @@ describe("saved mappings", () => {
   const mapping = detectMapping(rows, 2);
 
   it("come back for a file with the same columns", () => {
-    expect(readSavedMapping(serializeMapping(rows, mapping), rows)).toEqual(mapping);
+    expect(readSavedMapping(serializeMapping(rows, mapping, ";"), rows)).toEqual(mapping);
   });
 
   it("are not used for another layout, or when missing or damaged", () => {
-    const stored = serializeMapping(rows, mapping);
+    const stored = serializeMapping(rows, mapping, ";");
+    // The separator the file was read with is remembered too.
+    expect(savedDelimiter(stored)).toBe(";");
+    expect(savedDelimiter(null)).toBeNull();
+    expect(savedDelimiter(JSON.stringify({ mapping, signature: "x" }))).toBeNull();
+    expect(savedDelimiter(JSON.stringify({ delimiter: "x" }))).toBeNull();
+    expect(savedDelimiter("not json")).toBeNull();
     expect(readSavedMapping(stored, parseCsv(rabobank))).toBeNull();
     expect(readSavedMapping(null, rows)).toBeNull();
     expect(readSavedMapping("not json", rows)).toBeNull();
     expect(
       readSavedMapping(stored.replace('"dateOrder":"ymd"', '"dateOrder":"xyz"'), rows),
     ).toBeNull();
+  });
+
+  it("from before there was a money-in column are still read", () => {
+    const old: Partial<Mapping> = { ...mapping };
+    delete old.amountIn;
+    const stored = JSON.stringify({ signature: layoutSignature(rows, mapping), mapping: old });
+    const read = readSavedMapping(stored, rows);
+    expect(read).toEqual(old);
+    expect(applyMapping(rows, read!, 2).rows).toMatchObject(expected);
   });
 
   it("are checked for shape", () => {
