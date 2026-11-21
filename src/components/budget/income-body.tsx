@@ -52,6 +52,7 @@ export function IncomeBody({ income }: { income: BudgetMonth["income"] }) {
           label={t("budget.income.addLabel")}
           title={t("budget.income.addTitle")}
           onClick={() => setAdding(true)}
+          revealOn="head"
           className={onBand}
         >
           <PlusIcon width={15} height={15} />

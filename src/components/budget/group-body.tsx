@@ -78,6 +78,7 @@ export function GroupBody({
           label={t("budget.group.addCategoryLabel", { name })}
           title={t("budget.group.addCategoryTitle")}
           onClick={() => setAdding(true)}
+          revealOn="head"
           className={onBand}
         >
           <PlusIcon width={15} height={15} />
