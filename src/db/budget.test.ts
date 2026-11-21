@@ -17,6 +17,7 @@ import {
   renameGroup,
   restoreCategory,
   setAssigned,
+  setNextMonth,
 } from "./budget";
 import { openDb, type Db } from "./index";
 import { assignments, categories, transactions } from "./schema";
@@ -744,8 +745,8 @@ describe("income categories", () => {
     ]);
     expect(income).toEqual({
       categories: [
-        { id: salary, name: "Salary", received: 0 },
-        { id: benefits, name: "Benefits", received: 0 },
+        { id: salary, name: "Salary", received: 0, nextMonth: false },
+        { id: benefits, name: "Benefits", received: 0, nextMonth: false },
       ],
       received: 0,
     });
@@ -805,8 +806,8 @@ describe("income categories", () => {
 
     expect(income("2026-10")).toEqual({
       categories: [
-        { id: salary, name: "Salary", received: 280_000 },
-        { id: benefits, name: "Benefits", received: 12_000 },
+        { id: salary, name: "Salary", received: 280_000, nextMonth: false },
+        { id: benefits, name: "Benefits", received: 12_000, nextMonth: false },
       ],
       received: 292_000,
     });
@@ -903,5 +904,136 @@ describe("income categories", () => {
     createCategory(db, "salary");
     expect(restoreCategory(db, salary)).toBe("name-taken");
     expect(income("2026-10").categories).toEqual([]);
+  });
+});
+
+describe("income that counts for the next month", () => {
+  let salary: number;
+  let benefits: number;
+  let groceries: number;
+  beforeEach(() => {
+    salary = createIncomeCategory("Salary");
+    benefits = createIncomeCategory("Benefits");
+    groceries = createCategory(db, "Groceries");
+  });
+
+  /** What Salary, Benefits and all income received for a month. */
+  const receivedIn = (month: Month) => {
+    const { income } = getBudgetMonth(db, month);
+    return [...income.categories.map((c) => c.received), income.received];
+  };
+
+  /** Every figure of a month but the income section. */
+  const otherFigures = (month: Month) => ({ ...getBudgetMonth(db, month), income: undefined });
+
+  it("is off for a new income category", () => {
+    expect(getBudgetMonth(db, "2026-10").income.categories.map((c) => c.nextMonth)).toEqual([
+      false,
+      false,
+    ]);
+    expect(db.select().from(categories).where(eq(categories.id, salary)).get()).toMatchObject({
+      nextMonth: false,
+    });
+  });
+
+  it("counts what comes in from the 15th for the next month, and before it for its own", () => {
+    spend(salary, "2026-09-25", 270_000);
+    spend(salary, "2026-10-05", 15_000);
+    spend(salary, "2026-10-14", 1_000);
+    spend(salary, "2026-10-15", 200);
+    spend(salary, "2026-10-25", 285_000);
+    // A salary that slipped to the 1st because of a weekend.
+    spend(salary, "2026-11-01", 290_000);
+    spend(salary, "2026-11-14", 300);
+    spend(salary, "2026-11-15", 295_000);
+    // Benefits keeps counting for the month the money arrived in.
+    spend(benefits, "2026-10-25", 12_000);
+
+    // Off: each month what arrived in it.
+    expect(receivedIn("2026-10")).toEqual([301_200, 12_000, 313_200]);
+    expect(receivedIn("2026-11")).toEqual([585_300, 0, 585_300]);
+
+    expect(setNextMonth(db, salary, true)).toBe(true);
+    expect(getBudgetMonth(db, "2026-10").income.categories.map((c) => c.nextMonth)).toEqual([
+      true,
+      false,
+    ]);
+    // October: 25 September up to and including 14 October.
+    expect(receivedIn("2026-10")).toEqual([286_000, 12_000, 298_000]);
+    // November: 15 October up to and including 14 November.
+    expect(receivedIn("2026-11")).toEqual([575_500, 0, 575_500]);
+    // December: what came in from 15 November.
+    expect(receivedIn("2026-12")).toEqual([295_000, 0, 295_000]);
+    expect(receivedIn("2026-09")).toEqual([0, 0, 0]);
+    expectEverythingAccountedFor();
+  });
+
+  it("crosses the turn of the year", () => {
+    setNextMonth(db, salary, true);
+    spend(salary, "2026-12-14", 1_000);
+    spend(salary, "2026-12-15", 285_000);
+    spend(salary, "2027-01-14", 2_000);
+    spend(salary, "2027-01-15", 290_000);
+    expect(receivedIn("2026-12")).toEqual([1_000, 0, 1_000]);
+    expect(receivedIn("2027-01")).toEqual([287_000, 0, 287_000]);
+    expect(receivedIn("2027-02")).toEqual([290_000, 0, 290_000]);
+  });
+
+  it("changes no figure but the received ones, in any month", () => {
+    setAssigned(db, groceries, "2026-10", 30_000);
+    setAssigned(db, groceries, "2026-11", 35_000);
+    spend(salary, "2026-10-25", 285_000);
+    spend(groceries, "2026-10-26", -4_500);
+    spend(null, "2026-11-02", 10_000);
+    const months = ["2026-09", "2026-10", "2026-11", "2026-12", "2999-12"] as const;
+    const before = months.map(otherFigures);
+
+    setNextMonth(db, salary, true);
+    expect(months.map(otherFigures)).toEqual(before);
+    expect(getBudgetMonth(db, "2026-10").readyToAssign).toBe(100_000 + 285_000 + 10_000 - 65_000);
+    expectEverythingAccountedFor();
+  });
+
+  it("puts everything back when switched off", () => {
+    spend(salary, "2026-10-25", 285_000);
+    spend(salary, "2026-11-05", 15_000);
+    const months = ["2026-10", "2026-11", "2026-12"] as const;
+    const off = months.map(receivedIn);
+
+    setNextMonth(db, salary, true);
+    expect(months.map(receivedIn)).toEqual([
+      [0, 0, 0],
+      [300_000, 0, 300_000],
+      [0, 0, 0],
+    ]);
+    expect(setNextMonth(db, salary, false)).toBe(true);
+    expect(months.map(receivedIn)).toEqual(off);
+    expect(getBudgetMonth(db, "2026-10").income.categories[0].nextMonth).toBe(false);
+  });
+
+  it("is kept when the category is archived and restored", () => {
+    setNextMonth(db, salary, true);
+    archiveCategory(db, salary);
+    expect(restoreCategory(db, salary)).toBe("restored");
+    const restored = getBudgetMonth(db, "2026-10").income.categories.find((c) => c.id === salary);
+    expect(restored?.nextMonth).toBe(true);
+  });
+
+  it("is refused for an expense, archived or missing category, and then changes nothing", () => {
+    spend(groceries, "2026-10-25", -4_500);
+    const before = getBudgetMonth(db, "2026-11");
+    expect(setNextMonth(db, groceries, true)).toBe(false);
+    expect(setNextMonth(db, 999, true)).toBe(false);
+    archiveCategory(db, benefits);
+    expect(setNextMonth(db, benefits, true)).toBe(false);
+    expect(
+      db
+        .select({ nextMonth: categories.nextMonth })
+        .from(categories)
+        .all()
+        .map((c) => c.nextMonth),
+    ).toEqual([false, false, false]);
+    restoreCategory(db, benefits);
+    expect(getBudgetMonth(db, "2026-11")).toEqual(before);
   });
 });
