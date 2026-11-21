@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { isCategoryIcon, type CategoryIcon } from "../lib/category-icons";
 import { addMonths, monthStart, type Month } from "../lib/dates";
-import { groupColors } from "../lib/group-colors";
+import { groupColors, isGroupColorSlot } from "../lib/group-colors";
 import { receivedPeriod } from "../lib/income";
 import type { Db } from "./index";
 import { assignments, categories, categoryGroups } from "./schema";
@@ -699,6 +699,19 @@ export function createGroup(db: Db, name: string): number | "name-taken" {
       .returning()
       .get().id;
   });
+}
+
+/**
+ * Gives a group one of the palette's colours, by its slot. Returns false,
+ * and changes nothing, when the group does not exist or the slot is not in
+ * the palette.
+ */
+export function setGroupColor(db: Db, id: number, slot: number): boolean {
+  if (!isGroupColorSlot(slot)) return false;
+  return (
+    db.update(categoryGroups).set({ colorSlot: slot }).where(eq(categoryGroups.id, id)).run()
+      .changes > 0
+  );
 }
 
 /** Renames a group. Returns false, and changes nothing, when another group has the name. */

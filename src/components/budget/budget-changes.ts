@@ -26,6 +26,12 @@ export type BudgetChange =
       categoryId: number;
       /** The new icon; null for the envelope. */
       icon: CategoryIcon | null;
+    }
+  | {
+      type: "color";
+      groupId: number;
+      /** The new place in the palette of group colours. */
+      slot: number;
     };
 
 /**
@@ -41,6 +47,8 @@ export function applyChange(budget: BudgetMonth, change: BudgetChange): BudgetMo
       return nextMonth(budget, change.categoryId, change.on);
     case "icon":
       return setIcon(budget, change.categoryId, change.icon ?? undefined);
+    case "color":
+      return setColor(budget, change.groupId, change.slot);
   }
 }
 
@@ -139,6 +147,17 @@ function setIcon(
     ...budget,
     groups: budget.groups.map((group) =>
       holds(group.categories) ? { ...group, categories: withIcon(group.categories) } : group,
+    ),
+  };
+}
+
+/** A colour changes only its group: the heading and the rows follow it. */
+function setColor(budget: BudgetMonth, groupId: number, slot: number): BudgetMonth {
+  if (!budget.groups.some((group) => group.id === groupId)) return budget;
+  return {
+    ...budget,
+    groups: budget.groups.map((group) =>
+      group.id === groupId ? { ...group, colorSlot: slot } : group,
     ),
   };
 }

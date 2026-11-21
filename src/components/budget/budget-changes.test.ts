@@ -181,6 +181,22 @@ describe("counting income for the next month, before the server confirms it", ()
   });
 });
 
+describe("choosing a colour, before the server confirms it", () => {
+  const color = (groupId: number, slot: number): BudgetChange => ({ type: "color", groupId, slot });
+
+  it("changes the colour of that one group, and no figure", () => {
+    const after = applyChange(budget, color(1, 4));
+    expect(after.groups.map((g) => g.colorSlot)).toEqual([4, 1]);
+    expect(after.groups[0].categories).toBe(budget.groups[0].categories);
+    expect(after.totals).toBe(budget.totals);
+  });
+
+  it("is the same applied twice, and ignores a group that is not there", () => {
+    expect(applyChange(applyChange(budget, color(2, 5)), color(2, 5)).groups[1].colorSlot).toBe(5);
+    expect(applyChange(budget, color(99, 5))).toBe(budget);
+  });
+});
+
 describe("choosing an icon, before the server confirms it", () => {
   const icon = (categoryId: number, id: CategoryIcon | null): BudgetChange => ({
     type: "icon",

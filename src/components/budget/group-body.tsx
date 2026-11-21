@@ -6,11 +6,12 @@ import {
   deleteGroupAction,
   moveGroupAction,
   renameGroupAction,
+  setGroupColorAction,
 } from "@/app/actions";
 import type { GroupRow } from "@/db/budget";
 import { useT } from "@/i18n/client";
 import type { Translate } from "@/i18n/translate";
-import { groupColor } from "@/lib/group-colors";
+import { groupColor, groupColorNames, groupColors } from "@/lib/group-colors";
 import { formatAmount, formatMoney } from "@/lib/money";
 import { ErrorText } from "../form";
 import { EmptyToken, MoreIcon, PlusIcon } from "../icons";
@@ -43,6 +44,7 @@ export function GroupBody({
   last: boolean;
 }) {
   const t = useT();
+  const { show } = useBudget();
   const { id, name, categories } = group;
   const isEmpty = categories.length === 0;
   // True while the "new category" field is in use.
@@ -82,6 +84,18 @@ export function GroupBody({
         <Menu
           label={t("budget.menu.actionsForGroup", { name })}
           state={menu}
+          colors={{
+            label: t("budget.menu.groupColor"),
+            choices: groupColors.map((color, i) => ({ color, name: t(groupColorNames[i]) })),
+            current: group.colorSlot,
+            onSelect: (slot) =>
+              mover.save(
+                () => setGroupColorAction(id, slot),
+                undefined,
+                undefined,
+                () => show({ type: "color", groupId: id, slot }),
+              ),
+          }}
           buttonClassName={rowActionLook("head")}
           items={[
             { label: t("common.rename"), onSelect: () => nameField.current?.startEditing() },
