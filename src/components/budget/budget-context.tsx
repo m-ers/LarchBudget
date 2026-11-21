@@ -19,6 +19,14 @@ type Budget = {
    * failed save, which puts the old figures back.
    */
   show: (change: BudgetChange) => void;
+  /**
+   * Says what a change did in the page's status line, which only screen
+   * readers read. Empty it with "" when a change starts, so the same
+   * message is said again the next time.
+   */
+  announce: (message: string) => void;
+  /** Gives the focus to the month's title, as when the button that had it goes away. */
+  focusTitle: () => void;
 };
 
 export const BudgetContext = createContext<Budget | null>(null);

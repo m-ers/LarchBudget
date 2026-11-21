@@ -15,7 +15,7 @@ import { useBudget } from "./budget-context";
  * above it, so a failure can still be told when the line comes back.
  */
 export function AssignTargets({ state }: { state: ReturnType<typeof useSave> }) {
-  const { month, currency, locale, figures, show } = useBudget();
+  const { month, currency, locale, figures, show, announce, focusTitle } = useBudget();
   const t = useT();
   const count = figures.groups.flatMap((g) => g.categories).filter((c) => c.needed > 0).length;
 
@@ -28,19 +28,23 @@ export function AssignTargets({ state }: { state: ReturnType<typeof useSave> }) 
       <button
         type="button"
         disabled={state.pending}
-        onClick={() =>
+        onClick={() => {
+          // The line goes at once, and the focus would fall back to the start
+          // of the page with it.
+          focusTitle();
+          announce("");
           state.save(
             // With the current month the needs on the page were worked out
             // for: when that has changed, nothing is assigned, and the line
             // comes back with the reason.
             () => assignTargetsAction(month, figures.thisMonth),
-            undefined,
+            () => announce(t("budget.assignTargets.done")),
             undefined,
             () => {
               for (const change of targetChanges(figures.groups)) show(change);
             },
-          )
-        }
+          );
+        }}
         className="rounded-md px-1.5 py-0.5 font-medium text-brand transition-colors hover:bg-hover disabled:opacity-60"
       >
         {t("budget.assignTargets.assign")}

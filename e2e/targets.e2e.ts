@@ -15,6 +15,7 @@ import {
   menuItem,
   openMenu,
   overviewFigure,
+  readyButton,
   slowConnection,
 } from "./helpers";
 import { expect, test } from "./fixtures";
@@ -338,6 +339,24 @@ test.describe("with an account and categories", () => {
     await expect(assignedField(page, "Holiday")).toHaveValue("171.43");
     await expect(headerFigure(page)).toHaveText("€1,248.57");
     await expect(assignTargetsButton(page)).toHaveCount(0);
+  });
+
+  test("Assign targets from the keyboard leaves the focus on the month, and says it is done", async ({
+    page,
+  }) => {
+    await setTarget(page, "Rent", "Every month", "1100");
+    // The line above the groups comes right after the big figure.
+    await readyButton(page).focus();
+    await page.keyboard.press("Tab");
+    await expect(assignTargetsButton(page)).toBeFocused();
+    await page.keyboard.press("Enter");
+
+    await expect(assignTargetsButton(page)).toHaveCount(0);
+    await expect(assignedField(page, "Rent")).toHaveValue("1,100.00");
+    // The line has gone, but the focus has not fallen back to the page.
+    await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+    expect(await page.evaluate(() => document.activeElement === document.body)).toBe(false);
+    await expect(page.getByRole("status")).toHaveText("Targets assigned.");
   });
 
   test("Assign targets assigns it all when there is not enough, and Ready to assign turns red", async ({

@@ -437,12 +437,14 @@
     "copyLastMonth": {
       "nothing": "In {{month}} is nog niets toegewezen.",
       "assign": "Hetzelfde toewijzen als in {{month}}",
-      "assigning": "Toewijzen…"
+      "assigning": "Toewijzen…",
+      "done": "Hetzelfde toegewezen als in {{month}}."
     },
     "assignTargets": {
       "need_one": "Je doel heeft deze maand nog {{amount}} nodig.",
       "need_other": "Je doelen hebben deze maand nog {{amount}} nodig.",
-      "assign": "Doelen toewijzen"
+      "assign": "Doelen toewijzen",
+      "done": "Doelen toegewezen."
     },
     "moveMoney": {
       "moveLead": "Verplaats",

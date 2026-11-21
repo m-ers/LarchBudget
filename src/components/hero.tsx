@@ -25,9 +25,27 @@ export function Hero({
   );
 }
 
-/** The page title inside a `Hero`. */
-export function HeroTitle({ children }: { children: React.ReactNode }) {
-  return <h1 className="text-[27px] leading-none font-semibold tracking-[-0.02em]">{children}</h1>;
+/**
+ * The page title inside a `Hero`. With `tabIndex={-1}` the page can give it
+ * the focus, as when the button that had the focus goes away. Its focus
+ * ring is white, to show on the brand colour; marked important, as the ring
+ * in globals.css is outside Tailwind's layers and would win otherwise.
+ */
+export function HeroTitle({
+  tabIndex,
+  children,
+}: {
+  tabIndex?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <h1
+      tabIndex={tabIndex}
+      className="rounded-[7px] text-[27px] leading-none font-semibold tracking-[-0.02em] focus-visible:outline-white!"
+    >
+      {children}
+    </h1>
+  );
 }
 
 /** The line under the title inside a `Hero`. */

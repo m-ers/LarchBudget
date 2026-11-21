@@ -494,12 +494,14 @@
     "copyLastMonth": {
       "nothing": "Nothing assigned in {{month}} yet.",
       "assign": "Assign the same as {{month}}",
-      "assigning": "Assigning…"
+      "assigning": "Assigning…",
+      "done": "Assigned the same as {{month}}."
     },
     "assignTargets": {
       "need_one": "Your target needs {{amount}} more this month.",
       "need_other": "Your targets need {{amount}} more this month.",
-      "assign": "Assign targets"
+      "assign": "Assign targets",
+      "done": "Targets assigned."
     },
     "moveMoney": {
       "moveLead": "Move",

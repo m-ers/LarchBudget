@@ -32,7 +32,7 @@ type Props = {
   locale: string;
   /** Days left in the month, or null when it is not the current month. */
   daysLeft: number | null;
-  /** The month's title and the links to other months. */
+  /** The month's title, an `h1` that can take the focus, and the links to other months. */
   monthNav: React.ReactNode;
 };
 
@@ -91,9 +91,17 @@ export function BudgetView({
   const groupCount = budget.groups.filter(isGroup).length;
   // Assigning the targets; kept here, as its line goes once they are met.
   const assigningTargets = useSave();
+  // What the last change said in the status line (see `announce`).
+  const [status, setStatus] = useState("");
+
+  function focusTitle() {
+    hero.current?.querySelector<HTMLElement>("h1")?.focus();
+  }
 
   return (
-    <BudgetContext value={{ month, currency, locale, figures: budget, show }}>
+    <BudgetContext
+      value={{ month, currency, locale, figures: budget, show, announce: setStatus, focusTitle }}
+    >
       {/* The card that shows how Ready to assign adds up opens under the
           header, lined up with its right edge: the header clips what
           sticks out of it. */}
@@ -144,8 +152,14 @@ export function BudgetView({
           </div>
         )}
 
+        <p role="status" className="sr-only">
+          {status}
+        </p>
+
         {/* While targets need money, assigning them takes the place of
-            assigning the same as last month. */}
+            assigning the same as last month. Either line goes once its
+            button has done its work, and gives the focus to the month's
+            title first. */}
         {budget.needed > 0 ? (
           <AssignTargets state={assigningTargets} />
         ) : (
