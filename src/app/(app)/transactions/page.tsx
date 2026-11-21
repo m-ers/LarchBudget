@@ -143,13 +143,13 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
                   <th scope="col" className={`${heading} text-left`}>
                     Payee
                   </th>
-                  <th scope="col" className={`${heading} w-40 text-left`}>
+                  <th scope="col" className={`${heading} w-28 text-left`}>
                     Account
                   </th>
-                  <th scope="col" className={`${heading} w-80 text-left`}>
+                  <th scope="col" className={`${heading} w-60 text-left xl:w-80`}>
                     Category
                   </th>
-                  <th scope="col" className={`${heading} w-32 text-right`}>
+                  <th scope="col" className={`${heading} w-28 text-right`}>
                     Amount
                   </th>
                   <th scope="col" className={`${heading} w-14 pr-2.5`}>

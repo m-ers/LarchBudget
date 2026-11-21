@@ -163,7 +163,7 @@ export function CategorySelect({
             setListDrawn(false);
             if (draft !== null) save(draft, false);
           }}
-          className={`w-64 rounded-[9px] border px-2.5 py-1.5 text-[14.5px] focus:border-brand focus:outline-none ${
+          className={`w-48 rounded-[9px] border px-2.5 py-1.5 text-[14.5px] xl:w-64 focus:border-brand focus:outline-none ${
             shown === UNSORTED || shown === SUGGESTED
               ? "border-brand/50 bg-ok-track font-medium"
               : "border-line bg-surface text-ink"
