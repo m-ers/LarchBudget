@@ -17,7 +17,7 @@ import { useBudget } from "./budget-context";
 import { CategoryName } from "./category-name";
 import { NewCategoryRow, SectionHeading } from "./group-body";
 import { IconPicker } from "./icon-picker";
-import { RowAction } from "./row-action";
+import { onBand, RowAction } from "./row-action";
 
 /**
  * The income section above the groups: the income categories, each with
@@ -52,6 +52,7 @@ export function IncomeBody({ income }: { income: BudgetMonth["income"] }) {
           label={t("budget.income.addLabel")}
           title={t("budget.income.addTitle")}
           onClick={() => setAdding(true)}
+          className={onBand}
         >
           <PlusIcon width={15} height={15} />
         </RowAction>

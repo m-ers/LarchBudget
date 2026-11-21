@@ -21,7 +21,7 @@ import { useSave } from "../use-save";
 import { AddByNameField, useAddByName } from "./add-by-name";
 import { useBudget } from "./budget-context";
 import { CategoryRow, formatSpent } from "./category-row";
-import { RowAction, rowActionLook } from "./row-action";
+import { onBand, RowAction, rowActionLook } from "./row-action";
 
 /** What deleting a group does, asked before it happens. */
 function deleteQuestion(t: Translate, name: string, categoryCount: number): string {
@@ -72,12 +72,13 @@ export function GroupBody({
           value={name}
           label={t("budget.menu.groupName")}
           onSave={(text) => renameGroupAction(id, text)}
-          className="font-semibold tracking-[0.07em] uppercase"
+          className={`font-semibold tracking-[0.07em] uppercase ${onBand}`}
         />
         <RowAction
           label={t("budget.group.addCategoryLabel", { name })}
           title={t("budget.group.addCategoryTitle")}
           onClick={() => setAdding(true)}
+          className={onBand}
         >
           <PlusIcon width={15} height={15} />
         </RowAction>
@@ -96,7 +97,7 @@ export function GroupBody({
                 () => show({ type: "color", groupId: id, slot }),
               ),
           }}
-          buttonClassName={rowActionLook("head")}
+          buttonClassName={`${rowActionLook("head")} ${onBand}`}
           items={[
             { label: t("common.rename"), onSelect: () => nameField.current?.startEditing() },
             {
@@ -205,11 +206,14 @@ export function UngroupedBody({ group }: { group: GroupRow }) {
   );
 }
 
-const total = "h-[38px] pt-1 text-right text-[13.5px] whitespace-nowrap text-muted tabular-nums";
+/** The quiet band a section heading sits on, in the hover tone; see `onBand`. */
+const band = "flex h-9 items-center bg-hover";
+const total = `${band} justify-end text-[15px] font-medium whitespace-nowrap text-ink tabular-nums`;
 
 /**
  * The heading row of a section of the budget table: its name and actions,
- * and in the columns what the section adds up to.
+ * and in the columns what the section adds up to, all on a quiet band so
+ * the totals read as the sum of the rows below.
  */
 export function SectionHeading({
   totals,
@@ -224,14 +228,22 @@ export function SectionHeading({
 }) {
   return (
     <tr className="group/head" onContextMenu={onContextMenu}>
-      <th scope="rowgroup" colSpan={2} className="h-[38px] pt-1 pl-3.5 text-left font-normal">
-        <div className="flex items-center gap-1 text-xs tracking-[0.07em] text-muted uppercase">
+      <th scope="rowgroup" colSpan={2} className="pt-2 text-left font-normal">
+        <div
+          className={`${band} gap-1 rounded-l-lg pl-3.5 text-xs tracking-[0.07em] text-muted uppercase`}
+        >
           {children}
         </div>
       </th>
-      <td className={total}>{totals[0]}</td>
-      <td className={total}>{totals[1]}</td>
-      <td className={`${total} pr-6`}>{totals[2]}</td>
+      <td className="pt-2">
+        <div className={total}>{totals[0]}</div>
+      </td>
+      <td className="pt-2">
+        <div className={total}>{totals[1]}</div>
+      </td>
+      <td className="pt-2">
+        <div className={`${total} rounded-r-lg pr-6`}>{totals[2]}</div>
+      </td>
     </tr>
   );
 }
