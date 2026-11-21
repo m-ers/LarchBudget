@@ -319,9 +319,14 @@ export function suggestCategories(db: Db, payees: string[]): Map<string, Suggest
 
 /**
  * Where a transaction belongs:
- * - a category id: spending from (or a refund into) that category
- * - "ready": no category, on purpose. Income, or a transfer between accounts.
+ * - a category id: spending from (or a refund into) an expense category, or
+ *   money in through an income category
+ * - "ready": no category, on purpose. A transfer between accounts, or income
+ *   that has no income category.
  * - "unsorted": not decided yet; it goes back to the "to sort" list.
+ *
+ * An income category and "ready" count the same in the budget: both leave
+ * the money in Ready to assign.
  */
 export type SortTarget = number | "ready" | "unsorted";
 
@@ -398,21 +403,39 @@ export function deleteTransaction(
   });
 }
 
-export type CategoryOptionGroup = { name: string; categories: { id: number; name: string }[] };
+/** Heading for the income categories in the category picker. */
+const INCOME = "Income";
 
-/** The categories a transaction can be sorted into, grouped as on the budget page. */
+export type CategoryOptionGroup = {
+  /** The group's id; "income" for the income categories, null for expense categories without a group. */
+  id: number | "income" | null;
+  name: string;
+  categories: { id: number; name: string }[];
+};
+
+/**
+ * The categories a transaction can be sorted into, grouped as on the budget
+ * page: the income categories first, then the groups.
+ */
 export function getCategoryOptions(db: Db): CategoryOptionGroup[] {
   const rows = db
     .select({
       id: categories.id,
       name: categories.name,
+      income: categories.income,
+      groupId: categoryGroups.id,
       group: categoryGroups.name,
     })
     .from(categories)
-    .leftJoin(categoryGroups, eq(categoryGroups.id, categories.groupId))
+    // An income category has no group, even in a hand-edited database.
+    .leftJoin(
+      categoryGroups,
+      and(eq(categoryGroups.id, categories.groupId), eq(categories.income, false)),
+    )
     .where(eq(categories.archived, false))
-    // Groups in their own order, then categories without a group, as on the budget page.
+    // Income, then groups in their own order, then categories without a group, as on the budget page.
     .orderBy(
+      desc(categories.income),
       sql`${categoryGroups.id} IS NULL`,
       categoryGroups.sortOrder,
       categoryGroups.id,
@@ -423,9 +446,12 @@ export function getCategoryOptions(db: Db): CategoryOptionGroup[] {
 
   const groups: CategoryOptionGroup[] = [];
   for (const row of rows) {
-    const name = row.group ?? UNGROUPED;
-    let group = groups.find((g) => g.name === name);
-    if (!group) groups.push((group = { name, categories: [] }));
+    const id = row.income ? "income" : row.groupId;
+    let group = groups.find((g) => g.id === id);
+    if (!group) {
+      const name = row.income ? INCOME : (row.group ?? UNGROUPED);
+      groups.push((group = { id, name, categories: [] }));
+    }
     group.categories.push({ id: row.id, name: row.name });
   }
   return groups;

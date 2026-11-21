@@ -134,6 +134,17 @@ export async function createCategoryAction(groupId: number, input: string): Prom
   return done();
 }
 
+export async function createIncomeCategoryAction(input: string): Promise<ActionResult> {
+  const db = await database();
+  if (!db) return LOGGED_OUT;
+  const parsed = name.safeParse(input);
+  if (!parsed.success) return fail(parsed.error.issues[0].message);
+
+  return budget.createIncomeCategory(db, parsed.data) === "name-taken"
+    ? categoryNameTaken(parsed.data)
+    : done();
+}
+
 export async function renameCategoryAction(
   categoryId: number,
   input: string,

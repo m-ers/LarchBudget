@@ -49,7 +49,12 @@ export function CategoryRow({
           <EnvelopeToken color={color} />
         </td>
         <td>
-          <CategoryName category={category} place={place} menu={menu} onMoveMoney={setMoving} />
+          <CategoryName
+            category={category}
+            place={place}
+            menu={menu}
+            money={{ balance: category.balance, available, onMoveMoney: setMoving }}
+          />
         </td>
         <td>
           <AssignedInput categoryId={id} categoryName={name} value={assigned} />

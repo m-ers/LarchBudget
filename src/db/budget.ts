@@ -10,9 +10,12 @@ import { assignments, categories, categoryGroups } from "./schema";
  *
  * The rule that keeps it honest:
  *
- *   money in all accounts = Ready to assign + balance of every category
+ *   money in all accounts = Ready to assign + balance of every expense category
  *
- * So every cent is either in a category or waiting to be assigned.
+ * So every cent is either in a category or waiting to be assigned. Income
+ * categories (Salary) hold no money, so they are not part of it: what comes
+ * in through one is waiting to be assigned, exactly like a transaction
+ * without a category. The category only says where the money came from.
  *
  * These functions take the database as an argument and never touch Next.js,
  * so they can be unit tested. `queries.ts` wraps them for use in pages.
@@ -21,7 +24,7 @@ import { assignments, categories, categoryGroups } from "./schema";
  * what happened in its return value; callers only turn that into a message.
  */
 
-/** Heading for categories without a group. The app never creates one; this covers a hand-edited database. */
+/** Heading for expense categories without a group. The app never creates one; this covers a hand-edited database. */
 export const UNGROUPED = "Ungrouped";
 
 export type CategoryRow = {
@@ -52,18 +55,31 @@ export type GroupRow = {
   available: number;
 };
 
+export type IncomeCategoryRow = {
+  id: number;
+  name: string;
+  /** Net transactions in the viewed month: what came in through it. */
+  received: number;
+};
+
 export type BudgetMonth = {
+  /** The expense categories, in their groups. */
   groups: GroupRow[];
-  /** Over all visible categories. `spent` is the activity as a positive amount, never below zero. */
+  /**
+   * The visible income categories, and what came in through all of them in
+   * the viewed month. They hold no money, so no other figure counts them.
+   */
+  income: { categories: IncomeCategoryRow[]; received: number };
+  /** Over all visible expense categories. `spent` is the activity as a positive amount, never below zero. */
   totals: { assigned: number; spent: number; available: number };
   /** Money in accounts that is not in any category, across all time: `inAccounts - inCategories`. */
   readyToAssign: number;
   /** All the money in all accounts. */
   inAccounts: number;
-  /** What all visible categories hold together, over all time. */
+  /** What all visible expense categories hold together, over all time. */
   inCategories: number;
   hasAccounts: boolean;
-  /** Whether anything was assigned to a visible category in the month before. */
+  /** Whether anything was assigned to a visible expense category in the month before. */
   assignedLastMonth: boolean;
 };
 
@@ -75,6 +91,7 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
     id: number;
     group_id: number | null;
     name: string;
+    income: number;
     assigned: number;
     assigned_through: number;
     assigned_total: number;
@@ -86,6 +103,7 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
       c.id,
       c.group_id,
       c.name,
+      c.income,
       coalesce((SELECT sum(a.amount) FROM assignments a
                 WHERE a.category_id = c.id AND a.month = ${month}), 0) AS assigned,
       coalesce((SELECT sum(a.amount) FROM assignments a
@@ -112,11 +130,20 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
       coalesce((SELECT sum(amount) FROM transactions), 0) AS total,
       (SELECT count(*) FROM accounts) AS count,
       EXISTS (SELECT 1 FROM assignments a JOIN categories c ON c.id = a.category_id
-              WHERE c.archived = 0 AND a.month = ${addMonths(month, -1)}) AS assignedLastMonth
+              WHERE c.archived = 0 AND c.income = 0
+                AND a.month = ${addMonths(month, -1)}) AS assignedLastMonth
   `);
 
+  // Income categories hold no money: their transactions stay in Ready to
+  // assign, and they count in no group, total or balance. Even an amount
+  // assigned to one by hand in the database is ignored.
+  const income = rows
+    .filter((r) => r.income)
+    .map((r) => ({ id: r.id, name: r.name, received: r.activity }));
+  const expenses = rows.filter((r) => !r.income);
+
   const byGroup = new Map<number | null, CategoryRow[]>();
-  const list: CategoryRow[] = rows.map((r) => {
+  const list: CategoryRow[] = expenses.map((r) => {
     const row = {
       id: r.id,
       name: r.name,
@@ -150,10 +177,11 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
     .map((g) => toGroup(g.id, g.name, g.colorSlot));
   if (byGroup.has(null)) groups.push(toGroup(null, UNGROUPED, null));
 
-  const inCategories = rows.reduce((sum, r) => sum + r.assigned_total + r.activity_total, 0);
+  const inCategories = expenses.reduce((sum, r) => sum + r.assigned_total + r.activity_total, 0);
 
   return {
     groups,
+    income: { categories: income, received: income.reduce((sum, c) => sum + c.received, 0) },
     totals: {
       assigned: list.reduce((sum, c) => sum + c.assigned, 0),
       spent: Math.max(0, -list.reduce((sum, c) => sum + c.activity, 0)),
@@ -169,15 +197,21 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
 
 /**
  * Sets the amount assigned to a category for one month (0 clears it).
- * Returns false, and changes nothing, when the category does not exist or is
- * archived.
+ * Returns false, and changes nothing, when the category does not exist, is
+ * archived, or is an income category, which holds no money.
  */
 export function setAssigned(db: Db, categoryId: number, month: Month, amount: number): boolean {
   return db.transaction((tx) => {
     const category = tx
       .select({ id: categories.id })
       .from(categories)
-      .where(and(eq(categories.id, categoryId), eq(categories.archived, false)))
+      .where(
+        and(
+          eq(categories.id, categoryId),
+          eq(categories.archived, false),
+          eq(categories.income, false),
+        ),
+      )
       .all();
     if (category.length === 0) return false;
     writeAssigned(tx, categoryId, month, amount);
@@ -203,8 +237,8 @@ function writeAssigned(db: Db, categoryId: number, month: Month, amount: number)
 }
 
 /**
- * Gives every visible category that has nothing assigned in month `to` what
- * it had assigned in month `from`. Returns how many it filled in.
+ * Gives every visible expense category that has nothing assigned in month
+ * `to` what it had assigned in month `from`. Returns how many it filled in.
  */
 export function copyAssignments(db: Db, from: Month, to: Month): number {
   return db.transaction((tx) => {
@@ -274,6 +308,14 @@ function categoryNameTaken(db: Db, name: string, exceptId?: number): boolean {
   return rows.some((r) => r.id !== exceptId);
 }
 
+/** The place after every category, so a new or moved one comes last in its list. */
+function lastPlace(db: Db): number {
+  const [{ next }] = db.all<{ next: number }>(
+    sql`SELECT coalesce(max(sort_order), 0) + 1 AS next FROM categories`,
+  );
+  return next;
+}
+
 /** True when a group other than `exceptId` already uses this name (case-insensitive). */
 function groupNameTaken(db: Db, name: string, exceptId?: number): boolean {
   const rows = db.all<{ id: number }>(
@@ -293,10 +335,28 @@ export function createCategory(
     if (group.length === 0) return "no-group";
     if (categoryNameTaken(tx, name)) return "name-taken";
 
-    const [{ next }] = tx.all<{ next: number }>(
-      sql`SELECT coalesce(max(sort_order), 0) + 1 AS next FROM categories`,
-    );
-    return tx.insert(categories).values({ name, groupId, sortOrder: next }).returning().get().id;
+    return tx
+      .insert(categories)
+      .values({ name, groupId, sortOrder: lastPlace(tx) })
+      .returning()
+      .get().id;
+  });
+}
+
+/**
+ * Creates an income category, after the other income categories. It has no
+ * group. Returns its id, or "name-taken": names are unique across income and
+ * expense categories, so a transaction's category is never ambiguous.
+ */
+export function createIncomeCategory(db: Db, name: string): number | "name-taken" {
+  return db.transaction((tx) => {
+    if (categoryNameTaken(tx, name)) return "name-taken";
+
+    return tx
+      .insert(categories)
+      .values({ name, income: true, sortOrder: lastPlace(tx) })
+      .returning()
+      .get().id;
   });
 }
 
@@ -311,7 +371,8 @@ export function renameCategory(db: Db, id: number, name: string): boolean {
 
 /**
  * Hides a category. Its balance returns to Ready to assign, and its past
- * transactions stay in the ledger.
+ * transactions stay in the ledger. An income category has no balance, so
+ * archiving one changes no figure.
  */
 export function archiveCategory(db: Db, id: number): void {
   db.update(categories).set({ archived: true }).where(eq(categories.id, id)).run();
@@ -338,8 +399,9 @@ function swapped(ids: number[], id: number, direction: Direction): number[] | nu
 
 /**
  * Swaps a category with the visible category above or below it in the same
- * group. The group's categories are then numbered 1, 2, 3…, so two that
- * shared a place (possible in a hand-edited database) still change places.
+ * group, or among the income categories, which form one list of their own.
+ * That list is then numbered 1, 2, 3…, so two that shared a place (possible
+ * in a hand-edited database) still change places.
  */
 export function moveCategory(db: Db, id: number, direction: Direction): MoveResult {
   return db.transaction((tx) => {
@@ -350,22 +412,26 @@ export function moveCategory(db: Db, id: number, direction: Direction): MoveResu
       .all();
     if (!category) return "gone";
 
-    const inGroup = tx
+    const list = tx
       .select({ id: categories.id })
       .from(categories)
       .where(
         and(
-          category.groupId === null
-            ? isNull(categories.groupId)
-            : eq(categories.groupId, category.groupId),
-          eq(categories.income, category.income),
           eq(categories.archived, false),
+          category.income
+            ? eq(categories.income, true)
+            : and(
+                eq(categories.income, false),
+                category.groupId === null
+                  ? isNull(categories.groupId)
+                  : eq(categories.groupId, category.groupId),
+              ),
         ),
       )
       .orderBy(categories.sortOrder, categories.id)
       .all();
     const order = swapped(
-      inGroup.map((c) => c.id),
+      list.map((c) => c.id),
       id,
       direction,
     );
@@ -410,7 +476,7 @@ export function moveGroup(db: Db, id: number, direction: Direction): MoveResult 
 /**
  * Puts a category at the end of another group. Its assignments and
  * transactions stay with it, so nothing changes in the figures but the
- * groups' totals.
+ * groups' totals. An income category has no group to leave.
  */
 export function moveCategoryToGroup(
   db: Db,
@@ -429,10 +495,10 @@ export function moveCategoryToGroup(
     const group = tx.select().from(categoryGroups).where(eq(categoryGroups.id, groupId)).all();
     if (group.length === 0) return "no-group";
 
-    const [{ next }] = tx.all<{ next: number }>(
-      sql`SELECT coalesce(max(sort_order), 0) + 1 AS next FROM categories`,
-    );
-    tx.update(categories).set({ groupId, sortOrder: next }).where(eq(categories.id, id)).run();
+    tx.update(categories)
+      .set({ groupId, sortOrder: lastPlace(tx) })
+      .where(eq(categories.id, id))
+      .run();
     return "moved";
   });
 }
@@ -440,29 +506,41 @@ export function moveCategoryToGroup(
 export type ArchivedCategory = {
   id: number;
   name: string;
-  /** What it holds over all time: what restoring takes out of Ready to assign again. */
+  /**
+   * What it holds over all time: what restoring takes out of Ready to
+   * assign again. Always 0 for an income category, which holds no money.
+   */
   balance: number;
+  income: boolean;
 };
 
 /** Archived categories, by name, with what each would bring back. */
 export function getArchivedCategories(db: Db): ArchivedCategory[] {
-  return db.all<ArchivedCategory>(sql`
-    SELECT
-      c.id,
-      c.name,
-      coalesce((SELECT sum(a.amount) FROM assignments a WHERE a.category_id = c.id), 0)
-        + coalesce((SELECT sum(t.amount) FROM transactions t WHERE t.category_id = c.id), 0)
-        AS balance
-    FROM categories c
-    WHERE c.archived = 1
-    ORDER BY lower(c.name), c.id
-  `);
+  return db
+    .all<Omit<ArchivedCategory, "income"> & { income: number }>(
+      sql`
+        SELECT
+          c.id,
+          c.name,
+          CASE WHEN c.income THEN 0 ELSE
+            coalesce((SELECT sum(a.amount) FROM assignments a WHERE a.category_id = c.id), 0)
+              + coalesce((SELECT sum(t.amount) FROM transactions t WHERE t.category_id = c.id), 0)
+          END AS balance,
+          c.income
+        FROM categories c
+        WHERE c.archived = 1
+        ORDER BY lower(c.name), c.id
+      `,
+    )
+    .map((c) => ({ ...c, income: c.income === 1 }));
 }
 
 /**
  * Brings an archived category back, with its history and balance, at the
  * end of the group it was in, or of the first group when that one is gone.
- * Refused when a visible category has its name, or when there is no group.
+ * An income category comes back as one, after the other income categories.
+ * Refused when a visible category has its name, or when an expense category
+ * has no group to go to.
  */
 export function restoreCategory(
   db: Db,
@@ -474,6 +552,14 @@ export function restoreCategory(
     if (!category.archived) return "restored";
     if (categoryNameTaken(tx, category.name)) return "name-taken";
 
+    if (category.income) {
+      tx.update(categories)
+        .set({ archived: false, groupId: null, sortOrder: lastPlace(tx) })
+        .where(eq(categories.id, id))
+        .run();
+      return "restored";
+    }
+
     const groups = tx
       .select({ id: categoryGroups.id })
       .from(categoryGroups)
@@ -482,11 +568,8 @@ export function restoreCategory(
     const group = groups.find((g) => g.id === category.groupId) ?? groups[0];
     if (!group) return "no-group";
 
-    const [{ next }] = tx.all<{ next: number }>(
-      sql`SELECT coalesce(max(sort_order), 0) + 1 AS next FROM categories`,
-    );
     tx.update(categories)
-      .set({ archived: false, groupId: group.id, sortOrder: next })
+      .set({ archived: false, groupId: group.id, sortOrder: lastPlace(tx) })
       .where(eq(categories.id, id))
       .run();
     return "restored";

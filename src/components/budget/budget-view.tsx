@@ -12,6 +12,7 @@ import { applyChange } from "./budget-changes";
 import { BudgetContext } from "./budget-context";
 import { CopyLastMonth } from "./copy-last-month";
 import { GroupBody, UngroupedBody } from "./group-body";
+import { IncomeBody } from "./income-body";
 import { NewGroup } from "./new-group";
 import { TableHead } from "./table-head";
 
@@ -55,7 +56,7 @@ function useInView(ref: React.RefObject<Element | null>): boolean {
 
 /**
  * The budget page for one month: the header with Ready to assign, and the
- * table of groups and categories.
+ * table of income, groups and categories.
  *
  * It shows the server's figures with every change that is still being saved
  * applied on top (see `budget-changes.ts`), so a change and everything it
@@ -73,6 +74,8 @@ export function BudgetView({
 }: Props) {
   const [budget, show] = useOptimistic(saved, applyChange);
   const { spent, assigned } = budget.totals;
+  const { received } = budget.income;
+  const showSpent = spent > 0 || assigned !== 0;
   const ready = budget.readyToAssign;
   const headline = readyHeadline(ready, budget.hasAccounts);
   const hero = useRef<HTMLElement>(null);
@@ -84,12 +87,25 @@ export function BudgetView({
       <Hero ref={hero}>
         <div className="relative">
           {monthNav}
-          {(spent > 0 || assigned !== 0) && (
+          {(received !== 0 || showSpent) && (
             <HeroLead>
-              <b className="font-semibold text-white">
-                {formatMoneyRounded(spent, currency, locale)}
-              </b>{" "}
-              spent of {formatMoneyRounded(assigned, currency, locale)} assigned
+              {received !== 0 && (
+                <>
+                  <b className="font-semibold text-white">
+                    {formatMoneyRounded(received, currency, locale)}
+                  </b>{" "}
+                  received
+                </>
+              )}
+              {received !== 0 && showSpent && " · "}
+              {showSpent && (
+                <>
+                  <b className="font-semibold text-white">
+                    {formatMoneyRounded(spent, currency, locale)}
+                  </b>{" "}
+                  spent of {formatMoneyRounded(assigned, currency, locale)} assigned
+                </>
+              )}
               {daysLeft !== null && (
                 <>
                   {" · "}
@@ -141,13 +157,14 @@ export function BudgetView({
                   }
             }
           />
+          <IncomeBody income={budget.income} />
           {budget.groups.map((group, i) =>
             isGroup(group) ? (
               <GroupBody
                 key={group.id}
                 group={group}
                 first={i === 0}
-                // Categories without a group come after every group.
+                // Expense categories without a group come after every group.
                 last={i === groupCount - 1}
               />
             ) : (
@@ -158,9 +175,9 @@ export function BudgetView({
 
         {budget.groups.length === 0 && (
           <p className="max-w-2xl px-3.5 pt-5 pb-2 text-muted">
-            No categories yet. A category is a purpose you set money aside for, such as Rent,
-            Groceries or Holiday. Categories live in groups, so start by naming your first group,
-            for example Fixed costs.
+            {budget.income.categories.length === 0 && "No categories yet. "}A category is a purpose
+            you set money aside for, such as Rent, Groceries or Holiday. Categories live in groups,
+            so start by naming your first group, for example Fixed costs.
           </p>
         )}
 

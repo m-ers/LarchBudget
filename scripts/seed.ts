@@ -5,7 +5,7 @@
  */
 import { databasePath, getDb } from "../src/db";
 import { createAccount } from "../src/db/accounts";
-import { createCategory, createGroup, setAssigned } from "../src/db/budget";
+import { createCategory, createGroup, createIncomeCategory, setAssigned } from "../src/db/budget";
 import { accounts, transactions } from "../src/db/schema";
 import { created } from "../src/db/created";
 import { importTransactions } from "../src/db/transactions";
@@ -70,6 +70,8 @@ db.transaction((tx) => {
   ];
   const group: Record<string, number> = {};
   const category: Record<string, number> = {};
+  // What comes in has a category of its own, outside the groups.
+  category["Salary"] = created(createIncomeCategory(tx, "Salary"));
   for (const { group: groupName, name } of plan) {
     group[groupName] ??= created(createGroup(tx, groupName));
     category[name] = created(createCategory(tx, name, group[groupName]));
@@ -92,7 +94,7 @@ db.transaction((tx) => {
       });
     };
 
-    add(1, 2850, "Acme Corp salary");
+    add(1, 2850, "Acme Corp salary", "Salary");
     add(2, -1100, "Landlord", "Rent");
     add(5, -between(60, 95), "Power & Water Co", "Utilities");
     add(8, -49, "City Transit", "Transport");

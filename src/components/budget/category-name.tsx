@@ -7,7 +7,6 @@ import {
   moveCategoryToGroupAction,
   renameCategoryAction,
 } from "@/app/actions";
-import type { CategoryRow } from "@/db/budget";
 import { formatMoney } from "@/lib/money";
 import { ErrorText } from "../form";
 import { MoreIcon } from "../icons";
@@ -22,36 +21,60 @@ import { rowActionLook } from "./row-action";
 export type Place = { groupId: number | null; first: boolean; last: boolean };
 
 type Props = {
-  category: CategoryRow;
+  category: { id: number; name: string };
   place: Place;
   /** The row's menu, which a right-click on the row opens too. */
   menu: ReturnType<typeof useMenu>;
-  /** Opens the form for moving money out of the category, or into it to cover overspending. */
-  onMoveMoney: (flow: Flow) => void;
+  /**
+   * For an expense category: what it holds over all time (what archiving
+   * gives back) and this month, and opening the form for moving money out
+   * of it, or into it to cover overspending. Left out for an income
+   * category, which holds no money and has no group to leave.
+   */
+  money?: { balance: number; available: number; onMoveMoney: (flow: Flow) => void };
 };
 
 /**
  * Category name: click to rename. The category's actions are in a menu
  * beside it, whose button shows on row hover.
  */
-export function CategoryName({ category, place, menu, onMoveMoney }: Props) {
-  // `balance` is what the category holds over all time: what archiving gives back.
-  const { id, name, balance, available } = category;
+export function CategoryName({ category: { id, name }, place, menu, money }: Props) {
   const { currency, locale, figures } = useBudget();
   const { error, pending, save } = useSave();
   const nameField = useRef<InlineNameHandle>(null);
 
   function archive() {
     const question = `Archive "${name}"?`;
-    const money = formatMoney(Math.abs(balance), currency, locale);
+    const balance = money?.balance ?? 0;
+    const amount = formatMoney(Math.abs(balance), currency, locale);
     const message =
       balance > 0
-        ? `${question} Its ${money} goes back to Ready to assign.`
+        ? `${question} Its ${amount} goes back to Ready to assign.`
         : balance < 0
-          ? `${question} It is overspent by ${money}, which then comes out of Ready to assign.`
+          ? `${question} It is overspent by ${amount}, which then comes out of Ready to assign.`
           : question;
     if (window.confirm(message)) save(() => archiveCategoryAction(id));
   }
+
+  // Only an expense category is in a group and holds money.
+  const expenseItems = money
+    ? [
+        ...figures.groups.flatMap(({ id: groupId, name: groupName }) =>
+          groupId === null || groupId === place.groupId
+            ? []
+            : [
+                {
+                  label: `Move to ${groupName}`,
+                  onSelect: () => save(() => moveCategoryToGroupAction(id, groupId)),
+                },
+              ],
+        ),
+        { label: "Move money…", onSelect: () => money.onMoveMoney("out") },
+        ...(money.available < 0
+          ? [{ label: "Cover overspending…", onSelect: () => money.onMoveMoney("in") }]
+          : []),
+      ]
+    : [];
 
   return (
     <div className={`flex min-w-0 items-center gap-1 ${pending ? "opacity-60" : ""}`}>
@@ -78,20 +101,7 @@ export function CategoryName({ category, place, menu, onMoveMoney }: Props) {
             onSelect: () => save(() => moveCategoryAction(id, "down")),
             disabled: place.last,
           },
-          ...figures.groups.flatMap(({ id: groupId, name: groupName }) =>
-            groupId === null || groupId === place.groupId
-              ? []
-              : [
-                  {
-                    label: `Move to ${groupName}`,
-                    onSelect: () => save(() => moveCategoryToGroupAction(id, groupId)),
-                  },
-                ],
-          ),
-          { label: "Move money…", onSelect: () => onMoveMoney("out") },
-          ...(available < 0
-            ? [{ label: "Cover overspending…", onSelect: () => onMoveMoney("in") }]
-            : []),
+          ...expenseItems,
           { label: "Archive", onSelect: archive, destructive: true },
         ]}
       >

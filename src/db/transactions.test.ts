@@ -6,7 +6,7 @@ import * as budget from "./budget";
 import { archiveCategory, getBudgetMonth, setAssigned } from "./budget";
 import { openDb, type Db } from "./index";
 import { created } from "./created";
-import { deletedImports, transactions } from "./schema";
+import { categories, deletedImports, transactions } from "./schema";
 import {
   countTransactions,
   deleteTransaction,
@@ -31,6 +31,7 @@ let groceries: number;
 const createGroup = (database: Db, name: string) => created(budget.createGroup(database, name));
 const createCategory = (database: Db, name: string, groupId: number) =>
   created(budget.createCategory(database, name, groupId));
+const createIncomeCategory = (name: string) => created(budget.createIncomeCategory(db, name));
 
 /** A row as a bank file would hold it: the raw line is what identifies it. */
 const row = (
@@ -263,6 +264,26 @@ describe("sorting", () => {
     });
   });
 
+  it("can put income in an income category, which counts the same as no category", () => {
+    const salaryCategory = createIncomeCategory("Salary");
+    expect(sortTransaction(db, salary, "ready")).toBe("sorted");
+    const withoutCategory = getBudgetMonth(db, "2026-11");
+
+    expect(sortTransaction(db, salary, salaryCategory)).toBe("sorted");
+    const withCategory = getBudgetMonth(db, "2026-11");
+    expect(withCategory.readyToAssign).toBe(withoutCategory.readyToAssign);
+    expect(withCategory.income.received).toBe(285_000);
+    expect(listTransactions(db, { limit: 50 }).find((t) => t.id === salary)).toMatchObject({
+      categoryId: salaryCategory,
+      category: "Salary",
+      toSort: false,
+    });
+
+    // Once archived, nothing more goes in.
+    archiveCategory(db, salaryCategory);
+    expect(sortTransaction(db, market, salaryCategory)).toBe("no-category");
+  });
+
   it("says which is missing: the category or the transaction", () => {
     expect(sortTransaction(db, market, 9999)).toBe("no-category");
     archiveCategory(db, groceries);
@@ -282,6 +303,27 @@ describe("options and saved mappings", () => {
     expect(getCategoryOptions(db).map((g) => [g.name, g.categories.map((e) => e.name)])).toEqual([
       ["Everyday", ["Groceries"]],
       ["Goals", ["Holiday"]],
+    ]);
+  });
+
+  it("lists the income categories first, apart from any group", () => {
+    const everyday = getCategoryOptions(db)[0].id;
+    // An expense group may be called Income too; it stays a group of its own.
+    const named = createGroup(db, "Income");
+    createCategory(db, "Gifts", named);
+    createIncomeCategory("Salary");
+    createIncomeCategory("Benefits");
+    archiveCategory(db, createIncomeCategory("Old job"));
+    const loose = createCategory(db, "Loose", everyday as number);
+    db.update(categories).set({ groupId: null }).where(eq(categories.id, loose)).run();
+
+    expect(
+      getCategoryOptions(db).map((g) => [g.id, g.name, g.categories.map((c) => c.name)]),
+    ).toEqual([
+      ["income", "Income", ["Salary", "Benefits"]],
+      [everyday, "Everyday", ["Groceries"]],
+      [named, "Income", ["Gifts"]],
+      [null, budget.UNGROUPED, ["Loose"]],
     ]);
   });
 
@@ -433,9 +475,10 @@ describe("finding transactions", () => {
     expect(all.moneyIn).toBe(285_000 + 10_000);
   });
 
-  it("lists every account and category to choose from, archived ones too", () => {
+  it("lists every account and category to choose from, archived and income ones too", () => {
     const old = createCategory(db, "Old", createGroup(db, "Goals"));
     archiveCategory(db, old);
+    const salary = createIncomeCategory("Salary");
     expect(getFilterOptions(db)).toEqual({
       accounts: [
         { id: checking, name: "Checking", closed: false },
@@ -443,8 +486,23 @@ describe("finding transactions", () => {
       ],
       categories: [
         { id: groceries, name: "Groceries", archived: false },
+        { id: salary, name: "Salary", archived: false },
         { id: old, name: "Old", archived: true },
       ],
+    });
+  });
+
+  it("narrows to an income category like to any other", () => {
+    const salary = createIncomeCategory("Salary");
+    const acme = listTransactions(db, { limit: 50 }).find((t) => t.payee === "Acme Corp")!;
+    sortTransaction(db, acme.id, salary);
+    expect(payees({ category: salary })).toEqual(["Acme Corp"]);
+    expect(payees({ category: salary, month: "2026-11" })).toEqual(["Acme Corp"]);
+    expect(payees({ category: "none" })).not.toContain("Acme Corp");
+    expect(summarizeTransactions(db, { category: salary, month: "2026-11" })).toEqual({
+      count: 1,
+      moneyIn: 285_000,
+      moneyOut: 0,
     });
   });
 });
@@ -482,6 +540,17 @@ describe("suggesting a category", () => {
     const suggestions = suggestCategories(db, ["  CORNER SHOP", "Corner Shop "]);
     expect(suggestions.get("  CORNER SHOP")?.category).toBe("Groceries");
     expect(suggestions.get("Corner Shop ")?.category).toBe("Groceries");
+  });
+
+  it("suggests an income category like any other", () => {
+    const salary = createIncomeCategory("Salary");
+    importTransactions(db, checking, [row("2026-10-01", 285_000, "Acme Corp")], "salary");
+    const [added] = listTransactions(db, { limit: 50 }).filter((t) => t.payee === "Acme Corp");
+    sortTransaction(db, added.id, salary);
+    expect(suggestCategories(db, ["Acme Corp"]).get("Acme Corp")).toEqual({
+      categoryId: salary,
+      category: "Salary",
+    });
   });
 
   it("can suggest no category", () => {

@@ -63,8 +63,26 @@ export const categoriesIn = (page: Page, group: string) =>
       fields.map((field) => field.getAttribute("aria-label")!.replace(/^Assigned to /, "")),
     );
 
-/** The names of the groups, top to bottom, as typed (the headings show them in capitals). */
-export const groupNames = (page: Page) => page.getByRole("rowheader").allTextContents();
+/**
+ * The names of the groups, top to bottom, as typed (the headings show them
+ * in capitals). The Income section is not a group: it has no group menu.
+ */
+export const groupNames = (page: Page) =>
+  page
+    .getByRole("rowheader")
+    .filter({ has: page.getByRole("button", { name: /^Actions for the group / }) })
+    .allTextContents();
+
+/** The Income section of the budget table: its heading and its rows. */
+export const incomeSection = (page: Page) =>
+  page.getByRole("rowgroup").filter({ has: groupHeading(page, "Income") });
+
+/** The names of the income categories, top to bottom, read from the names you click to rename. */
+export const incomeNames = (page: Page) =>
+  incomeSection(page).getByTitle("Rename", { exact: true }).allTextContents();
+
+export const newIncomeField = (page: Page) =>
+  page.getByRole("textbox", { name: "New income category", exact: true });
 
 /** What a group's categories hold together, at the end of its heading row. */
 export const groupTotal = (page: Page, name: string) =>
@@ -145,6 +163,21 @@ export async function openNewCategory(page: Page, group: string) {
 export async function addCategories(page: Page, group: string, names: string[]) {
   const field = newCategoryField(page, group);
   if (!(await field.isVisible())) await openNewCategory(page, group);
+  for (const name of names) {
+    await field.fill(name);
+    await field.press("Enter");
+    await expect(category(page, name)).toBeVisible();
+  }
+}
+
+/** Adds income categories with the Income section's field, opening it with its "+" if needed. */
+export async function addIncomeCategories(page: Page, names: string[]) {
+  const field = newIncomeField(page);
+  await expect(groupHeading(page, "Income")).toBeVisible();
+  if (!(await field.isVisible())) {
+    await page.getByRole("button", { name: "Add an income category" }).click();
+    await expect(field).toBeFocused();
+  }
   for (const name of names) {
     await field.fill(name);
     await field.press("Enter");
