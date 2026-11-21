@@ -17,7 +17,7 @@ import {
   menuItem,
   newIncomeField,
   openMenu,
-  spentLine,
+  overviewFigure,
 } from "./helpers";
 import { expect, test } from "./fixtures";
 
@@ -89,9 +89,9 @@ test("a salary sorted into an income category shows under Income, with the same 
   await expect(available(page, "Salary")).toHaveText("€2,850.00");
   await expect(groupTotal(page, "Income")).toHaveText("€2,850.00 received");
   // Under the month: what came in, and nothing spent or assigned yet.
-  await expect(page.getByText(/^€2,850 received/).filter({ visible: true })).toHaveText(
-    /^€2,850 received( · \d+ days? to go)?$/,
-  );
+  await expect(overviewFigure(page, "Received")).toHaveText("€2,850");
+  await expect(overviewFigure(page, "Assigned")).toHaveText("€0");
+  await expect(overviewFigure(page, "Spent")).toHaveText("€0");
   await expect(headerFigure(page)).toHaveText(ready);
   // Nothing can be assigned to it, and nothing is spent from it.
   await expect(categoryRow(page, "Salary").getByRole("textbox")).toHaveCount(0);
@@ -229,10 +229,11 @@ test("an expense category cannot be moved into Income or get money from an incom
 test.describe("on the demo data", () => {
   test.use({ app: { seed: true } });
 
-  test("the salary shows under Income, and in the line under the month", async ({ page }) => {
+  test("the salary shows under Income, and as Received under the month", async ({ page }) => {
     await page.goto("/");
     await expect.poll(() => incomeNames(page)).toEqual(["Salary"]);
     await expect(available(page, "Salary")).toHaveText("€2,850.00");
-    await expect(spentLine(page)).toContainText(/^€2,850 received · €[\d,]+ spent of /);
+    await expect(overviewFigure(page, "Received")).toHaveText("€2,850");
+    await expect(overviewFigure(page, "Spent")).toHaveText(/^€[\d,]+$/);
   });
 });

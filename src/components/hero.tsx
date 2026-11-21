@@ -41,6 +41,47 @@ export function HeroLead({
   return <p className={`mt-2.5 text-[14.5px] text-white/70 ${className}`}>{children}</p>;
 }
 
+/** A row of smaller figures under the title inside a `Hero`; see `HeroStat`. */
+export function HeroStats({ children }: { children: React.ReactNode }) {
+  return <dl className="mt-3 flex gap-x-10">{children}</dl>;
+}
+
+/**
+ * One figure in `HeroStats`, with its label above it and what it means on
+ * hover. A note hangs under it without taking room, so the figures around
+ * it do not move when it comes and goes.
+ */
+export function HeroStat({
+  label,
+  value,
+  title,
+  note,
+}: {
+  label: string;
+  value: string;
+  /** What the figure means, as a tooltip. */
+  title: string;
+  /** A quiet line under the figure, with a tooltip of its own. */
+  note?: { text: string; title: string };
+}) {
+  return (
+    <div className="relative" title={title}>
+      <dt className="text-[13px] leading-4 font-medium whitespace-nowrap text-white/65">{label}</dt>
+      <dd className="mt-0.5 text-lg leading-6 font-semibold tracking-[-0.01em] whitespace-nowrap tabular-nums">
+        {value}
+      </dd>
+      {note && (
+        <dd
+          title={note.title}
+          className="absolute top-full left-0 mt-0.5 text-[12.5px] leading-4 whitespace-nowrap text-white/60"
+        >
+          {note.text}
+        </dd>
+      )}
+    </div>
+  );
+}
+
 /** What a page shows while its data loads: the same two blocks, empty. */
 export function PageSkeleton() {
   return (

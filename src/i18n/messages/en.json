@@ -322,12 +322,20 @@
       "previousMonth": "Previous month",
       "nextMonth": "Next month",
       "thisMonth": "This month",
-      "received": "<b>{{amount}}</b> received",
-      "spent": "<b>{{spent}}</b> spent of {{assigned}} assigned",
       "daysToGo_one": "<b>{{count}} day</b> to go",
       "daysToGo_other": "<b>{{count}} days</b> to go",
       "readyWithOverspent": "{{inAccounts}} in your accounts + {{overspent}} overspent in categories",
       "readyMinusCategories": "{{inAccounts}} in your accounts − {{inCategories}} in categories"
+    },
+    "overview": {
+      "received": "Received",
+      "receivedTip": "What came in through your income categories for this month.",
+      "assigned": "Assigned",
+      "assignedTip": "What you put into your categories this month.",
+      "spent": "Spent",
+      "spentTip": "What was spent from your categories this month.",
+      "fromLastMonth": "{{amount}} from {{month}}",
+      "fromLastMonthTip": "From income categories that count for the next month."
     },
     "ready": {
       "assignedMore": "Assigned more than you have",

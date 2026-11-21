@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addMonths, type IsoDate, type Month } from "./dates";
-import { receivedPeriod } from "./income";
+import { fromLastMonth, receivedPeriod } from "./income";
 
 /** Which of the months around a date's own month its money counts as received in. */
 function countsIn(date: IsoDate, countsForNextMonth: boolean): Month[] {
@@ -55,5 +55,28 @@ describe("receivedPeriod", () => {
         day = new Date(day.getTime() + 24 * 60 * 60 * 1000);
       }
     }
+  });
+});
+
+describe("fromLastMonth", () => {
+  const salary = { received: 285000, nextMonth: true };
+  const bonus = { received: 15000, nextMonth: true };
+  const gifts = { received: 5000, nextMonth: false };
+
+  it("is zero without income categories", () => {
+    expect(fromLastMonth([])).toBe(0);
+  });
+
+  it("is zero when none counts for the next month", () => {
+    expect(fromLastMonth([{ ...salary, nextMonth: false }, gifts])).toBe(0);
+  });
+
+  it("adds up only the ones that count for the next month", () => {
+    expect(fromLastMonth([salary, gifts])).toBe(285000);
+    expect(fromLastMonth([gifts, salary, bonus])).toBe(300000);
+  });
+
+  it("is everything received when all of them count for the next month", () => {
+    expect(fromLastMonth([salary, bonus])).toBe(300000);
   });
 });

@@ -322,12 +322,20 @@
       "previousMonth": "Vorige maand",
       "nextMonth": "Volgende maand",
       "thisMonth": "Deze maand",
-      "received": "<b>{{amount}}</b> ontvangen",
-      "spent": "<b>{{spent}}</b> uitgegeven van {{assigned}} toegewezen",
       "daysToGo_one": "nog <b>{{count}} dag</b>",
       "daysToGo_other": "nog <b>{{count}} dagen</b>",
       "readyWithOverspent": "{{inAccounts}} op je rekeningen + {{overspent}} te veel uitgegeven in categorieën",
       "readyMinusCategories": "{{inAccounts}} op je rekeningen − {{inCategories}} in categorieën"
+    },
+    "overview": {
+      "received": "Ontvangen",
+      "receivedTip": "Wat er via je inkomstencategorieën voor deze maand binnenkwam.",
+      "assigned": "Toegewezen",
+      "assignedTip": "Wat je deze maand aan je categorieën hebt toegewezen.",
+      "spent": "Uitgegeven",
+      "spentTip": "Wat je deze maand uit je categorieën hebt uitgegeven.",
+      "fromLastMonth": "waarvan {{amount}} uit {{month}}",
+      "fromLastMonthTip": "Van inkomstencategorieën die voor de volgende maand tellen."
     },
     "ready": {
       "assignedMore": "Meer toegewezen dan je hebt",

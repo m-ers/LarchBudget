@@ -56,6 +56,12 @@ savings, cash or a credit card.
 The **Budget** page shows one month. The arrows beside the month go to the
 month before and after.
 
+Under the month, three figures sum it up: **Received** is what came in
+through your income categories for this month, **Assigned** what you put
+into your categories, and **Spent** what was spent from them. Ready to assign
+stays on the right. When an income category counts for the next month, a
+line under Received says how much of it came in during the month before.
+
 ### Groups and categories
 
 - **New group** at the bottom adds a group, such as Fixed costs, Everyday or

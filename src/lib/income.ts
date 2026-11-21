@@ -22,3 +22,14 @@ export function receivedPeriod(month: Month, countsForNextMonth: boolean): Perio
   const from = countsForNextMonth ? addMonths(month, -1) : month;
   return { first: date(from, 1), last: lastDay(from) };
 }
+
+/**
+ * How much of what the income categories received for a month came in
+ * during the month before: what the ones that count for the next month
+ * received. Zero when none of them does.
+ */
+export function fromLastMonth(
+  categories: readonly { received: number; nextMonth: boolean }[],
+): number {
+  return categories.reduce((sum, c) => (c.nextMonth ? sum + c.received : sum), 0);
+}

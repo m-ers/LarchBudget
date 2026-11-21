@@ -95,8 +95,20 @@ export const newIncomeField = (page: Page) =>
 export const groupTotal = (page: Page, name: string) =>
   groupRow(page, name).getByRole("cell").last();
 
-/** The line under the month, e.g. "€0 spent of €1,195 assigned". */
-export const spentLine = (page: Page) => page.getByText(/ spent of /).filter({ visible: true });
+/**
+ * A figure under the month, found by its label ("Received", "Assigned",
+ * "Spent", or the same in the page's language): its amount, e.g. "€1,195".
+ */
+export const overviewFigure = (page: Page, label: string) =>
+  page
+    .locator("dt")
+    .filter({ hasText: exactly(label) })
+    .filter({ visible: true })
+    .locator("xpath=following-sibling::dd[1]");
+
+/** The line under Received about the month before, e.g. "€2,850 from October". */
+export const fromLastMonthLine = (page: Page, received = "Received") =>
+  overviewFigure(page, received).locator("xpath=following-sibling::dd");
 
 export const newGroupField = (page: Page) => page.getByRole("textbox", { name: "New group name" });
 
