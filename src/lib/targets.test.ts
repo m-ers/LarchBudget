@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Month } from "./dates";
+import { addMonths, type Month } from "./dates";
 import {
   categoryNeeds,
   heldBefore,
@@ -58,6 +58,8 @@ describe("targetNeeds", () => {
       expect(needs(topUp(40_000), NOW, 40_000)).toBe(0);
       expect(needs(topUp(40_000), NOW, 52_000)).toBe(0);
       expect(needs(topUp(40_000), NOW, 30_000, 10_000)).toBe(0);
+      // €600 left, and €100 of it moved out: still €500.
+      expect(needs(topUp(40_000), NOW, 60_000, -10_000)).toBe(0);
     });
 
     it("does not need more because of spending during the month", () => {
@@ -98,11 +100,23 @@ describe("targetNeeds", () => {
     it("needs nothing after its month", () => {
       expect(needs(holiday, "2027-07", 30_000, 0, "2027-07")).toBe(0);
       expect(needs(holiday, "2028-01", 0, 0, "2027-07")).toBe(0);
+      // Not even money moved out then.
+      expect(needs(holiday, "2027-07", 130_000, -20_000, "2027-07")).toBe(0);
     });
 
     it("needs nothing once the money is there", () => {
       expect(needs(holiday, NOW, 120_000)).toBe(0);
       expect(needs(holiday, NOW, 150_000)).toBe(0);
+    });
+
+    it("asks back money moved out only as far as it leaves the amount short", () => {
+      // €1,500 at the end of October, and €200 moved out in November: €1,300
+      // is still more than €1,200.
+      expect(needs(holiday, NOW, 150_000, -20_000)).toBe(0);
+      // €400 moved out leaves €1,100: €100 short.
+      expect(needs(holiday, NOW, 150_000, -40_000)).toBe(10_000);
+      // Not there yet: what was moved out comes on top of this month's share.
+      expect(needs(holiday, NOW, 40_000, -5_000)).toBe(10_000 + 5_000);
     });
 
     it("makes up for overspending carried over", () => {
@@ -122,6 +136,22 @@ describe("targetNeeds", () => {
       // Worked out with whole numbers that cannot round: (n + 2) / 3, rounded down.
       const exact = (BigInt(Number.MAX_SAFE_INTEGER) + 2n) / 3n;
       expect(BigInt(needs(large, NOW))).toBe(exact);
+    });
+
+    it("rounds up exactly just around a whole number of cents a month, and over many years", () => {
+      for (const [amount, monthsLeft] of [
+        [1, 36],
+        [35, 36],
+        [36, 36],
+        [37, 36],
+        [100_000_000_00, 7],
+        [99_999_999_999, 95_000],
+      ]) {
+        const target = byMonth(amount, addMonths(NOW, monthsLeft - 1));
+        // Rounded up, with whole numbers that cannot round.
+        const exact = (BigInt(amount) + BigInt(monthsLeft) - 1n) / BigInt(monthsLeft);
+        expect(BigInt(needs(target, NOW)), `${amount} over ${monthsLeft} months`).toBe(exact);
+      }
     });
   });
 

@@ -65,8 +65,9 @@ export function heldBefore(category: {
  *   does not raise it;
  * - byMonth: what is still missing at the start of the month, spread evenly
  *   over the months left up to and including the target's month, rounded up
- *   to a whole cent, minus what is assigned in the month. Nothing after the
- *   target's month.
+ *   to a whole cent, minus what is assigned in the month. Money moved out in
+ *   the month is asked back only as far as it leaves the amount short.
+ *   Nothing after the target's month, whatever is assigned in it.
  *
  * Targets ask for money only in the current month (`thisMonth`, which
  * follows TZ) and later months: a month that is over needs nothing.
@@ -89,20 +90,27 @@ export function targetNeeds(
   thisMonth: Month = currentMonth(),
 ): number {
   if (!target || month < thisMonth) return 0;
-  return Math.max(0, wanted(target, month, heldBefore) - assigned);
+  const asked = wanted(target, month, heldBefore);
+  return asked === null ? 0 : Math.max(0, asked - assigned);
 }
 
-/** What a target asks of `month` before anything is assigned in it; may be zero or below. */
-function wanted(target: Target, month: Month, heldBefore: number): number {
+/**
+ * What a target asks of `month` before anything is assigned in it; may be
+ * zero or below, so that money moved out in the month is asked back only
+ * as far as it takes the category below that. Null when it asks nothing,
+ * whatever is assigned: after a "by a month" target's month.
+ */
+function wanted(target: Target, month: Month, heldBefore: number): number | null {
   switch (target.kind) {
     case "monthly":
       return target.amount;
     case "topUp":
       return target.amount - heldBefore;
     case "byMonth": {
-      if (month > target.month) return 0;
+      if (month > target.month) return null;
       const missing = target.amount - heldBefore;
-      if (missing <= 0) return 0;
+      // Already there: what it holds above the amount may be moved out.
+      if (missing <= 0) return missing;
       // Exact for whole numbers up to Number.MAX_SAFE_INTEGER: the quotient
       // is never closer to a whole number than 1 / monthsLeft, much more
       // than the rounding of the division can move it.
