@@ -2,13 +2,14 @@
 
 import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
+import { useT } from "@/i18n/client";
 import { EnvelopeIcon, ListIcon, UploadIcon, WalletIcon } from "./icons";
 
 const items = [
-  { href: "/", label: "Budget", icon: EnvelopeIcon },
-  { href: "/transactions", label: "Transactions", icon: ListIcon },
-  { href: "/accounts", label: "Accounts", icon: WalletIcon },
-];
+  { href: "/", label: "nav.budget", icon: EnvelopeIcon },
+  { href: "/transactions", label: "nav.transactions", icon: ListIcon },
+  { href: "/accounts", label: "nav.accounts", icon: WalletIcon },
+] as const;
 
 /**
  * Marks its link while the page it leads to is on its way. A page change
@@ -23,6 +24,7 @@ function OnItsWay() {
 /** `transactionsBadge` shows how many transactions still need sorting. */
 export function SidebarNav({ transactionsBadge }: { transactionsBadge?: React.ReactNode }) {
   const pathname = usePathname();
+  const t = useT();
 
   return (
     <nav className="flex flex-1 flex-col gap-0.5">
@@ -40,7 +42,7 @@ export function SidebarNav({ transactionsBadge }: { transactionsBadge?: React.Re
             }`}
           >
             <Icon className={active ? "text-accent" : undefined} />
-            {label}
+            {t(label)}
             {href === "/transactions" && transactionsBadge}
             <OnItsWay />
           </Link>
@@ -53,7 +55,7 @@ export function SidebarNav({ transactionsBadge }: { transactionsBadge?: React.Re
         className="mt-auto flex items-center justify-center gap-2 rounded-[9px] bg-white px-3 py-2.5 text-[14.5px] font-semibold text-rail transition-opacity hover:opacity-90 has-[[data-on-its-way]]:opacity-80"
       >
         <UploadIcon width={16} height={16} strokeWidth={2} />
-        Import from bank
+        {t("nav.import")}
         <OnItsWay />
       </Link>
     </nav>

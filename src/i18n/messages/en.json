@@ -1,0 +1,30 @@
+{
+  "app": {
+    "description": "A simple, self-hosted budgeting app for one person."
+  },
+  "nav": {
+    "budget": "Budget",
+    "transactions": "Transactions",
+    "accounts": "Accounts",
+    "import": "Import from bank",
+    "toSort_one": ", {{count}} to sort",
+    "toSort_other": ", {{count}} to sort",
+    "logOut": "Log out"
+  },
+  "login": {
+    "title": "Log in",
+    "password": "Password",
+    "submit": "Log in",
+    "submitting": "Logging in…",
+    "wrongPassword": "Wrong password."
+  },
+  "pageError": {
+    "title": "This page could not be loaded.",
+    "text": "Nothing was changed. If LarchBudget was restarting or the connection dropped, trying again usually works.",
+    "retry": "Try again"
+  },
+  "common": {
+    "rename": "Rename",
+    "unreachable": "Could not reach LarchBudget. Check your connection and try again."
+  }
+}

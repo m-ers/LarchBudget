@@ -3,6 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { SESSION_COOKIE, SESSION_MAX_AGE, safeEqual, sessionToken } from "@/lib/auth";
+import { getT } from "@/i18n/server";
 import { getConfig } from "@/lib/config";
 
 export type LoginState = { error?: string };
@@ -13,7 +14,7 @@ export async function login(_prev: LoginState, formData: FormData): Promise<Logi
 
   const given = formData.get("password");
   if (typeof given !== "string" || !(await safeEqual(given, appPassword))) {
-    return { error: "Wrong password." };
+    return { error: (await getT())("login.wrongPassword") };
   }
 
   const isHttps = (await headers()).get("x-forwarded-proto") === "https";

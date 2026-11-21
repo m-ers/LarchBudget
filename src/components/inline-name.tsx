@@ -1,6 +1,7 @@
 "use client";
 
 import { useImperativeHandle, useRef } from "react";
+import { useT } from "@/i18n/client";
 import { MAX_NAME_LENGTH } from "@/lib/limits";
 import type { ActionResult } from "@/lib/result";
 import { ErrorText } from "./form";
@@ -26,6 +27,7 @@ type Props = {
 export function InlineName({ ref, value, label, onSave, className = "" }: Props) {
   const edit = useInlineEdit(value, onSave);
   const field = useRef<HTMLInputElement>(null);
+  const t = useT();
   useImperativeHandle(ref, () => ({
     startEditing() {
       // Already open (a refused name stays in the field): go back to it,
@@ -43,7 +45,7 @@ export function InlineName({ ref, value, label, onSave, className = "" }: Props)
       <button
         type="button"
         onClick={edit.start}
-        title="Rename"
+        title={t("common.rename")}
         className={`-ml-2 min-w-0 truncate rounded-md px-2 py-1 text-left hover:bg-hover ${className} ${
           edit.pending ? "opacity-60" : ""
         }`}
