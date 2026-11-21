@@ -196,6 +196,16 @@ export async function renameCategoryAction(
     : categoryNameTaken(t, parsed.data);
 }
 
+/** Whether an income category counts what comes in from the 15th for the next month. */
+export async function setNextMonthAction(categoryId: number, on: boolean): Promise<ActionResult> {
+  const t = await getT();
+  const db = await database();
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(categoryId).success || typeof on !== "boolean") return unexpected(t);
+
+  return budget.setNextMonth(db, categoryId, on) ? done() : categoryGone(t);
+}
+
 export async function archiveCategoryAction(categoryId: number): Promise<ActionResult> {
   const t = await getT();
   const db = await database();

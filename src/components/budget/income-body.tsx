@@ -5,7 +5,9 @@ import { useState } from "react";
 import { createIncomeCategoryAction } from "@/app/actions";
 import type { BudgetMonth, IncomeCategoryRow } from "@/db/budget";
 import { useT } from "@/i18n/client";
+import { formatDayMonth } from "@/lib/dates";
 import { groupColor } from "@/lib/group-colors";
+import { receivedPeriod } from "@/lib/income";
 import { formatMoney } from "@/lib/money";
 import { transactionsHref } from "@/lib/transactions-address";
 import { EnvelopeToken, PlusIcon } from "../icons";
@@ -80,7 +82,11 @@ export function IncomeBody({ income }: { income: BudgetMonth["income"] }) {
   );
 }
 
-/** One income category: its name and actions, and in the last column what came in this month. */
+/**
+ * One income category: its name and actions, and in the last column what
+ * came in for this month. For a category that counts for the next month,
+ * pointing at the amount says which days that covers.
+ */
 function IncomeRow({
   category,
   first,
@@ -92,9 +98,16 @@ function IncomeRow({
 }) {
   const { month, currency, locale } = useBudget();
   const t = useT();
-  const { id, received } = category;
+  const { id, received, nextMonth } = category;
   const amount = formatMoney(received, currency, locale);
   const menu = useMenu();
+  const period = receivedPeriod(month, true);
+  const days = nextMonth
+    ? t("budget.income.receivedPeriod", {
+        from: formatDayMonth(period.first, locale),
+        to: formatDayMonth(period.last, locale),
+      })
+    : undefined;
 
   return (
     <tr className="data-row group/row" onContextMenu={menu.openAtPointer}>
@@ -102,18 +115,29 @@ function IncomeRow({
         <EnvelopeToken color={groupColor(null)} />
       </td>
       <td>
-        <CategoryName category={category} place={{ groupId: null, first, last }} menu={menu} />
+        <CategoryName
+          category={category}
+          place={{ groupId: null, first, last }}
+          menu={menu}
+          nextMonth={nextMonth}
+        />
       </td>
       <td />
       <td />
       <td className="pr-6 text-right font-medium whitespace-nowrap tabular-nums">
         {received === 0 ? (
-          <span className="text-muted">{amount}</span>
+          <span className="text-muted" title={days}>
+            {amount}
+          </span>
         ) : (
-          // The month's transactions behind the amount.
+          // The transactions behind the amount. Days from two months cannot
+          // be one month's list, so then it is all of the category's.
           <Link
-            href={transactionsHref({ showAll: true, filter: { category: id, month } })}
-            title={t("budget.row.seeTransactions")}
+            href={transactionsHref({
+              showAll: true,
+              filter: nextMonth ? { category: id } : { category: id, month },
+            })}
+            title={days ?? t("budget.row.seeTransactions")}
             className="rounded-sm underline-offset-2 hover:underline"
           >
             {amount}

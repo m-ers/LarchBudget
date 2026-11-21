@@ -6,6 +6,7 @@ import {
   moveCategoryAction,
   moveCategoryToGroupAction,
   renameCategoryAction,
+  setNextMonthAction,
 } from "@/app/actions";
 import { useT } from "@/i18n/client";
 import { formatMoney } from "@/lib/money";
@@ -33,6 +34,11 @@ type Props = {
    * category, which holds no money and has no group to leave.
    */
   money?: { balance: number; available: number; onMoveMoney: (flow: Flow) => void };
+  /**
+   * For an income category: whether what comes in from the 15th counts for
+   * the next month, which its menu switches. Left out for an expense category.
+   */
+  nextMonth?: boolean;
 };
 
 /** The category that was just moved to another group, until its new row has the focus. */
@@ -42,8 +48,8 @@ let movedToGroup: number | null = null;
  * Category name: click to rename. The category's actions are in a menu
  * beside it, whose button shows on row hover.
  */
-export function CategoryName({ category: { id, name }, place, menu, money }: Props) {
-  const { currency, locale, figures } = useBudget();
+export function CategoryName({ category: { id, name }, place, menu, money, nextMonth }: Props) {
+  const { currency, locale, figures, show } = useBudget();
   const t = useT();
   const { error, pending, save } = useSave();
   const nameField = useRef<InlineNameHandle>(null);
@@ -101,6 +107,24 @@ export function CategoryName({ category: { id, name }, place, menu, money }: Pro
       ]
     : [];
 
+  // Only an income category receives money, for its own month or the next.
+  const incomeItems =
+    nextMonth === undefined
+      ? []
+      : [
+          {
+            label: t("budget.income.nextMonth"),
+            checked: nextMonth,
+            onSelect: () =>
+              save(
+                () => setNextMonthAction(id, !nextMonth),
+                undefined,
+                undefined,
+                () => show({ type: "next-month", categoryId: id, on: !nextMonth }),
+              ),
+          },
+        ];
+
   return (
     <div className="flex min-w-0 items-center gap-1">
       {/* Only the name dims while a change is saved: dimming the menu too
@@ -129,6 +153,7 @@ export function CategoryName({ category: { id, name }, place, menu, money }: Pro
             disabled: place.last,
           },
           ...expenseItems,
+          ...incomeItems,
           { label: t("budget.menu.archive"), onSelect: archive, destructive: true },
         ]}
       >

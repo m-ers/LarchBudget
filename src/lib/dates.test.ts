@@ -4,6 +4,7 @@ import {
   currentMonth,
   daysLeftInMonth,
   formatDate,
+  formatDayMonth,
   formatMonth,
   isMonth,
   monthLabelParts,
@@ -74,5 +75,13 @@ describe("formatDate", () => {
   it("formats a calendar date without shifting it across time zones", () => {
     expect(formatDate("2026-11-03", "en-US")).toBe("Nov 3, 2026");
     expect(formatDate("2026-01-01", "en-GB")).toBe("1 Jan 2026");
+  });
+});
+
+describe("formatDayMonth", () => {
+  it("writes the day and the month in full, without the year, in the locale's order", () => {
+    expect(formatDayMonth("2026-10-15", "en-US")).toBe("October 15");
+    expect(formatDayMonth("2026-10-15", "en-GB")).toBe("15 October");
+    expect(formatDayMonth("2027-01-14", "nl-NL")).toBe("14 januari");
   });
 });
