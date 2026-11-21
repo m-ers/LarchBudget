@@ -10,6 +10,9 @@ import { formatAmount, formatMoney, formatMoneyParts, toInputValue } from "@/lib
 
 export const metadata: Metadata = { title: "Accounts" };
 
+// Opening this page waits for the server on purpose: see `layout.tsx`.
+export const instant = false;
+
 export default async function AccountsPage() {
   const [accounts, closed] = await Promise.all([getAccounts(), getClosedAccounts()]);
   const { currency, locale } = getConfig();

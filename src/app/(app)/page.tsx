@@ -20,6 +20,9 @@ const monthHref = (month: Month, thisMonth: Month) =>
 const monthButton =
   "flex size-7 items-center justify-center rounded-[7px] border border-white/25 transition-colors hover:bg-white/10";
 
+// Opening this page waits for the server on purpose: see `layout.tsx`.
+export const instant = false;
+
 export default async function BudgetPage({ searchParams }: PageProps<"/">) {
   const params = await searchParams;
   // "This month" depends on the clock, so wait for a real request first.
