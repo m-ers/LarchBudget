@@ -18,8 +18,11 @@ import { accounts, transactions } from "./schema";
  * never touch Next.js, so they can be unit tested.
  */
 
-/** The payee of an account's starting balance transaction. */
-const STARTING_PAYEE = "Starting balance";
+/**
+ * The payee of an account's starting balance transaction. It is data: the
+ * screens show the text from the transaction's `starting` mark, translated.
+ */
+const STARTING_PAYEE = "Starting balance"; // i18n-ignore
 
 /** Compares account names ignoring case, but not accents: "savings" is "Savings", "Cafe" is not "Café". */
 const names = new Intl.Collator(undefined, { sensitivity: "accent" });

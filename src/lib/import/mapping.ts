@@ -49,7 +49,10 @@ export type ParsedRow = {
 };
 
 /** A row that could not be read; `line` counts from 1, as a spreadsheet would. */
-export type SkippedRow = { line: number; reason: string };
+export type SkippedRow = { line: number; reason: SkipReason };
+
+/** Why a row could not be read; the words people read are in the message files. */
+export type SkipReason = "noDate" | "noAmount" | "amountZero" | "unclearDirection";
 
 /** True when `value` has the shape of a mapping with sensible column numbers. */
 export function isMapping(value: unknown): value is Mapping {
@@ -338,17 +341,17 @@ export function applyMapping(
     const line = i + 1;
 
     const date = parseBankDate(row[mapping.date] ?? "", mapping.dateOrder);
-    if (!date) return void skipped.push({ line, reason: "No readable date" });
+    if (!date) return void skipped.push({ line, reason: "noDate" });
 
     let amount = readAmount(row, mapping, digits);
-    if (amount === null) return void skipped.push({ line, reason: "No readable amount" });
-    if (amount === 0) return void skipped.push({ line, reason: "Amount is zero" });
+    if (amount === null) return void skipped.push({ line, reason: "noAmount" });
+    if (amount === 0) return void skipped.push({ line, reason: "amountZero" });
 
     if (mapping.amountIn == null && mapping.indicator !== null) {
       const flag = (row[mapping.indicator] ?? "").toLowerCase();
       if (OUT.has(flag)) amount = -Math.abs(amount);
       else if (IN.has(flag)) amount = Math.abs(amount);
-      else return void skipped.push({ line, reason: "Unclear if money in or out" });
+      else return void skipped.push({ line, reason: "unclearDirection" });
     }
     if (mapping.invert) amount = -amount;
 

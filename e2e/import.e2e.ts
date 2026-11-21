@@ -292,7 +292,7 @@ test.describe("with an account", () => {
 
     // The button stays in view while the list is long.
     await expect(
-      page.getByRole("button", { name: "Import 3000 transactions into Checking" }),
+      page.getByRole("button", { name: /^Import 3,?000 transactions into Checking$/ }),
     ).toBeInViewport();
   });
 

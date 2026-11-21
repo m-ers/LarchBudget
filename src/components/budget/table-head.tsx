@@ -1,3 +1,7 @@
+"use client";
+
+import { useT } from "@/i18n/client";
+
 // Every heading cell sticks, on a background so rows do not show through.
 // Its bottom line is drawn inside the cell, as a row's border would not
 // move along.
@@ -14,16 +18,17 @@ export function TableHead({
   /** What is left to assign, as the page header says it; null while that is in view. */
   ready: { label: string; alert: boolean; amount: string } | null;
 }) {
+  const t = useT();
   return (
     <thead>
       <tr className="text-[12.5px] text-muted">
         <th scope="col" className={`h-[38px] w-[54px] ${stuck}`}>
-          <span className="sr-only">Group colour</span>
+          <span className="sr-only">{t("budget.table.groupColour")}</span>
         </th>
         <th scope="col" className={`text-left font-medium ${stuck}`}>
           {ready ? (
             <>
-              <span className="sr-only">Category</span>
+              <span className="sr-only">{t("budget.table.category")}</span>
               {/* Screen readers have the page header's figure already. */}
               <span aria-hidden="true" data-testid="table-head-ready">
                 {ready.label}{" "}
@@ -35,17 +40,17 @@ export function TableHead({
               </span>
             </>
           ) : (
-            "Category"
+            t("budget.table.category")
           )}
         </th>
         <th scope="col" className={`w-32 text-right font-medium ${stuck}`}>
-          Assigned
+          {t("budget.table.assigned")}
         </th>
         <th scope="col" className={`w-32 text-right font-medium ${stuck}`}>
-          Spent
+          {t("budget.table.spent")}
         </th>
         <th scope="col" className={`w-40 pr-6 text-right font-medium ${stuck}`}>
-          Available
+          {t("budget.table.available")}
         </th>
       </tr>
     </thead>

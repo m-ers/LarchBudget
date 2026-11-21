@@ -1,6 +1,7 @@
 "use client";
 
 import { deleteTransactionAction } from "@/app/actions";
+import { useT } from "@/i18n/client";
 import { TrashIcon } from "../icons";
 import { RowAction } from "../budget/row-action";
 import { ErrorText } from "../form";
@@ -16,6 +17,7 @@ type Props = {
 
 /** Deletes a transaction after asking. Shown on row hover and keyboard focus. */
 export function DeleteTransaction({ transactionId, describedAs, question }: Props) {
+  const t = useT();
   const { error, save } = useSave();
 
   function remove() {
@@ -25,7 +27,12 @@ export function DeleteTransaction({ transactionId, describedAs, question }: Prop
   return (
     <span className="flex items-center justify-end gap-1">
       <ErrorText error={error} as="span" className="text-xs" />
-      <RowAction label={`Delete ${describedAs}`} title="Delete" onClick={remove} revealOn="row">
+      <RowAction
+        label={t("transactions.delete.label", { what: describedAs })}
+        title={t("transactions.delete.title")}
+        onClick={remove}
+        revealOn="row"
+      >
         <TrashIcon width={15} height={15} />
       </RowAction>
     </span>

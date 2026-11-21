@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
 import { LogoMark } from "@/components/icons";
+import { getT } from "@/i18n/server";
 import { LoginForm } from "./login-form";
 
-export const metadata: Metadata = { title: "Log in" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT();
+  return { title: t("login.title") };
+}
 
 export default function LoginPage() {
   return (

@@ -1,5 +1,3 @@
-import { formatMoney } from "./money";
-
 /**
  * How full a category is, for the Available gauge.
  *
@@ -21,33 +19,32 @@ export function gaugeLevel(available: number, activity: number): GaugeLevel {
   return { state: "ok", left: available / (available + spent) };
 }
 
-/**
- * How a category's Available amount adds up, for the gauge's tooltip, e.g.
- * "-€2,200.00 from earlier months + €1,150.00 assigned − €1,100.00 spent".
- * Parts that are zero are left out. For an overspent category it starts
- * with what to do about it.
- */
-export function explainAvailable(
-  { assigned, activity, available }: { assigned: number; activity: number; available: number },
-  currency: string,
-  locale: string,
-): string {
-  const money = (minorUnits: number) => formatMoney(minorUnits, currency, locale);
-  const parts = [
-    { amount: available - assigned - activity, label: "from earlier months" },
-    { amount: assigned, label: "assigned" },
-    { amount: activity, label: activity < 0 ? "spent" : "refunded" },
-  ].filter((part) => part.amount !== 0);
+/** One term of how a category's Available amount adds up. */
+export type AvailablePart = {
+  kind: "earlier" | "assigned" | "spent" | "refunded";
+  /** In minor units; negative when it takes money away. */
+  amount: number;
+};
 
-  const sum =
-    parts.length === 0
-      ? "Nothing assigned or spent this month."
-      : parts
-          .map(({ amount, label }, i) =>
-            i === 0
-              ? `${money(amount)} ${label}`
-              : `${amount < 0 ? "−" : "+"} ${money(Math.abs(amount))} ${label}`,
-          )
-          .join(" ");
-  return available < 0 ? `Overspent by ${money(-available)}: assign more to cover it. ${sum}` : sum;
+/**
+ * How a category's Available amount adds up, for the gauge's tooltip: for
+ * example from earlier months -2,200.00, assigned 1,150.00 and spent
+ * -1,100.00. Parts that are zero are left out. `overspentBy` is how much the
+ * category is overspent (in minor units, positive), or null when it is not.
+ */
+export function explainAvailable({
+  assigned,
+  activity,
+  available,
+}: {
+  assigned: number;
+  activity: number;
+  available: number;
+}): { overspentBy: number | null; parts: AvailablePart[] } {
+  const parts: AvailablePart[] = [
+    { kind: "earlier" as const, amount: available - assigned - activity },
+    { kind: "assigned" as const, amount: assigned },
+    { kind: activity < 0 ? ("spent" as const) : ("refunded" as const), amount: activity },
+  ].filter((part) => part.amount !== 0);
+  return { overspentBy: available < 0 ? -available : null, parts };
 }

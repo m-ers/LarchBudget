@@ -15,16 +15,19 @@ import { CategoryChoicesProvider } from "@/components/transactions/category-choi
 import { CategorySelect } from "@/components/transactions/category-select";
 import { DeleteTransaction } from "@/components/transactions/delete-transaction";
 import { TransactionFilters } from "@/components/transactions/transaction-filters";
+import { getT } from "@/i18n/server";
+import { richText } from "@/i18n/rich";
 import { getConfig } from "@/lib/config";
 import { formatDate, formatMonth } from "@/lib/dates";
 import { formatAmount, formatMoney } from "@/lib/money";
 import { readAddress, transactionsHref } from "@/lib/transactions-address";
 
-export const metadata: Metadata = { title: "Transactions" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getT();
+  return { title: t("transactions.page.title") };
+}
 
 const PAGE_SIZE = 200;
-
-const LEAD = "Everything imported from your bank. Sort each one into a category.";
 
 const tab = (active: boolean) =>
   `rounded-[9px] px-3 py-1.5 text-[14.5px] font-medium transition-colors ${
@@ -35,6 +38,7 @@ const tab = (active: boolean) =>
 export const instant = false;
 
 export default async function TransactionsPage({ searchParams }: PageProps<"/transactions">) {
+  const t = await getT();
   const { showAll, before, filter } = readAddress(await searchParams);
 
   const [counts, found, groups] = await Promise.all([
@@ -69,11 +73,15 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
     <>
       <Hero>
         <div className="relative">
-          <HeroTitle>Transactions</HeroTitle>
-          <HeroLead>{LEAD}</HeroLead>
+          <HeroTitle>{t("transactions.page.title")}</HeroTitle>
+          <HeroLead>{t("transactions.page.lead")}</HeroLead>
         </div>
         <HeroFigure
-          label={counts.toSort === 0 && counts.all > 0 ? "Everything is sorted" : "To sort"}
+          label={
+            counts.toSort === 0 && counts.all > 0
+              ? t("transactions.page.allSorted")
+              : t("transactions.page.toSort")
+          }
           amount={[String(counts.toSort), ""]}
           tone={counts.toSort > 0 ? "normal" : counts.all > 0 ? "done" : "quiet"}
         />
@@ -86,14 +94,16 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
             className={tab(!showAll)}
             aria-current={!showAll ? "page" : undefined}
           >
-            To sort <span className="text-muted tabular-nums">{counts.toSort}</span>
+            {t("transactions.page.tabToSort")}{" "}
+            <span className="text-muted tabular-nums">{counts.toSort}</span>
           </Link>
           <Link
             href="/transactions?show=all"
             className={tab(showAll)}
             aria-current={showAll ? "page" : undefined}
           >
-            All <span className="text-muted tabular-nums">{counts.all}</span>
+            {t("transactions.page.tabAll")}{" "}
+            <span className="text-muted tabular-nums">{counts.all}</span>
           </Link>
         </div>
 
@@ -112,17 +122,21 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
                 .map((month) => ({ month, label: formatMonth(month, locale) }))}
             />
             <p className="px-1 pb-2.5 text-[14.5px] text-muted">
-              <span className="tabular-nums">{summary.count}</span>{" "}
-              {summary.count === 1 ? "transaction" : "transactions"}
-              {narrowed && (summary.count === 1 ? " matches" : " match")}. Money in{" "}
-              <span className="font-medium text-ink tabular-nums">
-                {formatMoney(summary.moneyIn, currency, locale)}
-              </span>
-              , money out{" "}
-              <span className="font-medium text-ink tabular-nums">
-                {formatMoney(Math.abs(summary.moneyOut), currency, locale)}
-              </span>
-              .
+              {richText(
+                t,
+                narrowed ? "transactions.summary.narrowed" : "transactions.summary.all",
+                {
+                  count: summary.count,
+                  in: formatMoney(summary.moneyIn, currency, locale),
+                  out: formatMoney(Math.abs(summary.moneyOut), currency, locale),
+                },
+                {
+                  n: (chunks) => <span className="tabular-nums">{chunks}</span>,
+                  b: (chunks) => (
+                    <span className="font-medium text-ink tabular-nums">{chunks}</span>
+                  ),
+                },
+              )}
             </p>
           </>
         )}
@@ -131,15 +145,15 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
           <div className="px-3.5 py-6 text-muted">
             {counts.all === 0 ? (
               <>
-                <p>No transactions yet. They come in through a file you download from your bank.</p>
+                <p>{t("transactions.page.emptyNone")}</p>
                 <Link href="/import" className={`${primaryButton} mt-4 inline-block px-3.5 py-2`}>
-                  Import from bank
+                  {t("transactions.page.emptyImport")}
                 </Link>
               </>
             ) : showAll ? (
-              <p>No transactions match.</p>
+              <p>{t("transactions.page.emptyNoMatch")}</p>
             ) : (
-              <p>Everything is sorted. New transactions appear here after your next import.</p>
+              <p>{t("transactions.page.emptySorted")}</p>
             )}
           </div>
         ) : (
@@ -148,29 +162,32 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
               <thead>
                 <tr className="text-[12.5px] text-muted">
                   <th scope="col" className={`${heading} w-32 pl-3.5 text-left`}>
-                    Date
+                    {t("transactions.page.headingDate")}
                   </th>
                   <th scope="col" className={`${heading} text-left`}>
-                    Payee
+                    {t("transactions.page.headingPayee")}
                   </th>
                   <th scope="col" className={`${heading} w-28 text-left`}>
-                    Account
+                    {t("transactions.page.headingAccount")}
                   </th>
                   <th scope="col" className={`${heading} w-60 text-left xl:w-80`}>
-                    Category
+                    {t("transactions.page.headingCategory")}
                   </th>
                   <th scope="col" className={`${heading} w-28 text-right`}>
-                    Amount
+                    {t("transactions.page.headingAmount")}
                   </th>
                   <th scope="col" className={`${heading} w-14 pr-2.5`}>
-                    <span className="sr-only">Actions</span>
+                    <span className="sr-only">{t("transactions.page.headingActions")}</span>
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => {
                   const date = formatDate(row.date, locale);
-                  const describedAs = `${row.payee ?? "transaction"} on ${date}`;
+                  const payee = row.starting ? t("transactions.page.startingBalance") : row.payee;
+                  const describedAs = payee
+                    ? t("transactions.page.describedAs", { payee, date })
+                    : t("transactions.page.describedAsNoPayee", { date });
                   const amount = formatAmount(row.amount, currency, locale);
                   return (
                     <tr key={row.id} className="data-row group/row">
@@ -179,14 +196,16 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
                       </td>
                       <td className="max-w-0 pr-4">
                         <p className="truncate text-[15.5px] font-medium">
-                          {row.payee ?? "No name"}
+                          {payee ?? t("transactions.page.noName")}
                         </p>
                         {row.note && <p className="truncate text-[13px] text-muted">{row.note}</p>}
                       </td>
                       <td className="truncate text-muted">{row.account}</td>
                       <td>
                         {row.starting ? (
-                          <span className="text-muted">Starting balance</span>
+                          <span className="text-muted">
+                            {t("transactions.page.startingBalance")}
+                          </span>
                         ) : (
                           <CategorySelect
                             transactionId={row.id}
@@ -209,7 +228,18 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
                           <DeleteTransaction
                             transactionId={row.id}
                             describedAs={describedAs}
-                            question={`Delete ${row.payee ?? "this transaction"} of ${formatMoney(row.amount, currency, locale)} on ${date}? A later import of the same bank file will not bring it back.`}
+                            question={
+                              payee
+                                ? t("transactions.page.deleteQuestion", {
+                                    payee,
+                                    amount: formatMoney(row.amount, currency, locale),
+                                    date,
+                                  })
+                                : t("transactions.page.deleteQuestionNoPayee", {
+                                    amount: formatMoney(row.amount, currency, locale),
+                                    date,
+                                  })
+                            }
                           />
                         )}
                       </td>
@@ -223,13 +253,13 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
 
         {(hasOlder || before) && (
           <p className="px-3.5 pt-4 text-muted">
-            Showing {rows.length} of {total}.{" "}
+            {t("transactions.page.showing", { shown: rows.length, total })}{" "}
             {before && (
               <Link
                 href={transactionsHref({ showAll, filter })}
                 className="font-medium text-brand underline"
               >
-                Newest
+                {t("transactions.page.newest")}
               </Link>
             )}
             {before && hasOlder && " "}
@@ -242,7 +272,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
                 })}
                 className="font-medium text-brand underline"
               >
-                Older
+                {t("transactions.page.older")}
               </Link>
             )}
           </p>

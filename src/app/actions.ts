@@ -23,6 +23,8 @@ import { applyMapping, isMapping, serializeMapping, type Mapping } from "@/lib/i
 import { EARLIEST_BALANCE_DATE, MAX_NAME_LENGTH } from "@/lib/limits";
 import { minorUnitDigits, parseMoney } from "@/lib/money";
 import type { ActionResult, Failure } from "@/lib/result";
+import { getT } from "@/i18n/server";
+import type { MessageKey, Translate } from "@/i18n/translate";
 import { isLoggedIn } from "./session";
 
 /**
@@ -44,13 +46,19 @@ const done = (): ActionResult => {
   return { ok: true };
 };
 
-const LOGGED_OUT = fail("Your session has ended. Reload the page to log in again.");
-const UNEXPECTED = fail("Something went wrong. Reload the page and try again.");
-const CATEGORY_GONE = fail("That category no longer exists.");
-const GROUP_GONE = fail("That group no longer exists.");
-const TRANSACTION_GONE = fail("That transaction no longer exists. Reload the page.");
-const categoryNameTaken = (name: string) => fail(`You already have a category called "${name}".`);
-const groupNameTaken = (name: string) => fail(`You already have a group called "${name}".`);
+const loggedOut = (t: Translate) => fail(t("errors.loggedOut"));
+const unexpected = (t: Translate) => fail(t("errors.unexpected"));
+const categoryGone = (t: Translate) => fail(t("errors.budget.categoryGone"));
+const groupGone = (t: Translate) => fail(t("errors.budget.groupGone"));
+const transactionGone = (t: Translate) => fail(t("errors.transactions.gone"));
+const categoryNameTaken = (t: Translate, name: string) =>
+  fail(t("errors.budget.categoryNameTaken", { name }));
+const groupNameTaken = (t: Translate, name: string) =>
+  fail(t("errors.budget.groupNameTaken", { name }));
+
+/** A schema's message is the key of its text; this turns the first problem found into text. */
+const firstProblem = (t: Translate, error: z.ZodError) =>
+  fail(t(error.issues[0].message as MessageKey, { max: MAX_NAME_LENGTH }));
 
 const id = z.number().int().positive();
 const direction = z.enum(["up", "down"]);
@@ -58,8 +66,8 @@ const moneyEnd = z.union([id, z.literal("ready")]);
 const name = z
   .string()
   .trim()
-  .min(1, "Give it a name.")
-  .max(MAX_NAME_LENGTH, `Keep the name under ${MAX_NAME_LENGTH} characters.`);
+  .min(1, "errors.name.required")
+  .max(MAX_NAME_LENGTH, "errors.name.tooLong");
 
 /** Amounts above this are almost certainly typos (and keep sums exact). */
 const MAX_AMOUNT = 1_000_000_000_00;
@@ -80,21 +88,23 @@ export async function setAssignedAction(
   month: string,
   input: string,
 ): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
-  if (!id.safeParse(categoryId).success || !isMonth(month)) return UNEXPECTED;
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(categoryId).success || !isMonth(month)) return unexpected(t);
 
   const amount = parseAmount(String(input));
-  if (amount === null) return fail("That is not an amount.");
+  if (amount === null) return fail(t("errors.budget.notAnAmount"));
 
-  return budget.setAssigned(db, categoryId, month, amount) ? done() : CATEGORY_GONE;
+  return budget.setAssigned(db, categoryId, month, amount) ? done() : categoryGone(t);
 }
 
 /** Starts a month with what each category got the month before, where it has nothing yet. */
 export async function copyLastMonthAction(month: string): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
-  if (!isMonth(month)) return UNEXPECTED;
+  if (!db) return loggedOut(t);
+  if (!isMonth(month)) return unexpected(t);
 
   budget.copyAssignments(db, addMonths(month, -1), month);
   return done();
@@ -113,8 +123,9 @@ export async function moveMoneyAction(
   input: string,
   seen: { from: number | null; to: number | null },
 ): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
+  if (!db) return loggedOut(t);
   const parsedSeen = seenAmounts.safeParse(seen);
   if (
     !moneyEnd.safeParse(from).success ||
@@ -122,45 +133,47 @@ export async function moveMoneyAction(
     !isMonth(month) ||
     !parsedSeen.success
   ) {
-    return UNEXPECTED;
+    return unexpected(t);
   }
 
   const amount = parseAmount(String(input));
-  if (amount === null) return fail("That is not an amount.");
+  if (amount === null) return fail(t("errors.budget.notAnAmount"));
 
   const result = budget.moveMoney(db, { from, to, month, amount, seen: parsedSeen.data });
-  if (result === "not-positive") return fail("Enter an amount above zero.");
-  if (result === "no-category") return CATEGORY_GONE;
-  if (result === "same") return UNEXPECTED;
+  if (result === "not-positive") return fail(t("errors.budget.amountNotPositive"));
+  if (result === "no-category") return categoryGone(t);
+  if (result === "same") return unexpected(t);
   if (result === "changed") {
     // Show the amounts as they are now, so the next try starts from them.
     refresh();
-    return fail("These amounts changed in the meantime. Check them and try again.");
+    return fail(t("errors.budget.amountsChanged"));
   }
   return done();
 }
 
 export async function createCategoryAction(groupId: number, input: string): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
-  if (!id.safeParse(groupId).success) return UNEXPECTED;
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(groupId).success) return unexpected(t);
   const parsed = name.safeParse(input);
-  if (!parsed.success) return fail(parsed.error.issues[0].message);
+  if (!parsed.success) return firstProblem(t, parsed.error);
 
   const result = budget.createCategory(db, parsed.data, groupId);
-  if (result === "no-group") return GROUP_GONE;
-  if (result === "name-taken") return categoryNameTaken(parsed.data);
+  if (result === "no-group") return groupGone(t);
+  if (result === "name-taken") return categoryNameTaken(t, parsed.data);
   return done();
 }
 
 export async function createIncomeCategoryAction(input: string): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
+  if (!db) return loggedOut(t);
   const parsed = name.safeParse(input);
-  if (!parsed.success) return fail(parsed.error.issues[0].message);
+  if (!parsed.success) return firstProblem(t, parsed.error);
 
   return budget.createIncomeCategory(db, parsed.data) === "name-taken"
-    ? categoryNameTaken(parsed.data)
+    ? categoryNameTaken(t, parsed.data)
     : done();
 }
 
@@ -168,21 +181,23 @@ export async function renameCategoryAction(
   categoryId: number,
   input: string,
 ): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
-  if (!id.safeParse(categoryId).success) return UNEXPECTED;
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(categoryId).success) return unexpected(t);
   const parsed = name.safeParse(input);
-  if (!parsed.success) return fail(parsed.error.issues[0].message);
+  if (!parsed.success) return firstProblem(t, parsed.error);
 
   return budget.renameCategory(db, categoryId, parsed.data)
     ? done()
-    : categoryNameTaken(parsed.data);
+    : categoryNameTaken(t, parsed.data);
 }
 
 export async function archiveCategoryAction(categoryId: number): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
-  if (!id.safeParse(categoryId).success) return UNEXPECTED;
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(categoryId).success) return unexpected(t);
 
   budget.archiveCategory(db, categoryId);
   return done();
@@ -192,78 +207,85 @@ export async function moveCategoryAction(
   categoryId: number,
   to: budget.Direction,
 ): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
-  if (!id.safeParse(categoryId).success || !direction.safeParse(to).success) return UNEXPECTED;
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(categoryId).success || !direction.safeParse(to).success) return unexpected(t);
 
   // Already first or last: nothing to do, and the page shows the order as it is.
-  return budget.moveCategory(db, categoryId, to) === "gone" ? CATEGORY_GONE : done();
+  return budget.moveCategory(db, categoryId, to) === "gone" ? categoryGone(t) : done();
 }
 
 export async function moveCategoryToGroupAction(
   categoryId: number,
   groupId: number,
 ): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
-  if (!id.safeParse(categoryId).success || !id.safeParse(groupId).success) return UNEXPECTED;
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(categoryId).success || !id.safeParse(groupId).success) return unexpected(t);
 
   const result = budget.moveCategoryToGroup(db, categoryId, groupId);
-  if (result === "no-category") return CATEGORY_GONE;
-  if (result === "no-group") return GROUP_GONE;
+  if (result === "no-category") return categoryGone(t);
+  if (result === "no-group") return groupGone(t);
   return done();
 }
 
 export async function restoreCategoryAction(categoryId: number): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
-  if (!id.safeParse(categoryId).success) return UNEXPECTED;
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(categoryId).success) return unexpected(t);
 
   const result = budget.restoreCategory(db, categoryId);
-  if (result === "no-category") return CATEGORY_GONE;
+  if (result === "no-category") return categoryGone(t);
   if (result === "name-taken") {
-    return fail("Another category already has this name. Rename that one first.");
+    return fail(t("errors.budget.restoreNameTaken"));
   }
-  if (result === "no-group") return fail("There is no group to put it back in. Add a group first.");
+  if (result === "no-group") return fail(t("errors.budget.restoreNoGroup"));
   return done();
 }
 
 export async function createGroupAction(input: string): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
+  if (!db) return loggedOut(t);
   const parsed = name.safeParse(input);
-  if (!parsed.success) return fail(parsed.error.issues[0].message);
+  if (!parsed.success) return firstProblem(t, parsed.error);
 
   return budget.createGroup(db, parsed.data) === "name-taken"
-    ? groupNameTaken(parsed.data)
+    ? groupNameTaken(t, parsed.data)
     : done();
 }
 
 export async function renameGroupAction(groupId: number, input: string): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
-  if (!id.safeParse(groupId).success) return UNEXPECTED;
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(groupId).success) return unexpected(t);
   const parsed = name.safeParse(input);
-  if (!parsed.success) return fail(parsed.error.issues[0].message);
+  if (!parsed.success) return firstProblem(t, parsed.error);
 
-  return budget.renameGroup(db, groupId, parsed.data) ? done() : groupNameTaken(parsed.data);
+  return budget.renameGroup(db, groupId, parsed.data) ? done() : groupNameTaken(t, parsed.data);
 }
 
 export async function moveGroupAction(
   groupId: number,
   to: budget.Direction,
 ): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
-  if (!id.safeParse(groupId).success || !direction.safeParse(to).success) return UNEXPECTED;
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(groupId).success || !direction.safeParse(to).success) return unexpected(t);
 
-  return budget.moveGroup(db, groupId, to) === "gone" ? GROUP_GONE : done();
+  return budget.moveGroup(db, groupId, to) === "gone" ? groupGone(t) : done();
 }
 
 export async function deleteGroupAction(groupId: number): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
-  if (!id.safeParse(groupId).success) return UNEXPECTED;
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(groupId).success) return unexpected(t);
 
   budget.deleteGroup(db, groupId);
   return done();
@@ -271,48 +293,49 @@ export async function deleteGroupAction(groupId: number): Promise<ActionResult> 
 
 // ---- Accounts --------------------------------------------------------------
 
-const ACCOUNT_GONE = fail("That account no longer exists.");
-const ACCOUNT_CLOSED =
-  "Its account is closed. Reopen the account on the Accounts page first, then try again.";
-const accountNameTaken = (name: string) => fail(`You already have an account called "${name}".`);
+const accountGone = (t: Translate) => fail(t("errors.accounts.gone"));
+const accountNameTaken = (t: Translate, name: string) =>
+  fail(t("errors.accounts.nameTaken", { name }));
 
 const accountType = z.enum(accountTypes);
 
 /** The day an entered balance is from: a real date, and not after today. */
 const balanceDate = z.iso
-  .date("That is not a date.")
-  .refine((date) => date <= today(), "The date cannot be in the future.")
-  .refine((date) => date >= EARLIEST_BALANCE_DATE, "Check the year of the date.")
+  .date("errors.accounts.notADate")
+  .refine((date) => date <= today(), "errors.accounts.futureDate")
+  .refine((date) => date >= EARLIEST_BALANCE_DATE, "errors.accounts.checkYear")
   .transform((date) => date as IsoDate);
 
 const balanceInput = z.object({ startingBalance: z.string(), balanceDate });
 
 /** Reads the "Balance" and "On" fields of a form. */
 function readBalance(
+  t: Translate,
   formData: FormData,
 ): { ok: true; startingBalance: number; balanceDate: IsoDate } | Failure {
   const parsed = balanceInput.safeParse({
     startingBalance: formData.get("startingBalance") ?? "",
     balanceDate: formData.get("balanceDate"),
   });
-  if (!parsed.success) return fail(parsed.error.issues[0].message);
+  if (!parsed.success) return firstProblem(t, parsed.error);
 
   const startingBalance = parseAmount(parsed.data.startingBalance);
-  if (startingBalance === null) return fail("The balance is not an amount.");
+  if (startingBalance === null) return fail(t("errors.accounts.balanceNotAnAmount"));
   return { ok: true, startingBalance, balanceDate: parsed.data.balanceDate };
 }
 
 const accountInput = z.object({ name, type: accountType });
 
 export async function createAccountAction(formData: FormData): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
+  if (!db) return loggedOut(t);
   const parsed = accountInput.safeParse({
     name: formData.get("name"),
     type: formData.get("type"),
   });
-  if (!parsed.success) return fail(parsed.error.issues[0].message);
-  const balance = readBalance(formData);
+  if (!parsed.success) return firstProblem(t, parsed.error);
+  const balance = readBalance(t, formData);
   if (!balance.ok) return balance;
 
   const result = accounts.createAccount(db, {
@@ -320,75 +343,81 @@ export async function createAccountAction(formData: FormData): Promise<ActionRes
     startingBalance: balance.startingBalance,
     balanceDate: balance.balanceDate,
   });
-  return result === "name-taken" ? accountNameTaken(parsed.data.name) : done();
+  return result === "name-taken" ? accountNameTaken(t, parsed.data.name) : done();
 }
 
 export async function renameAccountAction(accountId: number, input: string): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
-  if (!id.safeParse(accountId).success) return UNEXPECTED;
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(accountId).success) return unexpected(t);
   const parsed = name.safeParse(input);
-  if (!parsed.success) return fail(parsed.error.issues[0].message);
+  if (!parsed.success) return firstProblem(t, parsed.error);
 
   const result = accounts.renameAccount(db, accountId, parsed.data);
-  if (result === "name-taken") return accountNameTaken(parsed.data);
-  return result === "gone" ? ACCOUNT_GONE : done();
+  if (result === "name-taken") return accountNameTaken(t, parsed.data);
+  return result === "gone" ? accountGone(t) : done();
 }
 
 export async function setAccountTypeAction(accountId: number, type: string): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
+  if (!db) return loggedOut(t);
   const parsed = accountType.safeParse(type);
-  if (!id.safeParse(accountId).success || !parsed.success) return UNEXPECTED;
+  if (!id.safeParse(accountId).success || !parsed.success) return unexpected(t);
 
-  return accounts.setAccountType(db, accountId, parsed.data) ? done() : ACCOUNT_GONE;
+  return accounts.setAccountType(db, accountId, parsed.data) ? done() : accountGone(t);
 }
 
 export async function setAccountBalanceAction(
   accountId: number,
   formData: FormData,
 ): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
-  if (!id.safeParse(accountId).success) return UNEXPECTED;
-  const balance = readBalance(formData);
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(accountId).success) return unexpected(t);
+  const balance = readBalance(t, formData);
   if (!balance.ok) return balance;
 
   const changed = accounts.setAccountBalance(db, accountId, {
     startingBalance: balance.startingBalance,
     balanceDate: balance.balanceDate,
   });
-  return changed ? done() : ACCOUNT_GONE;
+  return changed ? done() : accountGone(t);
 }
 
 export async function closeAccountAction(accountId: number): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
-  if (!id.safeParse(accountId).success) return UNEXPECTED;
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(accountId).success) return unexpected(t);
 
   const result = accounts.closeAccount(db, accountId);
-  if (result === "not-empty") return fail("Only an account that holds nothing can be closed.");
-  return result === "gone" ? ACCOUNT_GONE : done();
+  if (result === "not-empty") return fail(t("errors.accounts.notEmpty"));
+  return result === "gone" ? accountGone(t) : done();
 }
 
 export async function reopenAccountAction(accountId: number): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
-  if (!id.safeParse(accountId).success) return UNEXPECTED;
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(accountId).success) return unexpected(t);
 
   const result = accounts.reopenAccount(db, accountId);
   if (result === "name-taken") {
-    return fail("You already have an account with this name. Rename that one first.");
+    return fail(t("errors.accounts.reopenNameTaken"));
   }
-  return result === "gone" ? ACCOUNT_GONE : done();
+  return result === "gone" ? accountGone(t) : done();
 }
 
 export async function deleteAccountAction(accountId: number): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
-  if (!id.safeParse(accountId).success) return UNEXPECTED;
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(accountId).success) return unexpected(t);
 
-  return accounts.deleteAccount(db, accountId) ? done() : ACCOUNT_GONE;
+  return accounts.deleteAccount(db, accountId) ? done() : accountGone(t);
 }
 
 // ---- Bank import -----------------------------------------------------------
@@ -437,14 +466,15 @@ function readImportFile(input: unknown) {
 
 /** Imports a bank file into an account. */
 export async function importTransactionsAction(input: unknown): Promise<ImportResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
+  if (!db) return loggedOut(t);
   const file = readImportFile(input);
-  if (!file) return fail("This file could not be imported.");
+  if (!file) return fail(t("errors.import.cannotImport"));
   const { accountId, mapping, delimiter, rows, read } = file;
-  if (read.rows.length === 0) return fail("No transactions could be read from this file.");
+  if (read.rows.length === 0) return fail(t("errors.import.noTransactions"));
   if (read.rows.some((row) => Math.abs(row.amount) > MAX_AMOUNT)) {
-    return fail("This file holds an amount that is too large to be real.");
+    return fail(t("errors.import.amountTooLarge"));
   }
 
   const batch = randomUUID();
@@ -458,7 +488,7 @@ export async function importTransactionsAction(input: unknown): Promise<ImportRe
     })),
     batch,
   );
-  if (result === null) return fail("That account no longer exists.");
+  if (result === null) return accountGone(t);
 
   transactions.saveImportMapping(db, accountId, serializeMapping(rows, mapping, delimiter));
   refresh();
@@ -473,28 +503,26 @@ type CheckResult = { ok: true; known: number[] } | Failure;
  * holds positions in the list of readable rows, which keeps the answer small.
  */
 export async function checkImportAction(input: unknown): Promise<CheckResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
+  if (!db) return loggedOut(t);
   const file = readImportFile(input);
-  if (!file) return fail("This file could not be checked.");
+  if (!file) return fail(t("errors.import.cannotCheck"));
   return { ok: true, known: transactions.findKnownRows(db, file.accountId, file.read.rows) };
 }
 
 type UndoResult = { ok: true; removed: number } | Failure;
 
 export async function undoImportAction(batch: string): Promise<UndoResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
-  if (!z.uuid().safeParse(batch).success) return UNEXPECTED;
+  if (!db) return loggedOut(t);
+  if (!z.uuid().safeParse(batch).success) return unexpected(t);
 
   const { removed, sorted, closed } = transactions.undoImport(db, batch);
-  if (closed) return fail(ACCOUNT_CLOSED);
+  if (closed) return fail(t("errors.accounts.closed"));
   if (sorted > 0) {
-    return fail(
-      sorted === 1
-        ? "One of these transactions has been sorted since, so this import can no longer be undone."
-        : `${sorted} of these transactions have been sorted since, so this import can no longer be undone.`,
-    );
+    return fail(t("errors.import.undoSorted", { count: sorted }));
   }
   refresh();
   return { ok: true, removed };
@@ -508,24 +536,26 @@ export async function sortTransactionAction(
   transactionId: number,
   target: transactions.SortTarget,
 ): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
+  if (!db) return loggedOut(t);
   const parsedTarget = sortTarget.safeParse(target);
-  if (!id.safeParse(transactionId).success || !parsedTarget.success) return UNEXPECTED;
+  if (!id.safeParse(transactionId).success || !parsedTarget.success) return unexpected(t);
 
   const result = transactions.sortTransaction(db, transactionId, parsedTarget.data);
-  if (result === "no-transaction") return TRANSACTION_GONE;
-  if (result === "starting") return fail("A starting balance does not go into a category.");
-  return result === "no-category" ? CATEGORY_GONE : done();
+  if (result === "no-transaction") return transactionGone(t);
+  if (result === "starting") return fail(t("errors.transactions.startingNotSortable"));
+  return result === "no-category" ? categoryGone(t) : done();
 }
 
 export async function deleteTransactionAction(transactionId: number): Promise<ActionResult> {
+  const t = await getT();
   const db = await database();
-  if (!db) return LOGGED_OUT;
-  if (!id.safeParse(transactionId).success) return UNEXPECTED;
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(transactionId).success) return unexpected(t);
 
   const result = transactions.deleteTransaction(db, transactionId);
-  if (result === "no-transaction") return TRANSACTION_GONE;
-  if (result === "closed") return fail(ACCOUNT_CLOSED);
-  return result === "starting" ? fail("A starting balance cannot be deleted.") : done();
+  if (result === "no-transaction") return transactionGone(t);
+  if (result === "closed") return fail(t("errors.accounts.closed"));
+  return result === "starting" ? fail(t("errors.transactions.startingNotDeletable")) : done();
 }

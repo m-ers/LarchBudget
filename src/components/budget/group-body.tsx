@@ -8,6 +8,8 @@ import {
   renameGroupAction,
 } from "@/app/actions";
 import type { GroupRow } from "@/db/budget";
+import { useT } from "@/i18n/client";
+import type { Translate } from "@/i18n/translate";
 import { groupColor } from "@/lib/group-colors";
 import { formatAmount, formatMoney } from "@/lib/money";
 import { ErrorText } from "../form";
@@ -21,12 +23,9 @@ import { CategoryRow, formatSpent } from "./category-row";
 import { RowAction, rowActionLook } from "./row-action";
 
 /** What deleting a group does, asked before it happens. */
-function deleteQuestion(name: string, categoryCount: number): string {
-  const question = `Delete the group "${name}"?`;
-  if (categoryCount === 0) return question;
-  return categoryCount === 1
-    ? `${question} Its category will be archived, and the money in it goes back to Ready to assign.`
-    : `${question} Its ${categoryCount} categories will be archived, and the money in them goes back to Ready to assign.`;
+function deleteQuestion(t: Translate, name: string, categoryCount: number): string {
+  if (categoryCount === 0) return t("budget.group.deleteEmpty", { name });
+  return t("budget.group.deleteWithCategories", { name, count: categoryCount });
 }
 
 /**
@@ -43,6 +42,7 @@ export function GroupBody({
   first: boolean;
   last: boolean;
 }) {
+  const t = useT();
   const { id, name, categories } = group;
   const isEmpty = categories.length === 0;
   // True while the "new category" field is in use.
@@ -57,7 +57,7 @@ export function GroupBody({
 
   // A failure is reported next to the "new category" field.
   function remove() {
-    if (window.confirm(deleteQuestion(name, categories.length))) {
+    if (window.confirm(deleteQuestion(t, name, categories.length))) {
       adder.save(() => deleteGroupAction(id));
     }
   }
@@ -68,35 +68,40 @@ export function GroupBody({
         <InlineName
           ref={nameField}
           value={name}
-          label="Group name"
+          label={t("budget.menu.groupName")}
           onSave={(text) => renameGroupAction(id, text)}
           className="font-semibold tracking-[0.07em] uppercase"
         />
         <RowAction
-          label={`Add a category to ${name}`}
-          title="Add category"
+          label={t("budget.group.addCategoryLabel", { name })}
+          title={t("budget.group.addCategoryTitle")}
           onClick={() => setAdding(true)}
         >
           <PlusIcon width={15} height={15} />
         </RowAction>
         <Menu
-          label={`Actions for the group ${name}`}
+          label={t("budget.menu.actionsForGroup", { name })}
           state={menu}
           buttonClassName={rowActionLook("head")}
           items={[
-            { label: "Rename", onSelect: () => nameField.current?.startEditing() },
+            { label: t("common.rename"), onSelect: () => nameField.current?.startEditing() },
             {
-              label: "Move up",
+              label: t("budget.menu.moveUp"),
               onSelect: () => mover.save(() => moveGroupAction(id, "up")),
               disabled: first,
             },
             {
-              label: "Move down",
+              label: t("budget.menu.moveDown"),
               onSelect: () => mover.save(() => moveGroupAction(id, "down")),
               disabled: last,
             },
             // Not while a new category is being added: the question would not count it.
-            { label: "Delete group", onSelect: remove, destructive: true, disabled: adder.pending },
+            {
+              label: t("budget.menu.deleteGroup"),
+              onSelect: remove,
+              destructive: true,
+              disabled: adder.pending,
+            },
           ]}
         >
           <MoreIcon width={15} height={15} />
@@ -113,8 +118,8 @@ export function GroupBody({
       {showField && (
         <NewCategoryRow
           state={adder}
-          label={`New category in ${name}`}
-          placeholder="New category"
+          label={t("budget.group.newCategoryLabel", { name })}
+          placeholder={t("budget.group.newCategoryPlaceholder")}
           autoFocus={!isEmpty}
           onFocus={() => setAdding(true)}
           onLeave={() => setAdding(false)}

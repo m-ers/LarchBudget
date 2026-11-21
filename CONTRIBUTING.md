@@ -23,6 +23,7 @@ before you write code.
   attach your own bank file or database.
 - **Have an idea?** Open an issue before writing code, so we can see whether
   it fits.
+- **Speak another language?** See [Add your language](#add-your-language).
 - **Found a security problem?** Do not open an issue; see
   [SECURITY.md](SECURITY.md).
 
@@ -73,6 +74,10 @@ npm run lint
 ```
 
 ```bash
+npm run check:i18n
+```
+
+```bash
 npm run typecheck
 ```
 
@@ -104,12 +109,41 @@ it, and a unit test when you change the rules in `src/lib` or `src/db`.
 If you changed `src/db/schema.ts`, run `npm run db:generate` and commit the
 migration it creates in `./drizzle`.
 
+Every text people read goes in `src/i18n/messages/en.json`, not in the
+code: see [Translations](docs/development.md#translations). `npm run
+check:i18n` lists text that is not there yet. Do not edit other languages'
+files in a pull request that changes the app; their translators update them.
+
 For a change you can see:
 
 - Look at it in Safari as well as in Chrome.
 - Add a screenshot to the pull request.
 - If it changes a screen shown in the README or in `docs/`, take those
   pictures again with `npm run screenshots` and update the text beside them.
+
+## Add your language
+
+LarchBudget's texts are in one file per language, in
+`src/i18n/messages/`. To add yours, for example German:
+
+1. Copy `en.json` to `de.json`, named with the language's code (`de`, `fr`,
+   `pt-BR`).
+2. Translate the texts, and leave the keys as they are. Keep `{{name}}`
+   placeholders and tags such as `<b>…</b>` as they are, and move them where
+   your language needs them.
+3. A text that depends on a number has a key per plural form, such as
+   `rows_one` and `rows_other`. Give your language the forms it needs: for
+   example `_one`, `_few`, `_many` and `_other` in Polish. `npm test` says
+   which forms are missing.
+4. Add the language to `src/i18n/languages.ts`: one `import` line, and one
+   line with its name in the language itself (`Deutsch`).
+5. Run `npm test`. It lists every key that does not exist in English, every
+   placeholder or tag that does not match, and every missing plural form.
+6. Look at every screen in your language: run `npm run dev`, set your
+   browser's language to it, and check that nothing is cut off.
+
+A text you have not translated yet shows in English, so a translation can be
+added bit by bit. Open the pull request when the main screens are done.
 
 ## Releases
 

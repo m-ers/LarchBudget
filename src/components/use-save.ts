@@ -1,12 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useT } from "@/i18n/client";
 import type { Failure } from "@/lib/result";
-
-const UNREACHABLE: Failure = {
-  ok: false,
-  error: "Could not reach LarchBudget. Check your connection and try again.",
-};
 
 /**
  * Runs Server Actions for a component, and holds what every caller needs
@@ -21,6 +17,7 @@ const UNREACHABLE: Failure = {
 export function useSave() {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const t = useT();
 
   /**
    * Calls the action; `onSaved` runs only when it succeeded, `onFailed` only
@@ -39,7 +36,10 @@ export function useSave() {
   ): void {
     startTransition(async () => {
       showAtOnce?.();
-      const result = await action().catch(() => UNREACHABLE);
+      const result = await action().catch((): Failure => ({
+        ok: false,
+        error: t("common.unreachable"),
+      }));
       startTransition(() => {
         if (result.ok) {
           setError(null);

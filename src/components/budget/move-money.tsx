@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { moveMoneyAction } from "@/app/actions";
 import type { CategoryRow, MoneyEnd } from "@/db/budget";
+import { useT } from "@/i18n/client";
 import { formatAmount, formatMoney, parseMoney, toInputValue } from "@/lib/money";
 import { ErrorText, primaryButton } from "../form";
 import { useSave } from "../use-save";
@@ -35,6 +36,7 @@ export function MoveMoney({
 }) {
   const { month, currency, locale, figures, show } = useBudget();
   const { error, setError, pending, save } = useSave();
+  const t = useT();
   const out = flow === "out";
   // Covering starts from what the category is short.
   const [amount, setAmount] = useState(
@@ -65,8 +67,11 @@ export function MoveMoney({
   const tooMuch =
     wanted !== null && wanted > 0 && wanted > Math.max(0, sourceHolds)
       ? sourceCategory
-        ? `${sourceCategory.name} holds ${money(Math.max(0, sourceHolds))}; moving more leaves it overspent.`
-        : `Only ${money(Math.max(0, sourceHolds))} is ready to assign; moving more assigns more than you have.`
+        ? t("budget.moveMoney.categoryHolds", {
+            name: sourceCategory.name,
+            amount: money(Math.max(0, sourceHolds)),
+          })
+        : t("budget.moveMoney.onlyReady", { amount: money(Math.max(0, sourceHolds)) })
       : null;
 
   function submit(e: React.FormEvent) {
@@ -102,13 +107,19 @@ export function MoveMoney({
           onKeyDown={(e) => {
             if (e.key === "Escape") cancel();
           }}
-          aria-label={out ? `Move money from ${category.name}` : `Cover ${category.name}`}
+          aria-label={
+            out
+              ? t("budget.moveMoney.moveFormLabel", { name: category.name })
+              : t("budget.moveMoney.coverFormLabel", { name: category.name })
+          }
           className="flex flex-wrap items-center gap-x-2.5 gap-y-1"
         >
-          {out ? "Move" : "Cover"}
+          {out ? t("budget.moveMoney.moveLead") : t("budget.moveMoney.coverLead")}
           <input
             autoFocus
-            aria-label={out ? "Amount to move" : "Amount to cover"}
+            aria-label={
+              out ? t("budget.moveMoney.moveAmountLabel") : t("budget.moveMoney.coverAmountLabel")
+            }
             aria-invalid={error ? true : undefined}
             inputMode="decimal"
             autoComplete="off"
@@ -121,14 +132,18 @@ export function MoveMoney({
             onFocus={(e) => e.currentTarget.select()}
             className={`${control} w-28 text-right tabular-nums ${error ? "border-bad" : ""}`}
           />
-          {out ? "to" : "from"}
+          {out ? t("budget.moveMoney.moveTo") : t("budget.moveMoney.coverFrom")}
           <select
-            aria-label={out ? "Move to" : "Cover from"}
+            aria-label={
+              out ? t("budget.moveMoney.moveToLabel") : t("budget.moveMoney.coverFromLabel")
+            }
             value={other}
             onChange={(e) => setOther(e.target.value)}
             className={`${control} h-[33px] max-w-72`}
           >
-            <option value={READY}>Ready to assign ({money(figures.readyToAssign)})</option>
+            <option value={READY}>
+              {t("budget.moveMoney.readyOption", { amount: money(figures.readyToAssign) })}
+            </option>
             {figures.groups.map((group) => {
               const others = group.categories.filter((c) => c.id !== category.id);
               return (
@@ -136,7 +151,10 @@ export function MoveMoney({
                   <optgroup key={group.id ?? group.name} label={group.name}>
                     {others.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.name} ({money(c.available)})
+                        {t("budget.moveMoney.categoryOption", {
+                          name: c.name,
+                          amount: money(c.available),
+                        })}
                       </option>
                     ))}
                   </optgroup>
@@ -149,7 +167,7 @@ export function MoveMoney({
             disabled={pending}
             className={`${primaryButton} px-3 py-1 disabled:opacity-60`}
           >
-            {out ? "Move" : "Cover"}
+            {out ? t("budget.moveMoney.moveSubmit") : t("budget.moveMoney.coverSubmit")}
           </button>
           <button
             type="button"
@@ -157,7 +175,7 @@ export function MoveMoney({
             disabled={pending}
             className="rounded-[9px] px-2.5 py-1 font-medium text-muted transition-colors hover:bg-hover hover:text-ink disabled:opacity-60"
           >
-            Cancel
+            {t("budget.moveMoney.cancel")}
           </button>
           <ErrorText error={error} as="span" className="text-xs" />
           {!error && tooMuch && <span className="text-xs text-muted">{tooMuch}</span>}

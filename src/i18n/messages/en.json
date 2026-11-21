@@ -1,0 +1,448 @@
+{
+  "app": {
+    "description": "A simple, self-hosted budgeting app for one person."
+  },
+  "nav": {
+    "budget": "Budget",
+    "transactions": "Transactions",
+    "accounts": "Accounts",
+    "import": "Import from bank",
+    "toSort_one": ", {{count}} to sort",
+    "toSort_other": ", {{count}} to sort",
+    "logOut": "Log out"
+  },
+  "login": {
+    "title": "Log in",
+    "password": "Password",
+    "submit": "Log in",
+    "submitting": "Logging in…",
+    "wrongPassword": "Wrong password."
+  },
+  "pageError": {
+    "title": "This page could not be loaded.",
+    "text": "Nothing was changed. If LarchBudget was restarting or the connection dropped, trying again usually works.",
+    "retry": "Try again"
+  },
+  "common": {
+    "rename": "Rename",
+    "unreachable": "Could not reach LarchBudget. Check your connection and try again."
+  },
+  "transactions": {
+    "page": {
+      "title": "Transactions",
+      "lead": "Everything imported from your bank. Sort each one into a category.",
+      "allSorted": "Everything is sorted",
+      "toSort": "To sort",
+      "tabToSort": "To sort",
+      "tabAll": "All",
+      "startingBalance": "Starting balance",
+      "noName": "No name",
+      "emptyNone": "No transactions yet. They come in through a file you download from your bank.",
+      "emptyImport": "Import from bank",
+      "emptyNoMatch": "No transactions match.",
+      "emptySorted": "Everything is sorted. New transactions appear here after your next import.",
+      "headingDate": "Date",
+      "headingPayee": "Payee",
+      "headingAccount": "Account",
+      "headingCategory": "Category",
+      "headingAmount": "Amount",
+      "headingActions": "Actions",
+      "describedAs": "{{payee}} on {{date}}",
+      "describedAsNoPayee": "transaction on {{date}}",
+      "deleteQuestion": "Delete {{payee}} of {{amount}} on {{date}}? A later import of the same bank file will not bring it back.",
+      "deleteQuestionNoPayee": "Delete this transaction of {{amount}} on {{date}}? A later import of the same bank file will not bring it back.",
+      "showing": "Showing {{shown}} of {{total}}.",
+      "newest": "Newest",
+      "older": "Older"
+    },
+    "summary": {
+      "all_one": "<n>{{count}}</n> transaction. Money in <b>{{in}}</b>, money out <b>{{out}}</b>.",
+      "all_other": "<n>{{count}}</n> transactions. Money in <b>{{in}}</b>, money out <b>{{out}}</b>.",
+      "narrowed_one": "<n>{{count}}</n> transaction matches. Money in <b>{{in}}</b>, money out <b>{{out}}</b>.",
+      "narrowed_other": "<n>{{count}}</n> transactions match. Money in <b>{{in}}</b>, money out <b>{{out}}</b>."
+    },
+    "filters": {
+      "search": "Search payee or note",
+      "account": "Account",
+      "allAccounts": "All accounts",
+      "accountClosed": "{{name}} (closed)",
+      "category": "Category",
+      "allCategories": "All categories",
+      "noCategory": "No category",
+      "categoryIncome": "{{name}} (income)",
+      "categoryArchived": "{{name}} (archived)",
+      "categoryIncomeArchived": "{{name}} (income) (archived)",
+      "month": "Month",
+      "allMonths": "All months",
+      "clear": "Clear"
+    },
+    "picker": {
+      "label": "Category for {{what}}, {{amount}}",
+      "noCategory": "No category",
+      "noCategoryTransfer": "No category (transfer)",
+      "noCategoryIncomeOrTransfer": "No category (income or transfer)",
+      "choose": "Choose a category…",
+      "archived": "{{name}} (archived)",
+      "suggestedTitle": "Suggested: you chose {{name}} for this payee last time. Not sorted yet.",
+      "acceptLabel": "Sort {{what}} into {{name}}, as last time",
+      "acceptTitle": "Sort into {{name}}, as last time"
+    },
+    "delete": {
+      "label": "Delete {{what}}",
+      "title": "Delete"
+    }
+  },
+  "accounts": {
+    "title": "Accounts",
+    "lead": "Where your money is. Transactions come in through bank imports.",
+    "total": "In all accounts",
+    "empty": "No accounts yet. Add the accounts your money is in, with what is in them today.",
+    "allClosed": "All your accounts are closed.",
+    "table": {
+      "account": "Account",
+      "type": "Type",
+      "balance": "Balance"
+    },
+    "types": {
+      "checking": "Checking",
+      "savings": "Savings",
+      "cash": "Cash",
+      "credit": "Credit card"
+    },
+    "add": {
+      "title": "Add an account",
+      "name": "Name",
+      "namePlaceholder": "e.g. Main account",
+      "type": "Type",
+      "submit": "Add account",
+      "submitting": "Adding…"
+    },
+    "balance": {
+      "label": "Balance",
+      "hint": "For a credit card you owe money on, enter a negative amount.",
+      "on": "On",
+      "onHint": "What the account held at the end of that day. Transactions from before that day that you import later are filled in behind it; they do not change this balance."
+    },
+    "row": {
+      "nameLabel": "Account name",
+      "closeLabel": "Close {{name}}",
+      "closeTitle": "Close account",
+      "deleteLabel": "Delete {{name}}",
+      "deleteTitle": "Delete account",
+      "editBalanceLabel": "Edit balance of {{name}}",
+      "editBalanceTitle": "Edit balance",
+      "editBalance": "Edit balance",
+      "typeLabel": "Type of {{name}}",
+      "balanceFormLabel": "Balance of {{name}}",
+      "save": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "deleteEmpty": "Delete \"{{name}}\"?",
+      "deleteWithTransactions_one": "Delete \"{{name}}\" and its {{count}} transaction? What was spent from it disappears from your categories. This cannot be undone.",
+      "deleteWithTransactions_other": "Delete \"{{name}}\" and its {{count}} transactions? What was spent from it disappears from your categories. This cannot be undone."
+    },
+    "closed": {
+      "title": "Closed accounts:",
+      "reopen": "Reopen",
+      "reopenLabel": "Reopen {{name}}"
+    }
+  },
+  "errors": {
+    "loggedOut": "Your session has ended. Reload the page to log in again.",
+    "unexpected": "Something went wrong. Reload the page and try again.",
+    "name": {
+      "required": "Give it a name.",
+      "tooLong": "Keep the name under {{max}} characters."
+    },
+    "budget": {
+      "categoryGone": "That category no longer exists.",
+      "groupGone": "That group no longer exists.",
+      "categoryNameTaken": "You already have a category called \"{{name}}\".",
+      "groupNameTaken": "You already have a group called \"{{name}}\".",
+      "notAnAmount": "That is not an amount.",
+      "amountNotPositive": "Enter an amount above zero.",
+      "amountsChanged": "These amounts changed in the meantime. Check them and try again.",
+      "restoreNameTaken": "Another category already has this name. Rename that one first.",
+      "restoreNoGroup": "There is no group to put it back in. Add a group first."
+    },
+    "accounts": {
+      "gone": "That account no longer exists.",
+      "closed": "Its account is closed. Reopen the account on the Accounts page first, then try again.",
+      "nameTaken": "You already have an account called \"{{name}}\".",
+      "notADate": "That is not a date.",
+      "futureDate": "The date cannot be in the future.",
+      "checkYear": "Check the year of the date.",
+      "balanceNotAnAmount": "The balance is not an amount.",
+      "notEmpty": "Only an account that holds nothing can be closed.",
+      "reopenNameTaken": "You already have an account with this name. Rename that one first."
+    },
+    "import": {
+      "cannotImport": "This file could not be imported.",
+      "noTransactions": "No transactions could be read from this file.",
+      "amountTooLarge": "This file holds an amount that is too large to be real.",
+      "cannotCheck": "This file could not be checked.",
+      "undoSorted_one": "One of these transactions has been sorted since, so this import can no longer be undone.",
+      "undoSorted_other": "{{count}} of these transactions have been sorted since, so this import can no longer be undone."
+    },
+    "transactions": {
+      "gone": "That transaction no longer exists. Reload the page.",
+      "startingNotSortable": "A starting balance does not go into a category.",
+      "startingNotDeletable": "A starting balance cannot be deleted."
+    }
+  },
+  "import": {
+    "page": {
+      "title": "Import from bank",
+      "lead": "Download your transactions as a CSV file from your bank's website and add it here. Transactions you imported before are skipped, so files may overlap.",
+      "noAccountClosed": "Transactions are imported into an account, and all of yours are closed. Reopen one, or add a new one.",
+      "noAccountNone": "Transactions are imported into an account, and you have none yet.",
+      "goToAccounts": "Go to Accounts",
+      "addAccount": "Add an account"
+    },
+    "problems": {
+      "empty": "This file is empty.",
+      "tooManyRows": "This file has too many rows. Export a shorter period from your bank.",
+      "tooWide": "This does not look like a bank export: its rows are too wide or too long.",
+      "tooLarge": "This file is too large. Export a shorter period from your bank.",
+      "notCsv": "This is not a CSV file. Choose CSV when you download from your bank."
+    },
+    "dateOrders": {
+      "ymd": "Year, month, day (2026-11-03)",
+      "dmy": "Day, month, year (03-11-2026)",
+      "mdy": "Month, day, year (11/03/2026)"
+    },
+    "delimiters": {
+      "comma": "Comma",
+      "semicolon": "Semicolon",
+      "tab": "Tab",
+      "pipe": "Pipe"
+    },
+    "choose": {
+      "account": "Into account",
+      "dropHere": "Drop your bank's CSV file here, or",
+      "chooseFile": "Choose a file",
+      "fileInput": "Bank file"
+    },
+    "columns": {
+      "intro": "Check that the columns below were recognised correctly.",
+      "introFromLastTime": "Read with the settings from your last import into this account.",
+      "chooseAnotherFile": "Choose another file",
+      "unnamed": "Column {{number}}",
+      "none": "None",
+      "noSeparateColumn": "No separate column",
+      "chooseColumn": "Choose a column…",
+      "date": "Date",
+      "dateWrittenAs": "Date is written as",
+      "dateGuess": "Could be either; check this.",
+      "amount": "Amount",
+      "moneyIn": "Money in",
+      "moneyInTip": "For banks that put money in and money out in separate columns. Amount is then the money out.",
+      "outOrIn": "Out or in",
+      "outOrInTip": "For banks whose amounts have no plus or minus, with a column like Af/Bij or Debit/Credit that says which way the money went.",
+      "payee": "Payee",
+      "note": "Note",
+      "separator": "Separator",
+      "hasHeader": "First row holds column names",
+      "invert": "Spending is shown as positive numbers",
+      "notReady": "Choose which columns hold the date and the amount."
+    },
+    "summary": {
+      "count_one": "<b>{{count}} transaction</b> · {{from}} to {{to}} · {{moneyIn}} in · {{moneyOut}} out",
+      "count_other": "<b>{{count}} transactions</b> · {{from}} to {{to}} · {{moneyIn}} in · {{moneyOut}} out",
+      "newCount_one": "<b>{{count}} new transaction</b> · {{from}} to {{to}} · {{moneyIn}} in · {{moneyOut}} out",
+      "newCount_other": "<b>{{count}} new transactions</b> · {{from}} to {{to}} · {{moneyIn}} in · {{moneyOut}} out",
+      "allImported_one": "<b>Nothing new to import.</b> All {{count}} transaction in this file were imported before.",
+      "allImported_other": "<b>Nothing new to import.</b> All {{count}} transactions in this file were imported before.",
+      "unreadable": "No transactions could be read with these columns.",
+      "importedBefore_one": "{{count}} was imported before and will be skipped.",
+      "importedBefore_other": "{{count}} were imported before and will be skipped.",
+      "skipped": "Skipped: {{list}}.",
+      "skippedItem": "{{count}} × {{reason}}",
+      "skippedSeparator": ", "
+    },
+    "preview": {
+      "heading": "As they will be imported",
+      "label": "Transactions in this file",
+      "date": "Date",
+      "payee": "Payee",
+      "note": "Note",
+      "amount": "Amount",
+      "importedBefore": "Imported before"
+    },
+    "skipped": {
+      "heading": "Rows that will not be imported",
+      "label": "Rows that cannot be read",
+      "row": "Row",
+      "reason": "Reason",
+      "inFile": "In the file",
+      "reasons": {
+        "noDate": "No readable date",
+        "noAmount": "No readable amount",
+        "amountZero": "Amount is zero",
+        "unclearDirection": "Unclear if money in or out"
+      },
+      "reasonsInline": {
+        "noDate": "no readable date",
+        "noAmount": "no readable amount",
+        "amountZero": "amount is zero",
+        "unclearDirection": "unclear if money in or out"
+      }
+    },
+    "action": {
+      "importing": "Importing…",
+      "nothingNew": "Nothing new to import",
+      "import_one": "Import {{count}} transaction into {{account}}",
+      "import_other": "Import {{count}} transactions into {{account}}",
+      "importNew_one": "Import {{count}} new transaction into {{account}}",
+      "importNew_other": "Import {{count}} new transactions into {{account}}"
+    },
+    "result": {
+      "imported_one": "Imported {{count}} transaction into {{account}}.",
+      "imported_other": "Imported {{count}} transactions into {{account}}.",
+      "nothingNew": "Nothing new to import.",
+      "duplicates_one": "{{count}} was already in LarchBudget and was skipped.",
+      "duplicates_other": "{{count}} were already in LarchBudget and were skipped.",
+      "balanceSome_one": "{{count}} of them is from {{date}} or earlier. The balance of {{balance}} you entered for that day already includes it.",
+      "balanceSome_other": "{{count}} of them are from {{date}} or earlier. The balance of {{balance}} you entered for that day already includes them.",
+      "sortNow": "Sort them now",
+      "importAnother": "Import another file",
+      "undo": "Undo this import",
+      "undoing": "Undoing…",
+      "undone_one": "Import undone. {{count}} transaction was removed.",
+      "undone_other": "Import undone. {{count}} transactions were removed.",
+      "balanceAll_one": "It is from {{date}} or earlier. The balance of {{balance}} you entered for that day already includes it.",
+      "balanceAll_other": "They are from {{date}} or earlier. The balance of {{balance}} you entered for that day already includes them.",
+      "allDuplicates_one": "The transaction in this file was already in LarchBudget.",
+      "allDuplicates_other": "All {{count}} transactions in this file were already in LarchBudget."
+    }
+  },
+  "budget": {
+    "header": {
+      "previousMonth": "Previous month",
+      "nextMonth": "Next month",
+      "thisMonth": "This month",
+      "received": "<b>{{amount}}</b> received",
+      "spent": "<b>{{spent}}</b> spent of {{assigned}} assigned",
+      "daysToGo_one": "<b>{{count}} day</b> to go",
+      "daysToGo_other": "<b>{{count}} days</b> to go",
+      "readyWithOverspent": "{{inAccounts}} in your accounts + {{overspent}} overspent in categories",
+      "readyMinusCategories": "{{inAccounts}} in your accounts − {{inCategories}} in categories"
+    },
+    "ready": {
+      "assignedMore": "Assigned more than you have",
+      "readyToAssign": "Ready to assign",
+      "allAssigned": "Every cent is assigned"
+    },
+    "welcome": {
+      "text": "<b>Welcome to LarchBudget.</b> Start by adding the accounts your money is in. Their balance becomes your money to assign, and then you divide it over categories.",
+      "addAccount": "Add an account"
+    },
+    "empty": {
+      "noCategoriesYet": "No categories yet. A category is a purpose you set money aside for, such as Rent, Groceries or Holiday. Categories live in groups, so start by naming your first group, for example Fixed costs.",
+      "aboutCategories": "A category is a purpose you set money aside for, such as Rent, Groceries or Holiday. Categories live in groups, so start by naming your first group, for example Fixed costs."
+    },
+    "newGroup": {
+      "label": "New group name",
+      "placeholderFirst": "Name your first group",
+      "placeholder": "New group"
+    },
+    "table": {
+      "groupColour": "Group colour",
+      "category": "Category",
+      "assigned": "Assigned",
+      "spent": "Spent",
+      "available": "Available"
+    },
+    "row": {
+      "seeTransactions": "See these transactions",
+      "assignedTo": "Assigned to {{name}}"
+    },
+    "gauge": {
+      "overspent": "Overspent:",
+      "explain": {
+        "overspent": "Overspent by {{amount}}: assign more to cover it. {{sum}}",
+        "nothing": "Nothing assigned or spent this month.",
+        "earlier": "{{amount}} from earlier months",
+        "assigned": "{{amount}} assigned",
+        "spent": "{{amount}} spent",
+        "refunded": "{{amount}} refunded"
+      }
+    },
+    "menu": {
+      "actionsFor": "Actions for {{name}}",
+      "actionsForGroup": "Actions for the group {{name}}",
+      "categoryName": "Category name",
+      "groupName": "Group name",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "moveTo": "Move to {{group}}",
+      "moveMoney": "Move money…",
+      "coverOverspending": "Cover overspending…",
+      "archive": "Archive",
+      "deleteGroup": "Delete group"
+    },
+    "archiveConfirm": {
+      "plain": "Archive \"{{name}}\"?",
+      "positive": "Archive \"{{name}}\"? Its {{amount}} goes back to Ready to assign.",
+      "negative": "Archive \"{{name}}\"? It is overspent by {{amount}}, which then comes out of Ready to assign."
+    },
+    "group": {
+      "addCategoryLabel": "Add a category to {{name}}",
+      "addCategoryTitle": "Add category",
+      "newCategoryLabel": "New category in {{name}}",
+      "newCategoryPlaceholder": "New category",
+      "deleteEmpty": "Delete the group \"{{name}}\"?",
+      "deleteWithCategories_one": "Delete the group \"{{name}}\"? Its category will be archived, and the money in it goes back to Ready to assign.",
+      "deleteWithCategories_other": "Delete the group \"{{name}}\"? Its {{count}} categories will be archived, and the money in them goes back to Ready to assign."
+    },
+    "income": {
+      "title": "Income",
+      "addLabel": "Add an income category",
+      "addTitle": "Add income category",
+      "newLabel": "New income category",
+      "newPlaceholder": "New income category",
+      "newPlaceholderFirst": "New income category, e.g. Salary",
+      "received": "{{amount}} received"
+    },
+    "addByName": {
+      "adding": "Adding…",
+      "hint": "Enter to add"
+    },
+    "archived": {
+      "count_one": "{{count}} archived category",
+      "count_other": "{{count}} archived categories",
+      "hide": "Hide",
+      "show": "Show",
+      "listLabel": "Archived categories",
+      "income": "Income",
+      "restore": "Restore",
+      "restoreLabel": "Restore {{name}}",
+      "restoringTakes": "Restoring takes {{amount}} out of Ready to assign.",
+      "restoringAdds": "Restoring adds {{amount}} to Ready to assign."
+    },
+    "copyLastMonth": {
+      "nothing": "Nothing assigned in {{month}} yet.",
+      "assign": "Assign the same as {{month}}",
+      "assigning": "Assigning…"
+    },
+    "moveMoney": {
+      "moveLead": "Move",
+      "coverLead": "Cover",
+      "moveTo": "to",
+      "coverFrom": "from",
+      "moveSubmit": "Move",
+      "coverSubmit": "Cover",
+      "moveFormLabel": "Move money from {{name}}",
+      "coverFormLabel": "Cover {{name}}",
+      "moveAmountLabel": "Amount to move",
+      "coverAmountLabel": "Amount to cover",
+      "moveToLabel": "Move to",
+      "coverFromLabel": "Cover from",
+      "readyOption": "Ready to assign ({{amount}})",
+      "categoryOption": "{{name}} ({{amount}})",
+      "cancel": "Cancel",
+      "categoryHolds": "{{name}} holds {{amount}}; moving more leaves it overspent.",
+      "onlyReady": "Only {{amount}} is ready to assign; moving more assigns more than you have."
+    }
+  }
+}

@@ -1,7 +1,8 @@
 "use client";
 
 import { createAccountAction } from "@/app/actions";
-import { accountTypeLabels, accountTypes } from "@/lib/account-types";
+import { useT } from "@/i18n/client";
+import { accountTypes } from "@/lib/account-types";
 import type { IsoDate } from "@/lib/dates";
 import { MAX_NAME_LENGTH } from "@/lib/limits";
 import { ErrorText, Field, field, primaryButton, selectField } from "../form";
@@ -16,6 +17,7 @@ export function AccountForm({
   today: IsoDate;
 }) {
   const { error, pending, save } = useSave();
+  const t = useT();
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -29,20 +31,20 @@ export function AccountForm({
 
   return (
     <form onSubmit={submit} className="flex flex-col gap-4">
-      <Field label="Name">
+      <Field label={t("accounts.add.name")}>
         <input
           name="name"
           required
           maxLength={MAX_NAME_LENGTH}
-          placeholder="e.g. Main account"
+          placeholder={t("accounts.add.namePlaceholder")}
           className={`${field} px-3`}
         />
       </Field>
-      <Field label="Type">
+      <Field label={t("accounts.add.type")}>
         <select name="type" defaultValue="checking" className={`${selectField} px-3`}>
           {accountTypes.map((type) => (
             <option key={type} value={type}>
-              {accountTypeLabels[type]}
+              {t(`accounts.types.${type}`)}
             </option>
           ))}
         </select>
@@ -54,7 +56,7 @@ export function AccountForm({
         disabled={pending}
         className={`${primaryButton} px-3 py-2 disabled:opacity-60`}
       >
-        {pending ? "Adding…" : "Add account"}
+        {pending ? t("accounts.add.submitting") : t("accounts.add.submit")}
       </button>
     </form>
   );

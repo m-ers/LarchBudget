@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { createIncomeCategoryAction } from "@/app/actions";
 import type { BudgetMonth, IncomeCategoryRow } from "@/db/budget";
+import { useT } from "@/i18n/client";
 import { groupColor } from "@/lib/group-colors";
 import { formatMoney } from "@/lib/money";
 import { transactionsHref } from "@/lib/transactions-address";
@@ -23,6 +24,7 @@ import { RowAction } from "./row-action";
  */
 export function IncomeBody({ income }: { income: BudgetMonth["income"] }) {
   const { currency, locale } = useBudget();
+  const t = useT();
   const { categories, received } = income;
   const isEmpty = categories.length === 0;
   // True while the "new income category" field is in use.
@@ -34,12 +36,18 @@ export function IncomeBody({ income }: { income: BudgetMonth["income"] }) {
   return (
     <tbody>
       <SectionHeading
-        totals={["", "", isEmpty ? "" : `${formatMoney(received, currency, locale)} received`]}
+        totals={[
+          "",
+          "",
+          isEmpty
+            ? ""
+            : t("budget.income.received", { amount: formatMoney(received, currency, locale) }),
+        ]}
       >
-        <span className="font-semibold">Income</span>
+        <span className="font-semibold">{t("budget.income.title")}</span>
         <RowAction
-          label="Add an income category"
-          title="Add income category"
+          label={t("budget.income.addLabel")}
+          title={t("budget.income.addTitle")}
           onClick={() => setAdding(true)}
         >
           <PlusIcon width={15} height={15} />
@@ -58,8 +66,10 @@ export function IncomeBody({ income }: { income: BudgetMonth["income"] }) {
       {showField && (
         <NewCategoryRow
           state={adder}
-          label="New income category"
-          placeholder={isEmpty ? "New income category, e.g. Salary" : "New income category"}
+          label={t("budget.income.newLabel")}
+          placeholder={
+            isEmpty ? t("budget.income.newPlaceholderFirst") : t("budget.income.newPlaceholder")
+          }
           autoFocus={!isEmpty}
           wide
           onFocus={() => setAdding(true)}
@@ -81,6 +91,7 @@ function IncomeRow({
   last: boolean;
 }) {
   const { month, currency, locale } = useBudget();
+  const t = useT();
   const { id, received } = category;
   const amount = formatMoney(received, currency, locale);
   const menu = useMenu();
@@ -102,7 +113,7 @@ function IncomeRow({
           // The month's transactions behind the amount.
           <Link
             href={transactionsHref({ showAll: true, filter: { category: id, month } })}
-            title="See these transactions"
+            title={t("budget.row.seeTransactions")}
             className="rounded-sm underline-offset-2 hover:underline"
           >
             {amount}

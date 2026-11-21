@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "@/i18n/client";
 import { MAX_NAME_LENGTH } from "@/lib/limits";
 import type { ActionResult } from "@/lib/result";
 import { ErrorText } from "../form";
@@ -85,6 +86,7 @@ export function AddByNameField({
   /** Size, weight and spacing of the text. */
   className?: string;
 }) {
+  const t = useT();
   return (
     <>
       <input
@@ -108,9 +110,11 @@ export function AddByNameField({
       {state.error ? (
         <ErrorText error={state.error} as="span" className="text-xs" />
       ) : state.pending ? (
-        <span className="text-xs text-muted">Adding…</span>
+        <span className="text-xs text-muted">{t("budget.addByName.adding")}</span>
       ) : (
-        state.draft.trim() !== "" && <span className="text-xs text-muted">Enter to add</span>
+        state.draft.trim() !== "" && (
+          <span className="text-xs text-muted">{t("budget.addByName.hint")}</span>
+        )
       )}
     </>
   );
