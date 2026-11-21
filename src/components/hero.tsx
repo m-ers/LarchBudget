@@ -14,7 +14,7 @@ export function Hero({
   return (
     <section
       ref={ref}
-      className="relative flex h-34 shrink-0 items-center justify-between gap-6 overflow-hidden rounded-2xl bg-brand px-8 text-white"
+      className="relative flex h-34 shrink-0 items-center justify-between gap-6 overflow-hidden rounded-2xl bg-brand px-8 text-white [--focus-ring:white]"
     >
       <div
         aria-hidden="true"
@@ -41,7 +41,7 @@ export function HeroTitle({
   return (
     <h1
       tabIndex={tabIndex}
-      className="rounded-[7px] text-[27px] leading-none font-semibold tracking-[-0.02em] focus-visible:outline-white!"
+      className="rounded-[7px] text-[27px] leading-none font-semibold tracking-[-0.02em]"
     >
       {children}
     </h1>
@@ -122,7 +122,7 @@ export function HeroFigure({
       {...button}
       // A tone behind it on hover and while what it opens is open; the
       // padding is taken back by the margin, so it does not move.
-      className="relative -mx-3 -my-2 rounded-xl px-3 py-2 text-right transition-colors hover:bg-white/8 focus-visible:outline-white aria-expanded:bg-white/12"
+      className="relative -mx-3 -my-2 rounded-xl px-3 py-2 text-right transition-colors hover:bg-white/8 aria-expanded:bg-white/12"
     >
       {content}
     </button>
