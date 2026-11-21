@@ -63,7 +63,8 @@ month before and after.
   the name and keeps the field open for the next one.
 - Click a name to rename it.
 - Point at a row and choose **⋯**, or right-click the row, for more: move it
-  up or down, move it to another group, move money, or archive it.
+  up or down, move it to another group, move money, set a target, or archive
+  it.
 
 <img src="images/menu.png" alt="The menu of a category: Rename, Move up, Move down, Move to another group, Move money and Archive" />
 
@@ -88,7 +89,8 @@ up the column, so a whole month can be filled in from the keyboard.
   is overspent.
 - When you assign more than you have, Ready to assign turns red and says so.
 - In a month where nothing is assigned yet, one button assigns the same as
-  the month before.
+  the month before. While [targets](#targets) need money, that line offers
+  **Assign targets** instead.
 - A **Spent** amount is a link to the transactions behind it.
 
 ### Moving money
@@ -96,8 +98,43 @@ up the column, so a whole month can be filled in from the keyboard.
 <img src="images/move-money.png" alt="The form that moves 40.00 from Groceries to Holiday" />
 
 Plans change. **Move money…** in a category's menu moves an amount to another
-category, or back to Ready to assign. For an overspent category the menu
-offers **Cover overspending…**, with the amount filled in.
+category, or back to Ready to assign. What the category holds is filled in;
+type to move less. For an overspent category the menu offers **Cover
+overspending…**, with the amount filled in.
+
+### Targets
+
+A target says what a category should get, so the budget can tell you what
+still has to be assigned. Choose **Set target…** in a category's menu, pick
+the kind and the amount, and **Save**.
+
+- **Every month**: the amount every month, such as Rent €1,100. What is left
+  at the end of a month stays, and builds up.
+- **Top up to**: every month starts with the amount in the category, such as
+  Groceries €400. What was left from the month before counts towards it, and
+  what you spend during the month does not ask for more.
+- **By a month**: the amount by the end of a month, such as Holiday €1,200
+  by June. What is still missing is spread evenly over the months until
+  then, this one included, rounded up to the cent.
+
+While a target needs money, a quiet "€80 to go" shows under the category's
+Assigned amount; once it has what it needs, that goes. Point at Available to
+see the target. Targets ask for money in this month and later months only,
+never in a month that is over, and a "by a month" target needs nothing after
+its month. **Change target…** in the menu changes or removes it.
+
+**Assign targets**, in the line above the groups, gives every category what
+its target still needs, all at once. When there is not enough money, it
+assigns all of it anyway: Ready to assign turns red, and you decide what to
+cut.
+
+At the end of the month:
+
+1. Your salary comes in, and [counts for the next month](#income).
+2. Open the next month with the arrow beside the month.
+3. Choose **Assign targets**.
+4. Compare **Received** with **Assigned** under the month. What is left
+   stays in Ready to assign, free for anything else.
 
 ## Income
 
