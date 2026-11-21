@@ -106,9 +106,17 @@ export const overviewFigure = (page: Page, label: string) =>
     .filter({ visible: true })
     .locator("xpath=following-sibling::dd[1]");
 
-/** The line under Received about the month before, e.g. "€2,850 from October". */
-export const fromLastMonthLine = (page: Page, received = "Received") =>
-  overviewFigure(page, received).locator("xpath=following-sibling::dd");
+/** What a figure under the month says on hover: the element with its `title`. */
+export const overviewTip = (page: Page, label: string) =>
+  overviewFigure(page, label).locator("xpath=..");
+
+/** The name of a month counted from this one: `monthFromNow(-1)` is "October" in November. */
+export function monthFromNow(offset: number, locale = "en-US"): string {
+  const date = new Date();
+  date.setDate(1);
+  date.setMonth(date.getMonth() + offset);
+  return date.toLocaleString(locale, { month: "long" });
+}
 
 export const newGroupField = (page: Page) => page.getByRole("textbox", { name: "New group name" });
 

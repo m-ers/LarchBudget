@@ -334,8 +334,7 @@
       "assignedTip": "What you put into your categories this month.",
       "spent": "Spent",
       "spentTip": "What was spent from your categories this month.",
-      "fromLastMonth": "{{amount}} from {{month}}",
-      "fromLastMonthTip": "From income categories that count for the next month."
+      "receivedFromLastMonthTip": "{{amount}} of it came in during {{lastMonth}} and counts for {{month}}."
     },
     "ready": {
       "assignedMore": "Assigned more than you have",

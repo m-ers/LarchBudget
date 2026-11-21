@@ -6,7 +6,7 @@ import type { ArchivedCategory, BudgetMonth, GroupRow } from "@/db/budget";
 import { useDateLocale, useT } from "@/i18n/client";
 import { richText } from "@/i18n/rich";
 import type { Translate } from "@/i18n/translate";
-import { addMonths, monthLabelParts, type Month } from "@/lib/dates";
+import { addMonths, monthName, type Month } from "@/lib/dates";
 import { fromLastMonth } from "@/lib/income";
 import { formatMoney, formatMoneyParts, formatMoneyRounded } from "@/lib/money";
 import { primaryButton } from "../form";
@@ -35,10 +35,6 @@ type Props = {
 };
 
 const bold = (chunks: React.ReactNode) => <b className="font-semibold text-white">{chunks}</b>;
-
-/** A month's name without the year, e.g. "October" or "oktober". */
-const monthName = (month: Month, locale: string) =>
-  monthLabelParts(month, locale).find((part) => part.type === "month")?.value ?? "";
 
 /** True for a group, false for the section of categories without one. */
 const isGroup = (group: GroupRow): group is GroupRow & { id: number } => group.id !== null;
@@ -93,6 +89,7 @@ export function BudgetView({
   // category received, and that comes with the server's figures.
   const earlier = fromLastMonth(saved.income.categories);
   const money = (minorUnits: number) => formatMoneyRounded(minorUnits, currency, locale);
+  const receivedTip = t("budget.overview.receivedTip");
   const ready = budget.readyToAssign;
   const headline = readyHeadline(t, ready, budget.hasAccounts);
   const hero = useRef<HTMLElement>(null);
@@ -103,8 +100,7 @@ export function BudgetView({
     <BudgetContext value={{ month, currency, locale, figures: budget, show }}>
       <Hero ref={hero}>
         {/* With the figures under the month, this starts near the top: the
-            figures then line up with Ready to assign, and the note under
-            Received fits below them. */}
+            figures then line up with Ready to assign. */}
         <div className={budget.hasAccounts ? "relative self-start pt-5" : "relative"}>
           {/* As high as the arrows, so "This month" does not move what is below. */}
           <div className="flex h-7 items-center gap-x-4">
@@ -120,17 +116,14 @@ export function BudgetView({
               <HeroStat
                 label={t("budget.overview.received")}
                 value={money(received)}
-                title={t("budget.overview.receivedTip")}
-                note={
+                title={
                   earlier > 0
-                    ? {
-                        text: t("budget.overview.fromLastMonth", {
-                          amount: money(earlier),
-                          month: monthName(addMonths(month, -1), dateLocale),
-                        }),
-                        title: t("budget.overview.fromLastMonthTip"),
-                      }
-                    : undefined
+                    ? `${receivedTip} ${t("budget.overview.receivedFromLastMonthTip", {
+                        amount: money(earlier),
+                        lastMonth: monthName(addMonths(month, -1), dateLocale),
+                        month: monthName(month, dateLocale),
+                      })}`
+                    : receivedTip
                 }
               />
               <HeroStat

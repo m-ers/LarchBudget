@@ -3,10 +3,11 @@ import {
   addIncomeCategories,
   assign,
   categoryRow,
-  fromLastMonthLine,
   groupRow,
+  monthFromNow,
   openMenu,
   overviewFigure,
+  overviewTip,
 } from "./helpers";
 import { expect, test } from "./fixtures";
 
@@ -39,13 +40,8 @@ async function spentInGroups(page: Page): Promise<number> {
   return cents;
 }
 
-/** The name of the month before this one, e.g. "October" or "oktober". */
-function lastMonthName(locale: string): string {
-  const date = new Date();
-  date.setDate(1);
-  date.setMonth(date.getMonth() - 1);
-  return date.toLocaleString(locale, { month: "long" });
-}
+/** What Received says on hover when no income category counts for the next month. */
+const RECEIVED_TIP = "What came in through your income categories for this month.";
 
 /** Today, as a bank file writes it: 2026-11-21. */
 function today(): string {
@@ -96,7 +92,7 @@ test("the figures show what came in, was assigned and was spent this month", asy
     "What you put into your categories this month.",
   );
   // No income category counts for the next month, so nothing says so.
-  await expect(fromLastMonthLine(page)).toHaveCount(0);
+  await expect(overviewTip(page, "Received")).toHaveAttribute("title", RECEIVED_TIP);
 
   // A new amount shows at once.
   await assign(page, "Groceries", "480");
@@ -119,24 +115,25 @@ test("the days left show beside this month only", async ({ page }) => {
 test("with Salary counting for the next month, Received says what came in the month before", async ({
   page,
 }) => {
+  const [lastMonth, thisMonth] = [-1, 0].map((offset) => monthFromNow(offset));
+  const received = overviewTip(page, "Received");
   await receiveGift(page);
   await expect(overviewFigure(page, "Received")).toHaveText("€2,900");
-  await expect(fromLastMonthLine(page)).toHaveCount(0);
+  await expect(received).toHaveAttribute("title", RECEIVED_TIP);
 
   // On: Salary's money for this month came in during the month before, and
-  // Received includes it.
+  // Received includes it. Its tooltip says so.
   await switchSalary(page);
-  await expect(fromLastMonthLine(page)).toHaveText(`€2,850 from ${lastMonthName("en-US")}`);
+  await expect(received).toHaveAttribute(
+    "title",
+    `${RECEIVED_TIP} €2,850 of it came in during ${lastMonth} and counts for ${thisMonth}.`,
+  );
   await expect(overviewFigure(page, "Received")).toHaveText("€2,900");
   await expect(categoryRow(page, "Salary").getByRole("cell").last()).toHaveText("€2,850.00");
-  await expect(fromLastMonthLine(page)).toHaveAttribute(
-    "title",
-    "From income categories that count for the next month.",
-  );
 
   // Off again.
   await switchSalary(page);
-  await expect(fromLastMonthLine(page)).toHaveCount(0);
+  await expect(received).toHaveAttribute("title", RECEIVED_TIP);
   await expect(overviewFigure(page, "Received")).toHaveText("€2,900");
 });
 
@@ -153,8 +150,11 @@ test.describe("in Dutch", () => {
     await categoryRow(page, "Salary").hover();
     await page.getByRole("button", { name: "Acties voor Salary", exact: true }).click();
     await page.getByRole("menuitemcheckbox", { name: "Telt voor de volgende maand" }).click();
-    await expect(fromLastMonthLine(page, "Ontvangen")).toHaveText(
-      `waarvan €2,850 uit ${lastMonthName("nl-NL")}`,
+    const [lastMonth, thisMonth] = [-1, 0].map((offset) => monthFromNow(offset, "nl-NL"));
+    await expect(overviewTip(page, "Ontvangen")).toHaveAttribute(
+      "title",
+      "Wat er via je inkomstencategorieën voor deze maand binnenkwam. " +
+        `€2,850 hiervan kwam in ${lastMonth} binnen en telt voor ${thisMonth}.`,
     );
   });
 });

@@ -7,6 +7,7 @@ import {
   formatMonth,
   isMonth,
   monthLabelParts,
+  monthName,
   today,
 } from "./dates";
 
@@ -60,6 +61,14 @@ describe("monthLabelParts", () => {
         .map((p) => p.value)
         .join(""),
     ).toBe("maart 2026");
+  });
+});
+
+describe("monthName", () => {
+  it("is the month's name without the year", () => {
+    expect(monthName("2026-11", "en-US")).toBe("November");
+    expect(monthName("2027-01", "en-US")).toBe("January");
+    expect(monthName("2026-10", "nl-NL")).toBe("oktober");
   });
 });
 

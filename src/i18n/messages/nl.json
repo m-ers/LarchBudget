@@ -334,8 +334,7 @@
       "assignedTip": "Wat je deze maand aan je categorieën hebt toegewezen.",
       "spent": "Uitgegeven",
       "spentTip": "Wat je deze maand uit je categorieën hebt uitgegeven.",
-      "fromLastMonth": "waarvan {{amount}} uit {{month}}",
-      "fromLastMonthTip": "Van inkomstencategorieën die voor de volgende maand tellen."
+      "receivedFromLastMonthTip": "{{amount}} hiervan kwam in {{lastMonth}} binnen en telt voor {{month}}."
     },
     "ready": {
       "assignedMore": "Meer toegewezen dan je hebt",
