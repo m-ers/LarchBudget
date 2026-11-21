@@ -1,3 +1,4 @@
+import { useT } from "@/i18n/client";
 import { gaugeLevel } from "@/lib/gauge";
 import { WarningIcon } from "../icons";
 
@@ -23,6 +24,7 @@ const tracks = { over: "bg-bad-track", empty: "bg-empty-track", ok: "bg-ok-track
  * the normal text colour.
  */
 export function Gauge({ available, activity, label, explanation }: Props) {
+  const t = useT();
   const { state, left } = gaugeLevel(available, activity);
 
   return (
@@ -43,7 +45,7 @@ export function Gauge({ available, activity, label, explanation }: Props) {
         }`}
       >
         {state === "over" && <WarningIcon />}
-        {state === "over" && <span className="sr-only">Overspent: </span>}
+        {state === "over" && <span className="sr-only">{t("budget.gauge.overspent")}</span>}
         {label}
       </span>
     </span>

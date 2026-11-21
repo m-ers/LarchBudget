@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import { restoreCategoryAction } from "@/app/actions";
 import type { ArchivedCategory } from "@/db/budget";
+import { useT } from "@/i18n/client";
 import { formatMoney } from "@/lib/money";
 import { ErrorText } from "../form";
 import { useSave } from "../use-save";
@@ -19,11 +20,12 @@ export function ArchivedCategories({ categories }: { categories: ArchivedCategor
   const [shown, setShown] = useState(false);
   const listId = useId();
   const count = categories.length;
+  const t = useT();
 
   return (
     <div className="mt-2 px-3.5 pb-1 text-sm text-muted">
       <p>
-        {count === 1 ? "1 archived category" : `${count} archived categories`} ·{" "}
+        {t("budget.archived.count", { count })} ·{" "}
         {/* Pulled back by its padding, so the dot sits halfway. */}
         <button
           type="button"
@@ -32,11 +34,11 @@ export function ArchivedCategories({ categories }: { categories: ArchivedCategor
           onClick={() => setShown(!shown)}
           className={`${textButton} -ml-1.5`}
         >
-          {shown ? "Hide" : "Show"}
+          {shown ? t("budget.archived.hide") : t("budget.archived.show")}
         </button>
       </p>
       {shown && (
-        <ul id={listId} aria-label="Archived categories" className="mt-1">
+        <ul id={listId} aria-label={t("budget.archived.listLabel")} className="mt-1">
           {categories.map((category) => (
             <ArchivedRow key={category.id} category={category} />
           ))}
@@ -53,20 +55,21 @@ export function ArchivedCategories({ categories }: { categories: ArchivedCategor
 function ArchivedRow({ category: { id, name, balance, income } }: { category: ArchivedCategory }) {
   const { currency, locale } = useBudget();
   const { error, pending, save } = useSave();
+  const t = useT();
   const money = formatMoney(Math.abs(balance), currency, locale);
   // Its balance counts in the budget again, so Ready to assign moves the other way.
   const effect =
     balance > 0
-      ? `Restoring takes ${money} out of Ready to assign.`
+      ? t("budget.archived.restoringTakes", { amount: money })
       : balance < 0
-        ? `Restoring adds ${money} to Ready to assign.`
+        ? t("budget.archived.restoringAdds", { amount: money })
         : null;
 
   return (
     <li className={`flex min-h-8 items-center gap-4 ${pending ? "opacity-60" : ""}`}>
       <span className="w-48 truncate font-medium text-ink">{name}</span>
       {income ? (
-        <span className="w-24 text-right">Income</span>
+        <span className="w-24 text-right">{t("budget.archived.income")}</span>
       ) : (
         <span className="w-24 text-right text-ink tabular-nums">
           {formatMoney(balance, currency, locale)}
@@ -75,10 +78,10 @@ function ArchivedRow({ category: { id, name, balance, income } }: { category: Ar
       <button
         type="button"
         onClick={() => save(() => restoreCategoryAction(id))}
-        aria-label={`Restore ${name}`}
+        aria-label={t("budget.archived.restoreLabel", { name })}
         className={textButton}
       >
-        Restore
+        {t("budget.archived.restore")}
       </button>
       {error ? <ErrorText error={error} as="span" /> : effect}
     </li>

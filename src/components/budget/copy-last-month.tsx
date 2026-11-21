@@ -1,6 +1,7 @@
 "use client";
 
 import { copyLastMonthAction } from "@/app/actions";
+import { useT } from "@/i18n/client";
 import { addMonths, monthLabelParts, type Month } from "@/lib/dates";
 import { ErrorText } from "../form";
 import { useSave } from "../use-save";
@@ -17,17 +18,22 @@ const monthName = (month: Month, locale: string) =>
 export function CopyLastMonth() {
   const { month, locale } = useBudget();
   const { error, pending, save } = useSave();
+  const t = useT();
 
   return (
     <p className="mx-3.5 mt-2.5 mb-1 text-sm text-muted">
-      Nothing assigned in {monthName(month, locale)} yet.{" "}
+      {t("budget.copyLastMonth.nothing", { month: monthName(month, locale) ?? "" })}{" "}
       <button
         type="button"
         disabled={pending}
         onClick={() => save(() => copyLastMonthAction(month))}
         className="rounded-md px-1.5 py-0.5 font-medium text-brand transition-colors hover:bg-hover disabled:opacity-60"
       >
-        {pending ? "Assigning…" : `Assign the same as ${monthName(addMonths(month, -1), locale)}`}
+        {pending
+          ? t("budget.copyLastMonth.assigning")
+          : t("budget.copyLastMonth.assign", {
+              month: monthName(addMonths(month, -1), locale) ?? "",
+            })}
       </button>
       <ErrorText error={error} as="span" className="ml-2" />
     </p>

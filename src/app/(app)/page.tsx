@@ -4,6 +4,7 @@ import { getArchivedCategories, getBudgetMonth } from "@/app/queries";
 import { BudgetView } from "@/components/budget/budget-view";
 import { HeroTitle } from "@/components/hero";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/icons";
+import { getT } from "@/i18n/server";
 import { getConfig } from "@/lib/config";
 import {
   addMonths,
@@ -49,7 +50,7 @@ export default async function BudgetPage({ searchParams }: PageProps<"/">) {
 }
 
 /** The month's title, with links to the months around it. */
-function MonthNav({
+async function MonthNav({
   month,
   thisMonth,
   locale,
@@ -58,11 +59,12 @@ function MonthNav({
   thisMonth: Month;
   locale: string;
 }) {
+  const t = await getT();
   return (
     <div className="flex items-center gap-2.5">
       <Link
         href={monthHref(addMonths(month, -1), thisMonth)}
-        aria-label="Previous month"
+        aria-label={t("budget.header.previousMonth")}
         className={monthButton}
       >
         <ChevronLeftIcon width={15} height={15} />
@@ -80,7 +82,7 @@ function MonthNav({
       </HeroTitle>
       <Link
         href={monthHref(addMonths(month, 1), thisMonth)}
-        aria-label="Next month"
+        aria-label={t("budget.header.nextMonth")}
         className={monthButton}
       >
         <ChevronRightIcon width={15} height={15} />
@@ -90,7 +92,7 @@ function MonthNav({
           href="/"
           className="ml-1.5 rounded-[7px] border border-white/25 px-2.5 py-1 text-sm transition-colors hover:bg-white/10"
         >
-          This month
+          {t("budget.header.thisMonth")}
         </Link>
       )}
     </div>

@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useEffect, useOptimistic, useRef, useState } from "react";
 import type { ArchivedCategory, BudgetMonth, GroupRow } from "@/db/budget";
+import { useT } from "@/i18n/client";
+import { richText } from "@/i18n/rich";
+import type { Translate } from "@/i18n/translate";
 import type { Month } from "@/lib/dates";
 import { formatMoney, formatMoneyParts, formatMoneyRounded } from "@/lib/money";
 import { primaryButton } from "../form";
@@ -30,16 +33,18 @@ type Props = {
   monthNav: React.ReactNode;
 };
 
+const bold = (chunks: React.ReactNode) => <b className="font-semibold text-white">{chunks}</b>;
+
 /** True for a group, false for the section of categories without one. */
 const isGroup = (group: GroupRow): group is GroupRow & { id: number } => group.id !== null;
 
 /** What the headline says about the money that is not in a category yet. */
-function readyHeadline(ready: number, hasAccounts: boolean) {
-  if (ready < 0) return { label: "Assigned more than you have", tone: "alert" } as const;
-  if (ready > 0) return { label: "Ready to assign", tone: "normal" } as const;
+function readyHeadline(t: Translate, ready: number, hasAccounts: boolean) {
+  if (ready < 0) return { label: t("budget.ready.assignedMore"), tone: "alert" } as const;
+  if (ready > 0) return { label: t("budget.ready.readyToAssign"), tone: "normal" } as const;
   return hasAccounts
-    ? ({ label: "Every cent is assigned", tone: "done" } as const)
-    : ({ label: "Ready to assign", tone: "quiet" } as const);
+    ? ({ label: t("budget.ready.allAssigned"), tone: "done" } as const)
+    : ({ label: t("budget.ready.readyToAssign"), tone: "quiet" } as const);
 }
 
 /** Whether an element is at least partly in the window. True until known, as on the first paint. */
@@ -72,12 +77,13 @@ export function BudgetView({
   daysLeft,
   monthNav,
 }: Props) {
+  const t = useT();
   const [budget, show] = useOptimistic(saved, applyChange);
   const { spent, assigned } = budget.totals;
   const { received } = budget.income;
   const showSpent = spent > 0 || assigned !== 0;
   const ready = budget.readyToAssign;
-  const headline = readyHeadline(ready, budget.hasAccounts);
+  const headline = readyHeadline(t, ready, budget.hasAccounts);
   const hero = useRef<HTMLElement>(null);
   const heroInView = useInView(hero);
   const groupCount = budget.groups.filter(isGroup).length;
@@ -89,30 +95,28 @@ export function BudgetView({
           {monthNav}
           {(received !== 0 || showSpent) && (
             <HeroLead>
-              {received !== 0 && (
-                <>
-                  <b className="font-semibold text-white">
-                    {formatMoneyRounded(received, currency, locale)}
-                  </b>{" "}
-                  received
-                </>
-              )}
+              {received !== 0 &&
+                richText(
+                  t,
+                  "budget.header.received",
+                  { amount: formatMoneyRounded(received, currency, locale) },
+                  { b: bold },
+                )}
               {received !== 0 && showSpent && " · "}
-              {showSpent && (
-                <>
-                  <b className="font-semibold text-white">
-                    {formatMoneyRounded(spent, currency, locale)}
-                  </b>{" "}
-                  spent of {formatMoneyRounded(assigned, currency, locale)} assigned
-                </>
-              )}
+              {showSpent &&
+                richText(
+                  t,
+                  "budget.header.spent",
+                  {
+                    spent: formatMoneyRounded(spent, currency, locale),
+                    assigned: formatMoneyRounded(assigned, currency, locale),
+                  },
+                  { b: bold },
+                )}
               {daysLeft !== null && (
                 <>
                   {" · "}
-                  <b className="font-semibold text-white">
-                    {daysLeft} {daysLeft === 1 ? "day" : "days"}
-                  </b>{" "}
-                  to go
+                  {richText(t, "budget.header.daysToGo", { count: daysLeft }, { b: bold })}
                 </>
               )}
             </HeroLead>
@@ -122,8 +126,14 @@ export function BudgetView({
         <div
           title={
             budget.inCategories < 0
-              ? `${formatMoney(budget.inAccounts, currency, locale)} in your accounts + ${formatMoney(-budget.inCategories, currency, locale)} overspent in categories`
-              : `${formatMoney(budget.inAccounts, currency, locale)} in your accounts − ${formatMoney(budget.inCategories, currency, locale)} in categories`
+              ? t("budget.header.readyWithOverspent", {
+                  inAccounts: formatMoney(budget.inAccounts, currency, locale),
+                  overspent: formatMoney(-budget.inCategories, currency, locale),
+                })
+              : t("budget.header.readyMinusCategories", {
+                  inAccounts: formatMoney(budget.inAccounts, currency, locale),
+                  inCategories: formatMoney(budget.inCategories, currency, locale),
+                })
           }
         >
           <HeroFigure amount={formatMoneyParts(ready, currency, locale)} {...headline} />
@@ -134,12 +144,15 @@ export function BudgetView({
         {!budget.hasAccounts && (
           <div className="mx-3.5 mt-3 mb-2 flex items-center justify-between gap-6 rounded-xl bg-ok-track px-5 py-4">
             <p className="max-w-xl">
-              <span className="font-semibold">Welcome to LarchBudget.</span> Start by adding the
-              accounts your money is in. Their balance becomes your money to assign, and then you
-              divide it over categories.
+              {richText(
+                t,
+                "budget.welcome.text",
+                {},
+                { b: (chunks) => <span className="font-semibold">{chunks}</span> },
+              )}
             </p>
             <Link href="/accounts" className={`${primaryButton} shrink-0 px-3.5 py-2`}>
-              Add an account
+              {t("budget.welcome.addAccount")}
             </Link>
           </div>
         )}
@@ -179,15 +192,19 @@ export function BudgetView({
 
         {budget.groups.length === 0 && (
           <p className="max-w-2xl px-3.5 pt-5 pb-2 text-muted">
-            {budget.income.categories.length === 0 && "No categories yet. "}A category is a purpose
-            you set money aside for, such as Rent, Groceries or Holiday. Categories live in groups,
-            so start by naming your first group, for example Fixed costs.
+            {budget.income.categories.length === 0
+              ? t("budget.empty.noCategoriesYet")
+              : t("budget.empty.aboutCategories")}
           </p>
         )}
 
         <div className="mt-3">
           <NewGroup
-            placeholder={budget.groups.length === 0 ? "Name your first group" : "New group"}
+            placeholder={
+              budget.groups.length === 0
+                ? t("budget.newGroup.placeholderFirst")
+                : t("budget.newGroup.placeholder")
+            }
           />
         </div>
 

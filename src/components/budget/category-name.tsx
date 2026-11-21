@@ -7,6 +7,7 @@ import {
   moveCategoryToGroupAction,
   renameCategoryAction,
 } from "@/app/actions";
+import { useT } from "@/i18n/client";
 import { formatMoney } from "@/lib/money";
 import { ErrorText } from "../form";
 import { MoreIcon } from "../icons";
@@ -43,6 +44,7 @@ let movedToGroup: number | null = null;
  */
 export function CategoryName({ category: { id, name }, place, menu, money }: Props) {
   const { currency, locale, figures } = useBudget();
+  const t = useT();
   const { error, pending, save } = useSave();
   const nameField = useRef<InlineNameHandle>(null);
 
@@ -56,15 +58,14 @@ export function CategoryName({ category: { id, name }, place, menu, money }: Pro
   }, [id, menuButton]);
 
   function archive() {
-    const question = `Archive "${name}"?`;
     const balance = money?.balance ?? 0;
     const amount = formatMoney(Math.abs(balance), currency, locale);
     const message =
       balance > 0
-        ? `${question} Its ${amount} goes back to Ready to assign.`
+        ? t("budget.archiveConfirm.positive", { name, amount })
         : balance < 0
-          ? `${question} It is overspent by ${amount}, which then comes out of Ready to assign.`
-          : question;
+          ? t("budget.archiveConfirm.negative", { name, amount })
+          : t("budget.archiveConfirm.plain", { name });
     if (window.confirm(message)) save(() => archiveCategoryAction(id));
   }
 
@@ -76,7 +77,7 @@ export function CategoryName({ category: { id, name }, place, menu, money }: Pro
             ? []
             : [
                 {
-                  label: `Move to ${groupName}`,
+                  label: t("budget.menu.moveTo", { group: groupName }),
                   onSelect: () => {
                     movedToGroup = id;
                     save(
@@ -88,9 +89,14 @@ export function CategoryName({ category: { id, name }, place, menu, money }: Pro
                 },
               ],
         ),
-        { label: "Move money…", onSelect: () => money.onMoveMoney("out") },
+        { label: t("budget.menu.moveMoney"), onSelect: () => money.onMoveMoney("out") },
         ...(money.available < 0
-          ? [{ label: "Cover overspending…", onSelect: () => money.onMoveMoney("in") }]
+          ? [
+              {
+                label: t("budget.menu.coverOverspending"),
+                onSelect: () => money.onMoveMoney("in"),
+              },
+            ]
           : []),
       ]
     : [];
@@ -102,28 +108,28 @@ export function CategoryName({ category: { id, name }, place, menu, money }: Pro
       <InlineName
         ref={nameField}
         value={name}
-        label="Category name"
+        label={t("budget.menu.categoryName")}
         onSave={(text) => renameCategoryAction(id, text)}
         className={`text-[15.5px] font-medium ${pending ? "opacity-60" : ""}`}
       />
       <Menu
-        label={`Actions for ${name}`}
+        label={t("budget.menu.actionsFor", { name })}
         state={menu}
         buttonClassName={rowActionLook("row")}
         items={[
-          { label: "Rename", onSelect: () => nameField.current?.startEditing() },
+          { label: t("common.rename"), onSelect: () => nameField.current?.startEditing() },
           {
-            label: "Move up",
+            label: t("budget.menu.moveUp"),
             onSelect: () => save(() => moveCategoryAction(id, "up")),
             disabled: place.first,
           },
           {
-            label: "Move down",
+            label: t("budget.menu.moveDown"),
             onSelect: () => save(() => moveCategoryAction(id, "down")),
             disabled: place.last,
           },
           ...expenseItems,
-          { label: "Archive", onSelect: archive, destructive: true },
+          { label: t("budget.menu.archive"), onSelect: archive, destructive: true },
         ]}
       >
         <MoreIcon width={15} height={15} />

@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { setAssignedAction } from "@/app/actions";
+import { useT } from "@/i18n/client";
 import { formatAmount, parseMoney, toInputValue } from "@/lib/money";
 import { ErrorText } from "../form";
 import { useSaveOnLeave } from "../use-inline-edit";
@@ -39,6 +40,7 @@ function nearbyField(field: HTMLInputElement, step: number): HTMLInputElement | 
  */
 export function AssignedInput({ categoryId, categoryName, value }: Props) {
   const { month, currency, locale, show } = useBudget();
+  const t = useT();
   // null = not being edited, so the amount is shown.
   const [text, setText] = useState<string | null>(null);
   // What was typed for a save that failed, to start the next edit from.
@@ -92,7 +94,7 @@ export function AssignedInput({ categoryId, categoryName, value }: Props) {
         type="text"
         inputMode="decimal"
         autoComplete="off"
-        aria-label={`Assigned to ${categoryName}`}
+        aria-label={t("budget.row.assignedTo", { name: categoryName })}
         aria-invalid={error ? true : undefined}
         title={error ?? undefined}
         placeholder={formatAmount(0, currency, locale)}

@@ -1,6 +1,7 @@
 "use client";
 
 import { createGroupAction } from "@/app/actions";
+import { useT } from "@/i18n/client";
 import { PlusIcon } from "../icons";
 import { AddByNameField, useAddByName } from "./add-by-name";
 
@@ -10,6 +11,7 @@ import { AddByNameField, useAddByName } from "./add-by-name";
  * what you type looks like the heading you will get.
  */
 export function NewGroup({ placeholder }: { placeholder: string }) {
+  const t = useT();
   const adder = useAddByName(createGroupAction);
 
   return (
@@ -17,7 +19,7 @@ export function NewGroup({ placeholder }: { placeholder: string }) {
       <PlusIcon width={14} height={14} className="shrink-0 text-muted" />
       <AddByNameField
         state={adder}
-        label="New group name"
+        label={t("budget.newGroup.label")}
         placeholder={placeholder}
         className="text-xs font-semibold tracking-[0.07em] text-muted uppercase"
       />

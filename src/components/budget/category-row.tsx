@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import type { CategoryRow as Category } from "@/db/budget";
+import { useT } from "@/i18n/client";
+import type { Translate } from "@/i18n/translate";
 import { explainAvailable } from "@/lib/gauge";
 import { formatAmount, formatMoney } from "@/lib/money";
 import { transactionsHref } from "@/lib/transactions-address";
@@ -22,6 +24,31 @@ export function formatSpent(activity: number, currency: string, locale: string):
     : `+${formatAmount(activity, currency, locale)}`;
 }
 
+/** The sentence for the gauge's tooltip, from the parts `explainAvailable` found. */
+function availableSentence(
+  t: Translate,
+  category: Pick<Category, "assigned" | "activity" | "available">,
+  currency: string,
+  locale: string,
+): string {
+  const money = (minorUnits: number) => formatMoney(minorUnits, currency, locale);
+  const { overspentBy, parts } = explainAvailable(category);
+  const sum =
+    parts.length === 0
+      ? t("budget.gauge.explain.nothing")
+      : parts
+          .map(({ kind, amount }, i) =>
+            t(`budget.gauge.explain.${kind}`, {
+              amount:
+                i === 0 ? money(amount) : `${amount < 0 ? "−" : "+"} ${money(Math.abs(amount))}`,
+            }),
+          )
+          .join(" ");
+  return overspentBy === null
+    ? sum
+    : t("budget.gauge.explain.overspent", { amount: money(overspentBy), sum });
+}
+
 /**
  * One category in the budget table: its name and actions, Assigned, Spent
  * and Available, and under it the form for moving money while that is open.
@@ -38,6 +65,7 @@ export function CategoryRow({
   const { month, currency, locale } = useBudget();
   const { id, name, assigned, activity, available } = category;
   const availableLabel = formatMoney(available, currency, locale);
+  const t = useT();
   const menu = useMenu();
   // Which way money is being moved, while that form is open.
   const [moving, setMoving] = useState<Flow | null>(null);
@@ -66,7 +94,7 @@ export function CategoryRow({
             // The month's transactions behind the amount.
             <Link
               href={transactionsHref({ showAll: true, filter: { category: id, month } })}
-              title="See these transactions"
+              title={t("budget.row.seeTransactions")}
               className="rounded-sm underline-offset-2 hover:text-ink hover:underline"
             >
               {formatSpent(activity, currency, locale)}
@@ -78,7 +106,7 @@ export function CategoryRow({
             available={available}
             activity={activity}
             label={availableLabel}
-            explanation={explainAvailable(category, currency, locale)}
+            explanation={availableSentence(t, category, currency, locale)}
           />
         </td>
       </tr>
