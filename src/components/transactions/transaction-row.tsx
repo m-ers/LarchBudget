@@ -4,13 +4,15 @@ import { createContext, useContext, useLayoutEffect, useRef, useState } from "re
 import { useT } from "@/i18n/client";
 import { formatAmount } from "@/lib/money";
 import { RowAction } from "../budget/row-action";
-import { PencilIcon } from "../icons";
+import { PencilIcon, SplitIcon } from "../icons";
 import { TransactionForm, type EditedTransaction } from "./transaction-form";
 
 /** Opens and closes the form under a row, for the edit button in its last cell. */
 const RowEditing = createContext<{
   open: boolean;
   toggle: () => void;
+  /** Opens the form with the transaction already divided in two parts. */
+  openSplit: () => void;
   /** Takes the button, so focus can go back to it when the form closes. */
   button: (element: HTMLButtonElement | null) => void;
 } | null>(null);
@@ -33,6 +35,8 @@ export function TransactionRow({
 }) {
   const t = useT();
   const [open, setOpen] = useState(false);
+  // Opened by the split button: the form starts divided in two parts.
+  const [splitFirst, setSplitFirst] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   const id = transaction.id;
 
@@ -58,7 +62,14 @@ export function TransactionRow({
     <RowEditing
       value={{
         open,
-        toggle: () => setOpen((was) => !was),
+        toggle: () => {
+          setSplitFirst(false);
+          setOpen((was) => !was);
+        },
+        openSplit: () => {
+          setSplitFirst(true);
+          setOpen(true);
+        },
         button: (element) => {
           button.current = element;
         },
@@ -90,6 +101,7 @@ export function TransactionRow({
             <TransactionForm
               mode="edit"
               transaction={transaction}
+              startSplit={splitFirst}
               currency={currency}
               locale={locale}
               onClose={(byKeyboard) => {
@@ -120,6 +132,34 @@ export function EditTransaction({ describedAs }: { describedAs: string }) {
       expanded={open}
     >
       <PencilIcon width={15} height={15} />
+    </RowAction>
+  );
+}
+
+/**
+ * The fork that opens the form with the transaction already split, so
+ * splitting needs no visit to the pencil first. Not shown for a transaction
+ * that is split already, or while a form is open (it has its own split button).
+ */
+export function SplitTransaction({
+  describedAs,
+  split,
+}: {
+  describedAs: string;
+  /** The transaction is split already. */
+  split: boolean;
+}) {
+  const t = useT();
+  const editing = useContext(RowEditing);
+  if (!editing || editing.open || split) return null;
+  return (
+    <RowAction
+      label={t("transactions.form.splitRow", { what: describedAs })}
+      title={t("transactions.form.split")}
+      onClick={editing.openSplit}
+      revealOn="row"
+    >
+      <SplitIcon width={15} height={15} />
     </RowAction>
   );
 }

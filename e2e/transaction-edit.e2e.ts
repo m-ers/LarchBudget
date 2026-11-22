@@ -100,6 +100,34 @@ test("a part takes the remaining amount with one press", async ({ page }) => {
   await expect(page.getByRole("row").filter({ hasText: /^Household-14\.20$/ })).toBeVisible();
 });
 
+test("splits a transaction straight from its row, without opening the pencil first", async ({
+  page,
+}) => {
+  const row = page.getByRole("row").filter({ hasText: "Fresh Market" }).first();
+  await row.hover();
+  await row.getByRole("button", { name: /^Split Fresh Market on .* over categories$/ }).click();
+  const form = page.getByRole("form", { name: "Change Fresh Market" });
+  // It opens divided in two, with the part still to fill in ready.
+  await expect(form.getByLabel("Amount of part 1")).toHaveValue("45.10");
+  await expect(form.getByLabel("Category of part 2")).toBeFocused();
+  await form.getByLabel("Category of part 1").selectOption({ label: "Groceries" });
+  await form.getByLabel("Category of part 2").selectOption({ label: "Household" });
+  await form.getByLabel("Amount of part 2").fill("10");
+  await expect(form.getByLabel("Amount of part 1")).toHaveValue("35.10");
+  await form.getByRole("button", { name: "Save" }).click();
+  await expect(form).toBeHidden();
+  await expect(headerFigure(page)).toHaveText("5");
+
+  await page.getByRole("link", { name: /^All/ }).click();
+  await expect(page.getByRole("row").filter({ hasText: /^Groceries-35\.10$/ })).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: /^Household-10\.00$/ })).toBeVisible();
+  // Split already: the row offers no second split, only the pencil.
+  const split = page.getByRole("row").filter({ hasText: "Fresh Market" }).first();
+  await split.hover();
+  await expect(split.getByRole("button", { name: /^Change Fresh Market/ })).toBeVisible();
+  await expect(split.getByRole("button", { name: /over categories$/ })).toHaveCount(0);
+});
+
 test("narrowed to a category, a split counts with its part in that category", async ({ page }) => {
   await addSplit(page);
   await page

@@ -218,15 +218,15 @@ first.
 - The pencil that shows when you point at a row changes a transaction. For
   an imported one, the date, amount and account stay as the bank has them,
   so your account keeps matching the bank; the payee, note and category can
-  change.
-  To correct an imported amount, delete the transaction and add it yourself.
-  Importing the same file again leaves your changes as they are.
-- **Split**, the fork button next to the category, divides one payment over
-  several categories, such as a supermarket receipt over Groceries and
-  Household. Type the amounts of the smaller parts: the first part takes
-  what is left. The **=** button on a part gives it whatever the other parts
-  leave. The parts have to add up to the amount. In the list, a split shows
-  its parts under it; each category counts only its own part, also when you
-  narrow the list to one category.
+  change. To correct an imported amount, delete the transaction and add it
+  yourself. Importing the same file again leaves your changes as they are.
+- **Split** divides one payment over several categories, such as a
+  supermarket receipt over Groceries and Household. The fork next to the
+  pencil opens the transaction already split; in the form, the fork next to
+  the category does the same. Type the amounts of the smaller parts: the
+  first part takes what is left. The **=** button on a part gives it
+  whatever the other parts leave. The parts have to add up to the amount. In
+  the list, a split shows its parts under it; each category counts only its
+  own part, also when you narrow the list to one category.
 - Like imported history, a transaction dated on or before the day of an
   account's balance does not change what the account held on that day.

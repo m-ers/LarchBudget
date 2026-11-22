@@ -121,7 +121,8 @@
       "cancel": "Cancel",
       "importedTip": "As in the bank file. To change it, delete the transaction and add it yourself.",
       "takeRest": "Take the remaining {{amount}}",
-      "takeRestLabel": "Part {{n}} takes the remaining {{amount}}"
+      "takeRestLabel": "Part {{n}} takes the remaining {{amount}}",
+      "splitRow": "Split {{what}} over categories"
     }
   },
   "accounts": {

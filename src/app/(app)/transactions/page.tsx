@@ -17,7 +17,11 @@ import { CategorySelect } from "@/components/transactions/category-select";
 import { AddTransaction } from "@/components/transactions/add-transaction";
 import { DeleteTransaction } from "@/components/transactions/delete-transaction";
 import { TransactionFilters } from "@/components/transactions/transaction-filters";
-import { EditTransaction, TransactionRow } from "@/components/transactions/transaction-row";
+import {
+  EditTransaction,
+  SplitTransaction,
+  TransactionRow,
+} from "@/components/transactions/transaction-row";
 import { getDateLocale, getT } from "@/i18n/server";
 import { richText } from "@/i18n/rich";
 import { getConfig } from "@/lib/config";
@@ -195,7 +199,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
                   <th scope="col" className={`${heading} w-28 text-right`}>
                     {t("transactions.page.headingAmount")}
                   </th>
-                  <th scope="col" className={`${heading} w-20 pr-2.5`}>
+                  <th scope="col" className={`${heading} w-24 pr-2.5`}>
                     <span className="sr-only">{t("transactions.page.headingActions")}</span>
                   </th>
                 </tr>
@@ -253,6 +257,10 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
                         {!row.starting && (
                           <span className="flex items-center justify-end">
                             <EditTransaction describedAs={describedAs} />
+                            <SplitTransaction
+                              describedAs={describedAs}
+                              split={row.parts.length > 0}
+                            />
                             <DeleteTransaction
                               transactionId={row.id}
                               describedAs={describedAs}

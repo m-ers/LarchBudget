@@ -121,7 +121,8 @@
       "cancel": "Annuleren",
       "importedTip": "Zoals in het bankbestand. Wil je dit wijzigen, verwijder de transactie dan en voeg hem zelf toe.",
       "takeRest": "Neem het restant van {{amount}}",
-      "takeRestLabel": "Deel {{n}} neemt het restant van {{amount}}"
+      "takeRestLabel": "Deel {{n}} neemt het restant van {{amount}}",
+      "splitRow": "{{what}} splitsen over categorieën"
     }
   },
   "accounts": {

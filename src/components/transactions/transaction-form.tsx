@@ -44,7 +44,12 @@ type Props = {
       /** After adding, with where it went. */
       onAdded?: (place: SortTarget | "split") => void;
     }
-  | { mode: "edit"; transaction: EditedTransaction }
+  | {
+      mode: "edit";
+      transaction: EditedTransaction;
+      /** Open with the transaction already divided in two parts, for the split button of its row. */
+      startSplit?: boolean;
+    }
 );
 
 const UNSORTED = "unsorted";
@@ -105,16 +110,21 @@ export function TransactionForm(props: Props) {
         ? NO_CATEGORY
         : String(editing.categoryId),
   );
-  const [parts, setParts] = useState<Part[] | null>(() =>
-    editing && editing.parts.length > 0
-      ? editing.parts.map((part) =>
-          newPart(
-            part.categoryId === null ? NO_CATEGORY : String(part.categoryId),
-            toInputValue(part.amount * startSign, currency, locale),
-          ),
-        )
-      : null,
-  );
+  const startSplit = props.mode === "edit" && props.startSplit === true;
+  const [parts, setParts] = useState<Part[] | null>(() => {
+    if (editing && editing.parts.length > 0) {
+      return editing.parts.map((part) =>
+        newPart(
+          part.categoryId === null ? NO_CATEGORY : String(part.categoryId),
+          toInputValue(part.amount * startSign, currency, locale),
+        ),
+      );
+    }
+    // The first part keeps the category and amount; the second is for the person to fill in.
+    return startSplit
+      ? [newPart(place === UNSORTED ? NOT_CHOSEN : place, amount), newPart(NOT_CHOSEN, "")]
+      : null;
+  });
   // The first part takes the rest until it is typed in; an existing split is left as it is.
   const [firstFollows, setFirstFollows] = useState(!editing || editing.parts.length === 0);
 
@@ -316,7 +326,7 @@ export function TransactionForm(props: Props) {
         <div className="min-w-48 flex-1">
           <Field label={t("transactions.form.payee")}>
             <input
-              autoFocus
+              autoFocus={!startSplit}
               value={payee}
               maxLength={200}
               autoComplete="off"
@@ -412,6 +422,8 @@ export function TransactionForm(props: Props) {
                   return (
                     <li key={part.key} className="flex items-center gap-1.5">
                       <select
+                        // Opened by the split button of its row: start with the part still to fill in.
+                        autoFocus={startSplit && i === 1}
                         aria-label={t("transactions.form.partCategory", { n: i + 1 })}
                         value={part.category}
                         onChange={(e) => changePart(part.key, { category: e.target.value })}
