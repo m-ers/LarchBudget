@@ -441,9 +441,10 @@
       "done": "Hetzelfde toegewezen als in {{month}}."
     },
     "assignTargets": {
+      "button": "{{amount}} toewijzen",
+      "label": "Doelen toewijzen: {{amount}}",
       "need_one": "Je doel heeft deze maand nog {{amount}} nodig.",
       "need_other": "Je doelen hebben deze maand nog {{amount}} nodig.",
-      "assign": "Doelen toewijzen",
       "done": "Doelen toegewezen."
     },
     "moveMoney": {
@@ -466,13 +467,17 @@
       "onlyReady": "Er is maar {{amount}} nog toe te wijzen; verplaats je meer, dan wijs je meer toe dan je hebt."
     },
     "target": {
-      "toGo": "nog {{amount}}",
-      "toGoTip": "Je doel heeft deze maand nog {{amount}} nodig.",
+      "named": "{{target}}.",
+      "toGo": "{{target}} · nog {{amount}}.",
+      "clickToAssign": "Klik om toe te wijzen.",
+      "reached": "{{target}} · gehaald.",
+      "assignLabel": "Doel van {{name}} toewijzen: {{amount}}",
+      "assigned": "{{amount}} toegewezen aan {{name}}.",
       "explain": {
-        "monthly": "Doel: {{amount}} per maand.",
-        "topUp": "Doel: aanvullen tot {{amount}}.",
-        "byMonth": "Doel: {{amount}} in {{month}}.",
-        "byMonthPassed": "Doel: {{amount}} in {{month}}, en die maand is voorbij."
+        "monthly": "Doel: {{amount}} per maand",
+        "topUp": "Doel: aanvullen tot {{amount}}",
+        "byMonth": "Doel: {{amount}} in {{month}}",
+        "byMonthPassed": "Doel: {{amount}} in {{month}}, en die maand is voorbij"
       }
     },
     "targetForm": {

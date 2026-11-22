@@ -498,9 +498,10 @@
       "done": "Assigned the same as {{month}}."
     },
     "assignTargets": {
+      "button": "{{amount}} to assign",
+      "label": "Assign what targets need: {{amount}}",
       "need_one": "Your target needs {{amount}} more this month.",
       "need_other": "Your targets need {{amount}} more this month.",
-      "assign": "Assign targets",
       "done": "Targets assigned."
     },
     "moveMoney": {
@@ -523,13 +524,17 @@
       "onlyReady": "Only {{amount}} is ready to assign; moving more assigns more than you have."
     },
     "target": {
-      "toGo": "{{amount}} to go",
-      "toGoTip": "Your target needs {{amount}} more this month.",
+      "named": "{{target}}.",
+      "toGo": "{{target}} · {{amount}} to go.",
+      "clickToAssign": "Click to assign it.",
+      "reached": "{{target}} · reached.",
+      "assignLabel": "Assign the target for {{name}}: {{amount}}",
+      "assigned": "Assigned {{amount}} to {{name}}.",
       "explain": {
-        "monthly": "Target: {{amount}} every month.",
-        "topUp": "Target: top up to {{amount}}.",
-        "byMonth": "Target: {{amount}} by {{month}}.",
-        "byMonthPassed": "Target: {{amount}} by {{month}}, which has passed."
+        "monthly": "Target: {{amount}} every month",
+        "topUp": "Target: top up to {{amount}}",
+        "byMonth": "Target: {{amount}} by {{month}}",
+        "byMonthPassed": "Target: {{amount}} by {{month}}, which has passed"
       }
     },
     "targetForm": {

@@ -110,6 +110,14 @@ export const InfoIcon = (props: SVGProps<SVGSVGElement>) => (
   </Icon>
 );
 
+/** A target: a ring around a smaller one, ◎. Marks a category's target. */
+export const TargetIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <circle cx="12" cy="12" r="8.5" />
+    <circle cx="12" cy="12" r="3.5" />
+  </Icon>
+);
+
 /** Filled warning triangle. Always paired with text; never the only signal. */
 export const WarningIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true" className="shrink-0">

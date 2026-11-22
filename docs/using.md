@@ -89,8 +89,8 @@ up the column, so a whole month can be filled in from the keyboard.
   is overspent.
 - When you assign more than you have, Ready to assign turns red and says so.
 - In a month where nothing is assigned yet, one button assigns the same as
-  the month before. While [targets](#targets) need money, that line offers
-  **Assign targets** instead.
+  the month before. While [targets](#targets) need money, the header offers
+  to assign those instead.
 - A **Spent** amount is a link to the transactions behind it.
 
 ### Moving money
@@ -117,22 +117,25 @@ the kind and the amount, and **Save**.
   by June. What is still missing is spread evenly over the months until
   then, this one included, rounded up to the cent.
 
-While a target needs money, a quiet "€80 to go" shows under the category's
-Assigned amount; once it has what it needs, that goes. Point at Available to
-see the target. Targets ask for money in this month and later months only,
-never in a month that is over, and a "by a month" target needs nothing after
-its month. **Change target…** in the menu changes or removes it.
+A category with a target has a small ◎ in its Assigned field. While the
+target needs money, the ◎ is in colour, and an empty field shows the amount
+the target asks for, faded: it is not assigned yet. Click the ◎ to assign
+what is missing; point at it to see the target and what it still needs.
+Once the target has what it needs, the ◎ turns grey. Point at Available to
+see the target as well. Targets ask for money in this month and later months
+only, never in a month that is over, and a "by a month" target needs nothing
+after its month. **Change target…** in the menu changes or removes it.
 
-**Assign targets**, in the line above the groups, gives every category what
-its target still needs, all at once. When there is not enough money, it
-assigns all of it anyway: Ready to assign turns red, and you decide what to
-cut.
+While targets need money, a small button under the month, such as **◎ €455
+to assign**, gives every category what its target still needs, all at once.
+When there is not enough money, it assigns all of it anyway: Ready to assign
+turns red, and you decide what to cut.
 
 At the end of the month:
 
 1. Your salary comes in, and [counts for the next month](#income).
 2. Open the next month with the arrow beside the month.
-3. Choose **Assign targets**.
+3. Choose **◎ … to assign** under the month.
 4. Compare **Received** with **Assigned** under the month. What is left
    stays in Ready to assign, free for anything else.
 

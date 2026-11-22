@@ -8,7 +8,7 @@ import { richText } from "@/i18n/rich";
 import type { Translate } from "@/i18n/translate";
 import type { Month } from "@/lib/dates";
 import { formatMoney, formatMoneyParts } from "@/lib/money";
-import { primaryButton } from "../form";
+import { ErrorText, primaryButton } from "../form";
 import { Hero, HeroFigure } from "../hero";
 import { useSave } from "../use-save";
 import { ArchivedCategories } from "./archived-categories";
@@ -89,7 +89,7 @@ export function BudgetView({
   const hero = useRef<HTMLElement>(null);
   const heroInView = useInView(hero);
   const groupCount = budget.groups.filter(isGroup).length;
-  // Assigning the targets; kept here, as its line goes once they are met.
+  // Assigning the targets; kept here, as its button goes once they are met.
   const assigningTargets = useSave();
   // What the last change said in the status line (see `announce`).
   const [status, setStatus] = useState("");
@@ -107,14 +107,20 @@ export function BudgetView({
           sticks out of it. */}
       <div className="relative shrink-0">
         <Hero ref={hero}>
-          {/* As high as the arrows, so "This month" does not move the title. */}
-          <div className="relative flex h-7 items-center gap-x-4">
-            {monthNav}
-            {daysLeft !== null && (
-              <p className="text-[14.5px] whitespace-nowrap text-white/70">
-                {richText(t, "budget.header.daysToGo", { count: daysLeft }, { b: bold })}
-              </p>
-            )}
+          <div className="relative">
+            {/* As high as the arrows, so "This month" does not move the title. */}
+            <div className="flex h-7 items-center gap-x-4">
+              {monthNav}
+              {daysLeft !== null && (
+                <p className="text-[14.5px] whitespace-nowrap text-white/70">
+                  {richText(t, "budget.header.daysToGo", { count: daysLeft }, { b: bold })}
+                </p>
+              )}
+            </div>
+            {/* On its own under the month, while targets need money. It goes
+                once its work is done, and gives the focus to the month's
+                title first. */}
+            {budget.needed > 0 && <AssignTargets state={assigningTargets} />}
           </div>
           <HeroFigure
             amount={formatMoneyParts(ready, currency, locale)}
@@ -156,12 +162,12 @@ export function BudgetView({
           {status}
         </p>
 
-        {/* While targets need money, assigning them takes the place of
-            assigning the same as last month. Either line goes once its
-            button has done its work, and gives the focus to the month's
-            title first. */}
+        {/* While targets need money, the header offers to assign them, and
+            why that failed shows here; assigning the same as last month
+            waits until they need nothing. That line goes once its button
+            has done its work, and gives the focus to the month's title. */}
         {budget.needed > 0 ? (
-          <AssignTargets state={assigningTargets} />
+          <ErrorText error={assigningTargets.error} className="mx-3.5 mt-2.5 mb-1 text-sm" />
         ) : (
           budget.assignedLastMonth &&
           budget.groups.every((g) => g.categories.every((c) => c.assigned === 0)) && (

@@ -11,7 +11,7 @@ import { formatAmount, formatMoney, formatMoneyTrimmed } from "@/lib/money";
 import { transactionsHref } from "@/lib/transactions-address";
 import { useMenu } from "../menu";
 import { useSave } from "../use-save";
-import { AssignedInput } from "./assigned-input";
+import { AssignedInput, type TargetMark } from "./assigned-input";
 import { useBudget } from "./budget-context";
 import { CategoryName, type Place } from "./category-name";
 import { Gauge } from "./gauge";
@@ -27,8 +27,8 @@ export function formatSpent(activity: number, currency: string, locale: string):
     : `+${formatAmount(activity, currency, locale)}`;
 }
 
-/** The sentence that names a category's target, such as "Target: top up to €400." */
-function targetSentence(
+/** What names a category's target, such as "Target: top up to €400". */
+function targetName(
   t: Translate,
   target: TargetPart,
   currency: string,
@@ -41,6 +41,45 @@ function targetSentence(
   return target.passed
     ? t("budget.target.explain.byMonthPassed", { amount, month })
     : t("budget.target.explain.byMonth", { amount, month });
+}
+
+/**
+ * The ◎ in the Assigned field: what the target still needs, or that it is
+ * reached; in a month that is over, or after a "by a month" target's month,
+ * only what the target is.
+ */
+function targetMark(
+  t: Translate,
+  category: Pick<Category, "name" | "assigned" | "activity" | "available" | "target" | "needed">,
+  month: Month,
+  thisMonth: Month,
+  currency: string,
+  locale: string,
+  dates: string,
+): TargetMark | undefined {
+  const { target } = explainAvailable(category, month);
+  if (!target) return undefined;
+  const name = targetName(t, target, currency, locale, dates);
+  const { needed } = category;
+  if (needed > 0) {
+    const amount = formatMoneyTrimmed(needed, currency, locale);
+    const status = t("budget.target.toGo", { target: name, amount });
+    return {
+      asks: true,
+      needed,
+      status,
+      tip: `${status} ${t("budget.target.clickToAssign")}`,
+      label: t("budget.target.assignLabel", { name: category.name, amount }),
+      done: t("budget.target.assigned", { name: category.name, amount }),
+    };
+  }
+  const over = month < thisMonth || (target.kind === "byMonth" && target.passed);
+  return {
+    asks: false,
+    status: over
+      ? t("budget.target.named", { target: name })
+      : t("budget.target.reached", { target: name }),
+  };
 }
 
 /**
@@ -73,13 +112,15 @@ function availableSentence(
       ? sum
       : t("budget.gauge.explain.overspent", { amount: money(overspentBy), sum });
   // The target on a line of its own.
-  return target ? `${explained}\n${targetSentence(t, target, currency, locale, dates)}` : explained;
+  return target
+    ? `${explained}\n${t("budget.target.named", { target: targetName(t, target, currency, locale, dates) })}`
+    : explained;
 }
 
 /**
  * One category in the budget table: its name and actions, Assigned (with
- * what its target still needs under it), Spent and Available, and under it
- * the form for moving money or for its target while one is open.
+ * its target's ◎), Spent and Available, and under it the form for moving
+ * money or for its target while one is open.
  */
 export function CategoryRow({
   category,
@@ -90,8 +131,8 @@ export function CategoryRow({
   color: string;
   place: Place;
 }) {
-  const { month, currency, locale } = useBudget();
-  const { id, name, assigned, activity, available, needed } = category;
+  const { month, currency, locale, figures } = useBudget();
+  const { id, name, assigned, activity, available } = category;
   const availableLabel = formatMoney(available, currency, locale);
   const t = useT();
   const dates = useDateLocale();
@@ -100,7 +141,6 @@ export function CategoryRow({
   const iconSave = useSave();
   // The form open under the row: which way money is being moved, or the target.
   const [open, setOpen] = useState<Flow | "target" | null>(null);
-  const toGo = formatMoneyTrimmed(needed, currency, locale);
 
   function close(byKeyboard: boolean) {
     setOpen(null);
@@ -133,14 +173,7 @@ export function CategoryRow({
             categoryId={id}
             categoryName={name}
             value={assigned}
-            hint={
-              needed > 0
-                ? {
-                    text: t("budget.target.toGo", { amount: toGo }),
-                    tip: t("budget.target.toGoTip", { amount: toGo }),
-                  }
-                : undefined
-            }
+            target={targetMark(t, category, month, figures.thisMonth, currency, locale, dates)}
           />
         </td>
         <td className="text-right text-muted tabular-nums">
