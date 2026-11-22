@@ -13,7 +13,7 @@ import { formatMoney, parseMoney, toInputValue } from "@/lib/money";
 import { ErrorText, Field, field, primaryButton, selectField, sizedField } from "../form";
 import { InfoIcon, PlusIcon } from "../icons";
 import { useSave } from "../use-save";
-import { CategoryChoices } from "./category-choices";
+import { AccountChoices, CategoryChoices } from "./category-choices";
 
 /** A transaction as the form changes it. */
 export type EditedTransaction = {
@@ -23,6 +23,7 @@ export type EditedTransaction = {
   payee: string | null;
   note: string | null;
   imported: boolean;
+  accountId: number;
   toSort: boolean;
   categoryId: number | null;
   category: string | null;
@@ -38,8 +39,7 @@ type Props = {
 } & (
   | {
       mode: "add";
-      /** The open accounts, and the one to start with. */
-      accounts: { id: number; name: string }[];
+      /** The account to start with. */
       accountId: number;
       /** After adding, with where it went. */
       onAdded?: (place: SortTarget | "split") => void;
@@ -77,6 +77,7 @@ export function TransactionForm(props: Props) {
   const t = useT();
   const dates = useDateLocale();
   const groups = useContext(CategoryChoices);
+  const accounts = useContext(AccountChoices);
   const { error, setError, pending, save } = useSave();
   const form = useRef<HTMLFormElement>(null);
   const ids = useId();
@@ -87,7 +88,12 @@ export function TransactionForm(props: Props) {
   const [date, setDate] = useState<string>(editing?.date ?? today());
   const [payee, setPayee] = useState(editing?.payee ?? "");
   const [note, setNote] = useState(editing?.note ?? "");
-  const [accountId, setAccountId] = useState(props.mode === "add" ? props.accountId : 0);
+  const [accountId, setAccountId] = useState(
+    props.mode === "add" ? props.accountId : props.transaction.accountId,
+  );
+  // An imported transaction stays in its bank's account, and one in a closed account stays there.
+  const accountChosen =
+    !locked && accounts.some((account) => account.id === (editing?.accountId ?? accountId));
   const [direction, setDirection] = useState<"out" | "in">(startSign > 0 ? "in" : "out");
   const [amount, setAmount] = useState(
     editing ? toInputValue(Math.abs(editing.amount), currency, locale) : "",
@@ -216,12 +222,17 @@ export function TransactionForm(props: Props) {
     return total - parts.reduce((sum, part) => sum + (read(part.amount) ?? 0), 0);
   }
 
-  function close() {
-    onClose(form.current?.contains(document.activeElement) ?? false);
+  /** Whether the focus is in the form, and so should go back where it came from when it closes. */
+  const focusInForm = () => form.current?.contains(document.activeElement) ?? false;
+
+  function close(byKeyboard = focusInForm()) {
+    onClose(byKeyboard);
   }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    // Read now: Safari drops the focus from the Save button while it is disabled.
+    const byKeyboard = focusInForm();
     if (parts?.some((part) => part.category === NOT_CHOSEN)) {
       setError(t("errors.transactions.partCategory"));
       return;
@@ -233,6 +244,7 @@ export function TransactionForm(props: Props) {
       direction,
       payee,
       note,
+      accountId: editing && accountChosen ? accountId : undefined,
       place: parts
         ? parts.map((part) => ({
             categoryId: part.category === NO_CATEGORY ? null : Number(part.category),
@@ -251,18 +263,20 @@ export function TransactionForm(props: Props) {
       save(
         () => addTransactionAction(accountId, values),
         () => {
-          close();
+          close(byKeyboard);
           props.onAdded?.(chosen);
         },
       );
     } else {
-      save(() => editTransactionAction(props.transaction.id, values), close);
+      save(
+        () => editTransactionAction(props.transaction.id, values),
+        () => close(byKeyboard),
+      );
     }
   }
 
   const left = remainder();
   const control = `${field} px-2.5`;
-  const tipId = `${ids}-tip`;
 
   return (
     <form
@@ -283,9 +297,7 @@ export function TransactionForm(props: Props) {
       <div className="flex flex-wrap items-start gap-3">
         <div className="w-40">
           {editing && locked ? (
-            <Locked label={t("transactions.form.date")} tipId={tipId}>
-              {formatDate(editing.date, dates)}
-            </Locked>
+            <Locked label={t("transactions.form.date")}>{formatDate(editing.date, dates)}</Locked>
           ) : (
             <Field label={t("transactions.form.date")}>
               <input
@@ -313,7 +325,7 @@ export function TransactionForm(props: Props) {
             />
           </Field>
         </div>
-        {props.mode === "add" && (
+        {accountChosen && (
           <div className="w-44">
             <Field label={t("transactions.form.account")}>
               <select
@@ -321,7 +333,7 @@ export function TransactionForm(props: Props) {
                 onChange={(e) => setAccountId(Number(e.target.value))}
                 className={`${selectField} px-2.5`}
               >
-                {props.accounts.map((account) => (
+                {accounts.map((account) => (
                   <option key={account.id} value={account.id}>
                     {account.name}
                   </option>
@@ -332,7 +344,7 @@ export function TransactionForm(props: Props) {
         )}
         {editing && locked ? (
           <div className="w-44">
-            <Locked label={t("transactions.form.amount")} tipId={tipId}>
+            <Locked label={t("transactions.form.amount")}>
               <span className="tabular-nums">{formatMoney(editing.amount, currency, locale)}</span>
             </Locked>
           </div>
@@ -428,20 +440,21 @@ export function TransactionForm(props: Props) {
                   <PlusIcon width={14} height={14} />
                   {t("transactions.form.addPart")}
                 </button>
-                {left !== null && left !== 0 && (
-                  <span
-                    aria-live="polite"
-                    className={`text-[13.5px] tabular-nums ${left < 0 ? "text-bad" : "text-muted"}`}
-                  >
-                    {left > 0
+                {/* Always there, so its first message is read out too. */}
+                <span
+                  aria-live="polite"
+                  className={`text-[13.5px] tabular-nums ${left !== null && left < 0 ? "text-bad" : "text-muted"}`}
+                >
+                  {left === null || left === 0
+                    ? null
+                    : left > 0
                       ? t("transactions.form.left", {
                           amount: formatMoney(left, currency, locale),
                         })
                       : t("transactions.form.tooMuch", {
                           amount: formatMoney(-left, currency, locale),
                         })}
-                  </span>
-                )}
+                </span>
               </div>
             </>
           ) : (
@@ -494,7 +507,7 @@ export function TransactionForm(props: Props) {
         </button>
         <button
           type="button"
-          onClick={close}
+          onClick={() => close()}
           disabled={pending}
           className="rounded-[9px] px-2.5 py-1.5 font-medium text-muted transition-colors hover:bg-hover hover:text-ink disabled:opacity-60"
         >
@@ -502,25 +515,12 @@ export function TransactionForm(props: Props) {
         </button>
         <ErrorText error={error} as="span" className="text-[13.5px]" />
       </div>
-      {locked && (
-        <span id={tipId} hidden>
-          {t("transactions.form.importedTip")}
-        </span>
-      )}
     </form>
   );
 }
 
 /** A date or amount that cannot be changed, with why in the tip after its label. */
-function Locked({
-  label,
-  tipId,
-  children,
-}: {
-  label: string;
-  tipId: string;
-  children: React.ReactNode;
-}) {
+function Locked({ label, children }: { label: string; children: React.ReactNode }) {
   const t = useT();
   return (
     <div className="flex flex-col gap-1.5 text-sm font-medium">
@@ -534,8 +534,10 @@ function Locked({
           <InfoIcon width={14} height={14} />
         </span>
       </span>
-      <span aria-describedby={tipId} className="flex h-[38px] items-center text-[15px] font-normal">
+      <span className="flex h-[38px] items-center text-[15px] font-normal">
         {children}
+        {/* The tip after the label is for the eye; this is what a screen reader reads. */}
+        <span className="sr-only">{t("transactions.form.importedTip")}</span>
       </span>
     </div>
   );

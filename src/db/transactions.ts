@@ -183,6 +183,7 @@ export type TransactionRow = {
   payee: string | null;
   note: string | null;
   account: string;
+  accountId: number;
   categoryId: number | null;
   /** The category's name, also when that category has since been archived. */
   category: string | null;
@@ -266,6 +267,7 @@ export function listTransactions(
       payee: transactions.payee,
       note: transactions.note,
       account: accounts.name,
+      accountId: transactions.accountId,
       categoryId: transactions.categoryId,
       category: categories.name,
       categoryArchived: sql<boolean>`coalesce(${categories.archived}, 0)`.mapWith(Boolean),
@@ -490,7 +492,21 @@ export type TransactionInput = {
   note: string | null;
   /** One place, or the parts of a split that add up to `amount`. */
   place: Place;
+  /** When changing a transaction: the account it moves to. Left out, it stays where it is. */
+  accountId?: number;
 };
+
+/**
+ * The days a date typed by hand may be on; one outside them is a typo. Only
+ * a date that is typed is checked: an imported date stays as it came in.
+ */
+export type DateRange = { earliest: IsoDate; latest: IsoDate };
+
+function dateProblem(date: IsoDate, range?: DateRange): "early-date" | "future-date" | null {
+  if (!range) return null;
+  if (date < range.earliest) return "early-date";
+  return date > range.latest ? "future-date" : null;
+}
 
 /**
  * Adds a transaction by hand, such as a cash payment, to an open account.
@@ -503,8 +519,11 @@ export function addTransaction(
   db: Db,
   accountId: number,
   input: TransactionInput,
-): { id: number } | "no-account" | "no-category" | "parts" {
+  dates?: DateRange,
+): { id: number } | "no-account" | "no-category" | "parts" | "early-date" | "future-date" {
   return db.transaction((tx) => {
+    const wrongDate = dateProblem(input.date, dates);
+    if (wrongDate) return wrongDate;
     const [account] = tx
       .select({ id: accounts.id })
       .from(accounts)
@@ -532,16 +551,31 @@ export function addTransaction(
 }
 
 /**
- * Changes a transaction. Its date and amount stay as they are when it was
- * imported, so the account keeps matching the bank (`imported`), or when its
- * account is closed, which has to keep holding nothing (`closed`). A
- * starting balance is changed on the Accounts page instead.
+ * Changes a transaction. Its date, amount and account stay as they are when
+ * it was imported, so the account keeps matching the bank (`imported`), or
+ * when its account is closed, which has to keep holding nothing (`closed`);
+ * nor can it move to an account that is closed or gone. A starting balance
+ * is changed on the Accounts page instead.
+ *
+ * A changed transaction leaves the import that brought it in: undoing that
+ * import removes the others, and keeps what was worked on.
  */
 export function editTransaction(
   db: Db,
   id: number,
   input: TransactionInput,
-): "saved" | "no-transaction" | "starting" | "imported" | "closed" | "no-category" | "parts" {
+  dates?: DateRange,
+):
+  | "saved"
+  | "no-transaction"
+  | "starting"
+  | "imported"
+  | "closed"
+  | "no-account"
+  | "no-category"
+  | "parts"
+  | "early-date"
+  | "future-date" {
   return db.transaction((tx) => {
     const [found] = tx
       .select({
@@ -559,9 +593,23 @@ export function editTransaction(
       .all();
     if (!found) return "no-transaction";
     if (found.starting) return "starting";
-    const moved = input.date !== found.date || input.amount !== found.amount;
+    const accountId = input.accountId ?? found.accountId;
+    const otherAccount = accountId !== found.accountId;
+    const moved = input.date !== found.date || input.amount !== found.amount || otherAccount;
     if (moved && found.importId !== null) return "imported";
     if (moved && found.closed) return "closed";
+    if (input.date !== found.date) {
+      const wrongDate = dateProblem(input.date, dates);
+      if (wrongDate) return wrongDate;
+    }
+    if (otherAccount) {
+      const [open] = tx
+        .select({ id: accounts.id })
+        .from(accounts)
+        .where(and(eq(accounts.id, accountId), eq(accounts.archived, false)))
+        .all();
+      if (!open) return "no-account";
+    }
 
     const kept = new Set(
       [
@@ -578,11 +626,21 @@ export function editTransaction(
     if (problem) return problem;
 
     tx.update(transactions)
-      .set({ date: input.date, amount: input.amount, payee: input.payee, note: input.note })
+      .set({
+        accountId,
+        date: input.date,
+        amount: input.amount,
+        payee: input.payee,
+        note: input.note,
+        importBatch: null,
+      })
       .where(eq(transactions.id, id))
       .run();
     writePlace(tx, id, input.place);
-    if (moved) syncStartingBalance(tx, found.accountId);
+    if (moved) {
+      syncStartingBalance(tx, found.accountId);
+      if (otherAccount) syncStartingBalance(tx, accountId);
+    }
     return "saved";
   });
 }

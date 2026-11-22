@@ -1167,3 +1167,106 @@ describe("suggesting for split transactions", () => {
     });
   });
 });
+
+describe("dates typed by hand", () => {
+  const range = { earliest: "2000-01-01", latest: "2026-11-22" } as const;
+
+  it("refuses a new transaction dated outside the range", () => {
+    expect(addTransaction(db, checking, input({ date: "2026-11-23" }), range)).toBe("future-date");
+    expect(addTransaction(db, checking, input({ date: "1999-12-31" }), range)).toBe("early-date");
+    expect(countTransactions(db).all).toBe(1);
+  });
+
+  it("refuses a changed date outside the range", () => {
+    const id = add();
+    expect(editTransaction(db, id, input({ date: "2026-12-01" }), range)).toBe("future-date");
+    expect(find(id).date).toBe("2026-11-10");
+  });
+
+  it("leaves an imported date alone, even outside the range", () => {
+    importTransactions(db, checking, [row("2026-12-05", -2_000, "Concert tickets")], "a");
+    const t = listTransactions(db, { limit: 50 }).find((r) => r.payee === "Concert tickets")!;
+    expect(
+      editTransaction(db, t.id, input({ date: t.date, amount: t.amount, payee: "Concert" }), range),
+    ).toBe("saved");
+    expect(find(t.id).payee).toBe("Concert");
+  });
+});
+
+describe("moving to another account", () => {
+  let savings: number;
+  const savingsBalance = () => getAccounts(db).find((a) => a.id === savings)!.balance;
+
+  beforeEach(() => {
+    savings = created(
+      createAccount(db, {
+        name: "Savings",
+        type: "savings",
+        startingBalance: 50_000,
+        balanceDate: "2026-10-31",
+      }),
+    );
+  });
+
+  it("moves a transaction added by hand, and both balances follow", () => {
+    const id = add({ date: "2026-11-10", amount: -1_000 });
+    expect(balance()).toBe(99_000);
+    expect(editTransaction(db, id, input({ accountId: savings }))).toBe("saved");
+    expect(find(id).accountId).toBe(savings);
+    expect(balance()).toBe(100_000);
+    expect(savingsBalance()).toBe(49_000);
+  });
+
+  it("keeps the starting balance rule in both accounts", () => {
+    // Dated before both balance dates: neither account's balance on that day changes.
+    const id = add({ date: "2026-10-15", amount: -1_000 });
+    expect(editTransaction(db, id, input({ date: "2026-10-15", accountId: savings }))).toBe(
+      "saved",
+    );
+    expect(balance()).toBe(100_000);
+    expect(savingsBalance()).toBe(50_000);
+  });
+
+  it("refuses to move an imported transaction", () => {
+    importTransactions(db, checking, november, "a");
+    const t = listTransactions(db, { limit: 50 }).find((r) => r.payee === "Fresh Market")!;
+    expect(
+      editTransaction(db, t.id, input({ date: t.date, amount: t.amount, accountId: savings })),
+    ).toBe("imported");
+    expect(find(t.id).accountId).toBe(checking);
+  });
+
+  it("refuses an account that is closed or gone", () => {
+    const id = add();
+    expect(closeAccount(db, savings)).toBe("not-empty");
+    const empty = created(
+      createAccount(db, {
+        name: "Empty",
+        type: "cash",
+        startingBalance: 0,
+        balanceDate: "2026-10-31",
+      }),
+    );
+    expect(closeAccount(db, empty)).toBe("closed");
+    expect(editTransaction(db, id, input({ accountId: empty }))).toBe("no-account");
+    expect(editTransaction(db, id, input({ accountId: 9999 }))).toBe("no-account");
+    expect(find(id).accountId).toBe(checking);
+  });
+});
+
+describe("undoing an import after a change", () => {
+  it("keeps a transaction that was changed, and removes the others", () => {
+    importTransactions(db, checking, november, "a");
+    const t = listTransactions(db, { limit: 50 }).find((r) => r.payee === "Fresh Market")!;
+    // Changed, but still to sort.
+    editTransaction(
+      db,
+      t.id,
+      input({ date: t.date, amount: t.amount, payee: "Fresh Market Centre", place: "unsorted" }),
+    );
+    expect(undoImport(db, "a")).toMatchObject({ removed: 3, sorted: 0 });
+    expect(find(t.id)).toMatchObject({ payee: "Fresh Market Centre", toSort: true });
+    // The same file again brings back the others, and not this one twice.
+    expect(importTransactions(db, checking, november, "b")?.imported).toBe(3);
+  });
+});

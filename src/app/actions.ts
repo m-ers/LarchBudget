@@ -652,19 +652,13 @@ const MAX_PARTS = 30;
  * within a payment).
  */
 const transactionForm = z.object({
-  // A day of leeway, for a server whose clock is in another time zone.
-  date: z.iso
-    .date("errors.accounts.notADate")
-    .refine(
-      (date) => date <= today(new Date(Date.now() + 86_400_000)),
-      "errors.accounts.futureDate",
-    )
-    .refine((date) => date >= EARLIEST_BALANCE_DATE, "errors.accounts.checkYear")
-    .transform((date) => date as IsoDate),
+  date: z.iso.date("errors.accounts.notADate").transform((date) => date as IsoDate),
   amount: z.string().max(40),
   direction: z.enum(["out", "in"]),
   payee: z.string().trim().max(MAX_PAYEE_LENGTH),
   note: z.string().trim().max(MAX_NOTE_LENGTH),
+  /** When changing a transaction: the account it moves to. */
+  accountId: id.optional(),
   place: z.union([
     sortTarget,
     z
@@ -686,7 +680,7 @@ function readTransactionForm(
     const message = parsed.error.issues[0].message;
     return message.startsWith("errors.") ? firstProblem(t, parsed.error) : unexpected(t);
   }
-  const { date, direction, payee, note, place } = parsed.data;
+  const { date, direction, payee, note, place, accountId } = parsed.data;
   const sign = direction === "out" ? -1 : 1;
 
   const amount = parseAmount(parsed.data.amount);
@@ -711,16 +705,41 @@ function readTransactionForm(
       payee: payee || null,
       note: note || null,
       place: parts ?? (place as transactions.SortTarget),
+      accountId,
     },
   };
 }
 
+/**
+ * The days a typed date may be on. A day of leeway at the end, for a server
+ * whose clock is in another time zone.
+ */
+const typedDates = (): transactions.DateRange => ({
+  earliest: EARLIEST_BALANCE_DATE as IsoDate,
+  latest: today(new Date(Date.now() + 86_400_000)),
+});
+
 /** Turns why a transaction could not be added or changed into a message. */
 function transactionProblem(
   t: Translate,
-  problem: "no-category" | "parts" | "imported" | "closed" | "starting" | "no-transaction",
+  problem:
+    | "no-category"
+    | "parts"
+    | "imported"
+    | "closed"
+    | "starting"
+    | "no-transaction"
+    | "no-account"
+    | "early-date"
+    | "future-date",
 ): Failure {
   switch (problem) {
+    case "no-account":
+      return accountGone(t);
+    case "early-date":
+      return fail(t("errors.accounts.checkYear"));
+    case "future-date":
+      return fail(t("errors.accounts.futureDate"));
     case "no-category":
       return categoryGone(t);
     case "parts":
@@ -748,12 +767,11 @@ export async function addTransactionAction(
   const read = readTransactionForm(t, form);
   if (!read.ok) return read;
 
-  const result = transactions.addTransaction(db, accountId, read.value);
-  if (result === "no-account") return accountGone(t);
+  const result = transactions.addTransaction(db, accountId, read.value, typedDates());
   return typeof result === "string" ? transactionProblem(t, result) : done();
 }
 
-/** Changes a transaction: for an imported one, everything but its date and amount. */
+/** Changes a transaction: for an imported one, everything but its date, amount and account. */
 export async function editTransactionAction(
   transactionId: number,
   form: TransactionForm,
@@ -765,7 +783,7 @@ export async function editTransactionAction(
   const read = readTransactionForm(t, form);
   if (!read.ok) return read;
 
-  const result = transactions.editTransaction(db, transactionId, read.value);
+  const result = transactions.editTransaction(db, transactionId, read.value, typedDates());
   return result === "saved" ? done() : transactionProblem(t, result);
 }
 

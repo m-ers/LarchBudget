@@ -14,13 +14,11 @@ import { TransactionForm } from "./transaction-form";
  * opens, where it is.
  */
 export function AddTransaction({
-  accounts,
   accountId,
   showAll,
   currency,
   locale,
 }: {
-  accounts: { id: number; name: string }[];
   accountId: number;
   showAll: boolean;
   currency: string;
@@ -47,7 +45,6 @@ export function AddTransaction({
         <div className="order-last basis-full pt-1.5">
           <TransactionForm
             mode="add"
-            accounts={accounts}
             accountId={accountId}
             currency={currency}
             locale={locale}

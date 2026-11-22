@@ -96,7 +96,10 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
       </Hero>
 
       <section className="flex-1 rounded-2xl border border-line bg-surface px-2.5 pt-2.5 pb-2.5">
-        <CategoryChoicesProvider groups={groups}>
+        <CategoryChoicesProvider
+          groups={groups}
+          accounts={openAccounts.map(({ id, name }) => ({ id, name }))}
+        >
           <div className="flex flex-wrap items-center gap-1 px-1 pb-2">
             <Link
               href="/transactions"
@@ -116,7 +119,6 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
             </Link>
             {addTo && (
               <AddTransaction
-                accounts={openAccounts.map(({ id, name }) => ({ id, name }))}
                 accountId={addTo.id}
                 showAll={showAll}
                 currency={currency}

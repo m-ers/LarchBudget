@@ -138,7 +138,10 @@ export const transactions = sqliteTable(
      * overlapping file never adds the same transaction twice.
      */
     importId: text("import_id"),
-    /** Identifies the import that added this row, so one import can be undone. */
+    /**
+     * Identifies the import that added this row, so one import can be undone.
+     * Cleared when the row is changed by hand, so undoing keeps that work.
+     */
     importBatch: text("import_batch"),
     createdAt,
   },

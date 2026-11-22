@@ -114,6 +114,8 @@ test("changes the payee, note and category of an imported transaction, never its
   await expect(form.getByLabel("Date")).toHaveCount(0);
   await expect(form.getByLabel("Amount", { exact: true })).toHaveCount(0);
   await expect(form).toContainText("-€45.10");
+  // It stays in the account of its bank file.
+  await expect(form.getByLabel("Account")).toHaveCount(0);
 
   await form.getByLabel("Payee").fill("Fresh Market Centre");
   await form.getByLabel("Note").fill("Weekly shop");
@@ -130,6 +132,8 @@ test("changes the payee, note and category of an imported transaction, never its
 });
 
 test("changes everything of a transaction added by hand", async ({ page }) => {
+  await addAccount(page, "Cash", "50");
+  await page.getByRole("link", { name: /^Transactions/ }).click();
   await page.getByRole("button", { name: "Add transaction" }).click();
   const add = addForm(page);
   await add.getByLabel("Date").fill("2026-11-10");
@@ -146,6 +150,7 @@ test("changes everything of a transaction added by hand", async ({ page }) => {
   await expect(form.getByRole("radio", { name: "In" })).toBeChecked();
   await form.getByLabel("Amount", { exact: true }).fill("12.50");
   await form.getByLabel("Category", { exact: true }).selectOption({ label: "Household" });
+  await form.getByLabel("Account").selectOption({ label: "Cash" });
   await form.getByRole("button", { name: "Save" }).click();
   await expect(form).toBeHidden();
   await expect(headerFigure(page)).toHaveText("6");
@@ -153,5 +158,6 @@ test("changes everything of a transaction added by hand", async ({ page }) => {
   await page.getByRole("link", { name: /^All/ }).click();
   const row = page.getByRole("row").filter({ hasText: "Car boot sale" });
   await expect(row).toContainText("Nov 12, 2026");
+  await expect(row).toContainText("Cash");
   await expect(row).toContainText("+12.50");
 });
