@@ -157,6 +157,21 @@ test("changes the payee, note and category of an imported transaction, never its
   await expect(row).toContainText("-45.10");
 });
 
+test("saving a transaction that leaves the To sort list moves the focus to the next one", async ({
+  page,
+}) => {
+  const form = await openEdit(page, "Fresh Market");
+  await form.getByLabel("Category", { exact: true }).selectOption({ label: "Groceries" });
+  await form.getByLabel("Payee").focus();
+  await page.keyboard.press("Enter");
+  await expect(form).toBeHidden();
+  await expect(headerFigure(page)).toHaveText("5");
+
+  const next = page.getByRole("combobox", { name: /^Category for / }).first();
+  await expect(next).toHaveAccessibleName(/^Category for Coffee Bar /);
+  await expect(next).toBeFocused();
+});
+
 test("changes everything of a transaction added by hand", async ({ page }) => {
   await addAccount(page, "Cash", "50");
   await page.getByRole("link", { name: /^Transactions/ }).click();

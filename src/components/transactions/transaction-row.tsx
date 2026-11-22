@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useRef, useState } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, useState } from "react";
 import { useT } from "@/i18n/client";
 import { formatAmount } from "@/lib/money";
 import { RowAction } from "../budget/row-action";
@@ -34,6 +34,25 @@ export function TransactionRow({
   const t = useT();
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
+  const id = transaction.id;
+
+  // On the To sort list, or narrowed to a category, a saved transaction can
+  // leave the list. If the focus was in it, it goes to the next transaction
+  // still to sort, as sorting with the picker does, and not back to the page.
+  useLayoutEffect(
+    () => () => {
+      const mine = `[data-transaction-row="${id}"]`;
+      let row = document.activeElement?.closest(mine)?.nextElementSibling;
+      while (row) {
+        const control = row.matches(mine)
+          ? null
+          : row.querySelector<HTMLElement>("[data-sort-control]");
+        if (control) return control.focus();
+        row = row.nextElementSibling;
+      }
+    },
+    [id],
+  );
 
   return (
     <RowEditing
@@ -45,9 +64,11 @@ export function TransactionRow({
         },
       }}
     >
-      <tr className="data-row group/row">{children}</tr>
+      <tr data-transaction-row={id} className="data-row group/row">
+        {children}
+      </tr>
       {transaction.parts.map((part, i) => (
-        <tr key={i} className="part-row text-[13.5px] text-muted">
+        <tr key={i} data-transaction-row={id} className="part-row text-[13.5px] text-muted">
           <td colSpan={3} />
           <td className="h-[26px] truncate pl-2.5">
             {part.categoryId === null
@@ -64,7 +85,7 @@ export function TransactionRow({
         </tr>
       ))}
       {open && (
-        <tr>
+        <tr data-transaction-row={id}>
           <td colSpan={6} className="px-1 pt-1 pb-3">
             <TransactionForm
               mode="edit"
