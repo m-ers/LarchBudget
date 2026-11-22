@@ -71,3 +71,31 @@ describe("explainAvailable", () => {
     expect(explain(0, 0, 0)).toEqual({ overspentBy: null, parts: [] });
   });
 });
+
+describe("explainAvailable's target", () => {
+  const figures = { assigned: 0, activity: 0, available: 0 };
+
+  it("is left out without a target", () => {
+    expect(explainAvailable(figures).target).toBeUndefined();
+    expect(explainAvailable({ ...figures, target: null }, "2026-11").target).toBeUndefined();
+  });
+
+  it("names the kind and the amount", () => {
+    expect(
+      explainAvailable({ ...figures, target: { kind: "topUp", amount: 40_000 } }, "2026-11").target,
+    ).toEqual({ kind: "topUp", amount: 40_000 });
+    expect(
+      explainAvailable({ ...figures, target: { kind: "monthly", amount: 110_000 } }, "2026-11")
+        .target,
+    ).toEqual({ kind: "monthly", amount: 110_000 });
+  });
+
+  it("says whether the month of a by-a-month target has passed", () => {
+    const target = { kind: "byMonth" as const, amount: 120_000, month: "2027-06" as const };
+    const passed = (month: "2026-11" | "2027-06" | "2027-07") =>
+      explainAvailable({ ...figures, target }, month).target;
+    expect(passed("2026-11")).toEqual({ ...target, passed: false });
+    expect(passed("2027-06")).toEqual({ ...target, passed: false });
+    expect(passed("2027-07")).toEqual({ ...target, passed: true });
+  });
+});

@@ -58,9 +58,11 @@ body {
   font-size: 15px;
 }
 
-/* Keyboard focus is a ring around buttons, links and tick boxes. */
+/* Keyboard focus is a ring around buttons, links and tick boxes. On a dark
+   surface (the sidebar, the header block) `--focus-ring` makes it white, so
+   it shows against the dark green. */
 :focus-visible {
-  outline: 2px solid var(--brand);
+  outline: 2px solid var(--focus-ring, var(--brand));
   outline-offset: 2px;
 }
 

@@ -36,6 +36,15 @@ export function addMonths(month: Month, delta: number): Month {
   return `${Math.floor(index / 12)}-${pad((index % 12) + 1)}` as Month;
 }
 
+/** How many months `to` is after `from`: monthsBetween("2026-11", "2027-06") -> 7. */
+export function monthsBetween(from: Month, to: Month): number {
+  const index = (month: Month) => {
+    const [year, m] = month.split("-").map(Number);
+    return year * 12 + (m - 1);
+  };
+  return index(to) - index(from);
+}
+
 /** First day of the month, e.g. "2026-11-01". */
 export function monthStart(month: Month): IsoDate {
   return `${month}-01` as IsoDate;
@@ -57,6 +66,11 @@ function utc(value: Month | IsoDate): Date {
 const monthFormat = memoize(
   (locale: string) =>
     new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: "UTC" }),
+);
+
+const shortMonthFormat = memoize(
+  (locale: string) =>
+    new Intl.DateTimeFormat(locale, { month: "short", year: "numeric", timeZone: "UTC" }),
 );
 
 const dateFormat = memoize(
@@ -85,6 +99,11 @@ export function monthName(month: Month, locale: string): string {
 /** A month for display, e.g. "November 2026" or "november 2026". */
 export function formatMonth(month: Month, locale: string): string {
   return monthFormat(locale).format(utc(month));
+}
+
+/** A month in fewer letters, for a narrow list: "Jun 2027" or "jun 2027". */
+export function formatMonthShort(month: Month, locale: string): string {
+  return shortMonthFormat(locale).format(utc(month));
 }
 
 /** A date for display, e.g. "Nov 3, 2026" or "3 nov 2026". */

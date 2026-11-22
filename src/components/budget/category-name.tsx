@@ -30,11 +30,18 @@ type Props = {
   menu: ReturnType<typeof useMenu>;
   /**
    * For an expense category: what it holds over all time (what archiving
-   * gives back) and this month, and opening the form for moving money out
-   * of it, or into it to cover overspending. Left out for an income
-   * category, which holds no money and has no group to leave.
+   * gives back) and this month, whether it has a target, and opening the
+   * form for moving money out of it, or into it to cover overspending, or
+   * the form for its target. Left out for an income category, which holds
+   * no money and has no group to leave.
    */
-  money?: { balance: number; available: number; onMoveMoney: (flow: Flow) => void };
+  money?: {
+    balance: number;
+    available: number;
+    hasTarget: boolean;
+    onMoveMoney: (flow: Flow) => void;
+    onTarget: () => void;
+  };
   /**
    * For an income category: whether what comes in counts for the next month,
    * which its menu switches. Left out for an expense category.
@@ -115,6 +122,10 @@ export function CategoryName({
               },
             ]
           : []),
+        {
+          label: money.hasTarget ? t("budget.menu.changeTarget") : t("budget.menu.setTarget"),
+          onSelect: money.onTarget,
+        },
       ]
     : [];
 

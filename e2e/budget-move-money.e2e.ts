@@ -27,6 +27,36 @@ async function choose(picker: Locator, name: string) {
 
 const form = (page: Page) => page.getByRole("form");
 
+/** The month `offset` months from now, as the budget's address writes it: "2026-11". */
+function month(offset: number): string {
+  const now = new Date();
+  const date = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** Imports €70.00 spent at Fresh Market on the first of this month, and sorts it into Groceries. */
+async function spendOnGroceries(page: Page) {
+  await page.getByRole("link", { name: "Import from bank" }).click();
+  await page.getByLabel("Bank file").setInputFiles({
+    name: "groceries.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      `Date,Name,Description,Amount\n${month(0)}-01,Fresh Market,Card payment,-70.00`,
+    ),
+  });
+  await page.getByRole("button", { name: "Import 1 transaction into Main account" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Imported 1 transaction into Main account." }),
+  ).toBeVisible();
+
+  await page.goto("/transactions?show=all");
+  const picker = page.getByRole("combobox", { name: /^Category for Fresh Market on / });
+  const saved = page.waitForResponse((response) => response.request().method() === "POST");
+  await picker.focus();
+  await picker.selectOption({ label: "Groceries" });
+  await saved;
+}
+
 test.beforeEach(async ({ page }) => {
   await addAccount(page, "Main account", "1000");
   await page.goto("/");
@@ -64,6 +94,46 @@ test("money moves from one category to another, and Ready to assign stays", asyn
 
   await page.reload();
   await expect(available(page, "Holiday")).toHaveText("€150.00");
+});
+
+test("moving starts from what the category holds, selected so typing replaces it", async ({
+  page,
+}) => {
+  await openMenu(page, "Groceries");
+  await menuItem(page, "Move money…").click();
+  const amount = page.getByRole("textbox", { name: "Amount to move" });
+  await expect(amount).toHaveValue("300.00");
+  await expect(amount).toBeFocused();
+  expect(await amount.evaluate((field: HTMLInputElement) => field.selectionEnd)).toBe(6);
+  expect(await amount.evaluate((field: HTMLInputElement) => field.selectionStart)).toBe(0);
+  await page.keyboard.press("Escape");
+
+  // A category that holds nothing starts empty.
+  await openMenu(page, "Repairs");
+  await menuItem(page, "Move money…").click();
+  await expect(page.getByRole("textbox", { name: "Amount to move" })).toHaveValue("");
+});
+
+test("in an earlier month, moving starts from what the category still holds", async ({ page }) => {
+  // Groceries: €100 assigned last month, nothing this month, and €70 spent
+  // this month. Last month ended with €100, but only €30 of it is left.
+  await assignAndSave(page, "Groceries", "");
+  await page.goto(`/?month=${month(-1)}`);
+  await assignAndSave(page, "Groceries", "100");
+  await spendOnGroceries(page);
+
+  await page.goto(`/?month=${month(-1)}`);
+  await expect(available(page, "Groceries")).toHaveText("€100.00");
+  await openMenu(page, "Groceries");
+  await menuItem(page, "Move money…").click();
+  const amount = form(page).getByRole("textbox", { name: "Amount to move" });
+  await expect(amount).toHaveValue("30.00");
+  // As much as the form says the category holds.
+  await expect(form(page).getByText(/leaves it overspent/)).toHaveCount(0);
+  await amount.fill("30.01");
+  await expect(
+    form(page).getByText("Groceries holds €30.00; moving more leaves it overspent."),
+  ).toBeVisible();
 });
 
 test("money moves back to Ready to assign", async ({ page }) => {

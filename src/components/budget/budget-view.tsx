@@ -8,9 +8,11 @@ import { richText } from "@/i18n/rich";
 import type { Translate } from "@/i18n/translate";
 import type { Month } from "@/lib/dates";
 import { formatMoney, formatMoneyParts } from "@/lib/money";
-import { primaryButton } from "../form";
+import { ErrorText, primaryButton } from "../form";
 import { Hero, HeroFigure } from "../hero";
+import { useSave } from "../use-save";
 import { ArchivedCategories } from "./archived-categories";
+import { AssignTargets } from "./assign-targets";
 import { applyChange } from "./budget-changes";
 import { BudgetContext } from "./budget-context";
 import { CopyLastMonth } from "./copy-last-month";
@@ -30,7 +32,7 @@ type Props = {
   locale: string;
   /** Days left in the month, or null when it is not the current month. */
   daysLeft: number | null;
-  /** The month's title and the links to other months. */
+  /** The month's title, an `h1` that can take the focus, and the links to other months. */
   monthNav: React.ReactNode;
 };
 
@@ -87,22 +89,38 @@ export function BudgetView({
   const hero = useRef<HTMLElement>(null);
   const heroInView = useInView(hero);
   const groupCount = budget.groups.filter(isGroup).length;
+  // Assigning the targets; kept here, as its button goes once they are met.
+  const assigningTargets = useSave();
+  // What the last change said in the status line (see `announce`).
+  const [status, setStatus] = useState("");
+
+  function focusTitle() {
+    hero.current?.querySelector<HTMLElement>("h1")?.focus();
+  }
 
   return (
-    <BudgetContext value={{ month, currency, locale, figures: budget, show }}>
+    <BudgetContext
+      value={{ month, currency, locale, figures: budget, show, announce: setStatus, focusTitle }}
+    >
       {/* The card that shows how Ready to assign adds up opens under the
           header, lined up with its right edge: the header clips what
           sticks out of it. */}
       <div className="relative shrink-0">
         <Hero ref={hero}>
-          {/* As high as the arrows, so "This month" does not move the title. */}
-          <div className="relative flex h-7 items-center gap-x-4">
-            {monthNav}
-            {daysLeft !== null && (
-              <p className="text-[14.5px] whitespace-nowrap text-white/70">
-                {richText(t, "budget.header.daysToGo", { count: daysLeft }, { b: bold })}
-              </p>
-            )}
+          <div className="relative">
+            {/* As high as the arrows, so "This month" does not move the title. */}
+            <div className="flex h-7 items-center gap-x-4">
+              {monthNav}
+              {daysLeft !== null && (
+                <p className="text-[14.5px] whitespace-nowrap text-white/70">
+                  {richText(t, "budget.header.daysToGo", { count: daysLeft }, { b: bold })}
+                </p>
+              )}
+            </div>
+            {/* On its own under the month, while targets need money. It goes
+                once its work is done, and gives the focus to the month's
+                title first. */}
+            {budget.needed > 0 && <AssignTargets state={assigningTargets} />}
           </div>
           <HeroFigure
             amount={formatMoneyParts(ready, currency, locale)}
@@ -140,10 +158,22 @@ export function BudgetView({
           </div>
         )}
 
-        {budget.assignedLastMonth &&
+        <p role="status" className="sr-only">
+          {status}
+        </p>
+
+        {/* While targets need money, the header offers to assign them, and
+            why that failed shows here; assigning the same as last month
+            waits until they need nothing. That line goes once its button
+            has done its work, and gives the focus to the month's title. */}
+        {budget.needed > 0 ? (
+          <ErrorText error={assigningTargets.error} className="mx-3.5 mt-2.5 mb-1 text-sm" />
+        ) : (
+          budget.assignedLastMonth &&
           budget.groups.every((g) => g.categories.every((c) => c.assigned === 0)) && (
             <CopyLastMonth />
-          )}
+          )
+        )}
 
         <table className="w-full border-collapse">
           <TableHead

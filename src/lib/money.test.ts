@@ -3,6 +3,7 @@ import {
   formatAmount,
   formatMoney,
   formatMoneyParts,
+  formatMoneyTrimmed,
   minorUnitDigits,
   parseMoney,
   toInputValue,
@@ -83,6 +84,18 @@ describe("parseMoney", () => {
     expect(eur("1,234.5,6")).toBeNull();
     expect(eur("12345.678", "nl-NL")).toBeNull();
     expect(eur(",50")).toBeNull();
+  });
+});
+
+describe("formatMoneyTrimmed", () => {
+  it("leaves out the cents only when they are zero", () => {
+    expect(formatMoneyTrimmed(8_000, "EUR", "en-US")).toBe("€80");
+    expect(formatMoneyTrimmed(110_000, "EUR", "en-US")).toBe("€1,100");
+    expect(formatMoneyTrimmed(17_143, "EUR", "en-US")).toBe("€171.43");
+    expect(formatMoneyTrimmed(17_140, "EUR", "en-US")).toBe("€171.40");
+    expect(formatMoneyTrimmed(1, "EUR", "en-US")).toBe("€0.01");
+    expect(formatMoneyTrimmed(8_000, "EUR", "nl-NL")).toBe("€\u00a080");
+    expect(formatMoneyTrimmed(110_050, "EUR", "nl-NL")).toBe("€\u00a01.100,50");
   });
 });
 

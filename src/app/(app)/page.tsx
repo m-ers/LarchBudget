@@ -62,7 +62,9 @@ async function MonthNav({ month, thisMonth }: { month: Month; thisMonth: Month }
       >
         <ChevronLeftIcon width={15} height={15} />
       </Link>
-      <HeroTitle>
+      {/* Focusable for the budget, which moves the focus here when the
+          button that had it goes away. */}
+      <HeroTitle tabIndex={-1}>
         {monthLabelParts(month, locale).map((part, i) =>
           part.type === "year" ? (
             <span key={i} className="font-normal opacity-65">

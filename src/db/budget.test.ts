@@ -1,11 +1,13 @@
-import { eq, isNull } from "drizzle-orm";
+import { eq, isNull, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { addMonths, type IsoDate, type Month } from "../lib/dates";
 import { readyLines } from "../lib/ready";
+import type { Target } from "../lib/targets";
 import { createAccount, getAccounts } from "./accounts";
 import * as budget from "./budget";
 import {
   archiveCategory,
+  assignTargets,
   copyAssignments,
   deleteGroup,
   getArchivedCategories,
@@ -14,6 +16,7 @@ import {
   moveCategoryToGroup,
   moveGroup,
   moveMoney,
+  removeTarget,
   renameCategory,
   renameGroup,
   restoreCategory,
@@ -21,6 +24,7 @@ import {
   setNextMonth,
   setCategoryIcon,
   setGroupColor,
+  setTarget,
 } from "./budget";
 import { openDb, type Db } from "./index";
 import { assignments, categories, transactions } from "./schema";
@@ -416,6 +420,8 @@ describe("category balances", () => {
       activity: -10_000,
       available: 20_000,
       balance: 20_000,
+      target: null,
+      needed: 0,
     });
   });
 
@@ -1416,5 +1422,330 @@ describe("category icons", () => {
     const rent = createCategory(db, "Rent");
     db.update(categories).set({ icon: "rocket" }).where(eq(categories.id, rent)).run();
     expect(icons()).toEqual([["Rent", undefined]]);
+  });
+});
+
+describe("targets", () => {
+  // Seen in November 2026: October is over, November is the current month.
+  const NOW: Month = "2026-11";
+  const month = (m: Month) => getBudgetMonth(db, m, NOW);
+  /** Each category's name, target and what it needs in a month. */
+  const needs = (m: Month) =>
+    month(m).groups.flatMap((g) => g.categories.map((c) => [c.name, c.needed]));
+  const stored = (id: number) =>
+    db
+      .select({
+        kind: categories.targetKind,
+        amount: categories.targetAmount,
+        month: categories.targetMonth,
+      })
+      .from(categories)
+      .where(eq(categories.id, id))
+      .get();
+
+  const monthly = (amount: number): Target => ({ kind: "monthly", amount });
+  const topUp = (amount: number): Target => ({ kind: "topUp", amount });
+  const byMonth = (amount: number, m: Month): Target => ({ kind: "byMonth", amount, month: m });
+
+  describe("setting and removing", () => {
+    it("stores each kind, and the budget reads it back", () => {
+      const rent = createCategory(db, "Rent");
+      const groceries = createCategory(db, "Groceries");
+      const holiday = createCategory(db, "Holiday");
+      expect(setTarget(db, rent, monthly(110_000))).toBe("set");
+      expect(setTarget(db, groceries, topUp(40_000))).toBe("set");
+      expect(setTarget(db, holiday, byMonth(120_000, "2027-06"))).toBe("set");
+
+      expect(month(NOW).groups[0].categories.map((c) => [c.name, c.target])).toEqual([
+        ["Rent", { kind: "monthly", amount: 110_000 }],
+        ["Groceries", { kind: "topUp", amount: 40_000 }],
+        ["Holiday", { kind: "byMonth", amount: 120_000, month: "2027-06" }],
+      ]);
+      expect(stored(rent)).toEqual({ kind: "monthly", amount: 110_000, month: null });
+    });
+
+    it("replaces the target it had, and forgets the month of a by-a-month target", () => {
+      const holiday = createCategory(db, "Holiday");
+      setTarget(db, holiday, byMonth(120_000, "2027-06"));
+      expect(setTarget(db, holiday, topUp(50_000))).toBe("set");
+      expect(stored(holiday)).toEqual({ kind: "topUp", amount: 50_000, month: null });
+    });
+
+    it("removes a target", () => {
+      const rent = createCategory(db, "Rent");
+      setTarget(db, rent, monthly(110_000));
+      expect(removeTarget(db, rent)).toBe(true);
+      expect(stored(rent)).toEqual({ kind: null, amount: null, month: null });
+      expect(month(NOW).groups[0].categories[0]).toMatchObject({ target: null, needed: 0 });
+    });
+
+    it("refuses what is not a target, and then nothing changes", () => {
+      const rent = createCategory(db, "Rent");
+      setTarget(db, rent, monthly(110_000));
+      for (const wrong of [
+        { kind: "monthly", amount: 0 },
+        { kind: "topUp", amount: -100 },
+        { kind: "monthly", amount: 12.5 },
+        { kind: "monthly", amount: Number.MAX_SAFE_INTEGER + 1 },
+        { kind: "weekly", amount: 100 },
+        { kind: "byMonth", amount: 100 },
+        { kind: "byMonth", amount: 100, month: "2027-13" },
+        { kind: "monthly", amount: 100, month: "2027-06" },
+      ]) {
+        expect(setTarget(db, rent, wrong as Target)).toBe("invalid");
+      }
+      expect(stored(rent)).toEqual({ kind: "monthly", amount: 110_000, month: null });
+    });
+
+    it("refuses an income category, an archived one and one that is not there", () => {
+      const salary = createIncomeCategory("Salary");
+      const old = createCategory(db, "Old");
+      archiveCategory(db, old);
+      expect(setTarget(db, salary, monthly(100))).toBe("no-category");
+      expect(setTarget(db, old, monthly(100))).toBe("no-category");
+      expect(setTarget(db, 999, monthly(100))).toBe("no-category");
+      expect(stored(salary)).toEqual({ kind: null, amount: null, month: null });
+      expect(stored(old)).toEqual({ kind: null, amount: null, month: null });
+
+      expect(removeTarget(db, salary)).toBe(false);
+      expect(removeTarget(db, old)).toBe(false);
+      expect(removeTarget(db, 999)).toBe(false);
+    });
+
+    it("stay with a category that is archived and restored", () => {
+      const rent = createCategory(db, "Rent");
+      setTarget(db, rent, monthly(110_000));
+      archiveCategory(db, rent);
+      // Kept while archived, and it cannot be removed then.
+      expect(removeTarget(db, rent)).toBe(false);
+      expect(stored(rent)).toEqual({ kind: "monthly", amount: 110_000, month: null });
+      restoreCategory(db, rent);
+      expect(month(NOW).groups[0].categories[0]).toMatchObject({
+        target: { kind: "monthly", amount: 110_000 },
+        needed: 110_000,
+      });
+    });
+  });
+
+  describe("in the budget", () => {
+    it("say what each category and the month still need", () => {
+      const rent = createCategory(db, "Rent");
+      const groceries = createCategory(db, "Groceries");
+      const holiday = createCategory(db, "Holiday");
+      createCategory(db, "Clothes");
+      setTarget(db, rent, monthly(110_000));
+      setTarget(db, groceries, topUp(40_000));
+      setTarget(db, holiday, byMonth(120_000, "2027-06"));
+      setAssigned(db, rent, NOW, 30_000);
+
+      expect(needs(NOW)).toEqual([
+        ["Rent", 80_000],
+        ["Groceries", 40_000],
+        // November to June: 8 months.
+        ["Holiday", 15_000],
+        ["Clothes", 0],
+      ]);
+      expect(month(NOW).needed).toBe(135_000);
+      expect(month(NOW)).toMatchObject({ month: NOW, thisMonth: NOW });
+    });
+
+    it("top up from what was left at the end of last month, not from what is spent now", () => {
+      const groceries = createCategory(db, "Groceries");
+      setTarget(db, groceries, topUp(40_000));
+      setAssigned(db, groceries, "2026-10", 40_000);
+      spend(groceries, "2026-10-12", -33_500);
+      // €65 left from October.
+      expect(needs(NOW)).toEqual([["Groceries", 33_500]]);
+
+      setAssigned(db, groceries, NOW, 30_000);
+      spend(groceries, "2026-11-03", -25_000);
+      expect(needs(NOW)).toEqual([["Groceries", 3_500]]);
+      // December tops up from what November leaves.
+      expect(needs("2026-12")).toEqual([["Groceries", 40_000 - 6_500 - 30_000 + 25_000]]);
+      // Neither a refund later in November nor spending in December changes November's need.
+      spend(groceries, "2026-11-30", 2_000);
+      spend(groceries, "2026-12-01", -9_900);
+      expect(needs(NOW)).toEqual([["Groceries", 3_500]]);
+    });
+
+    it("top up overspending carried over from last month", () => {
+      const groceries = createCategory(db, "Groceries");
+      setTarget(db, groceries, topUp(40_000));
+      setAssigned(db, groceries, "2026-10", 40_000);
+      spend(groceries, "2026-10-12", -42_000);
+      expect(needs(NOW)).toEqual([["Groceries", 42_000]]);
+    });
+
+    it("need nothing in a month that is over, nor after a by-a-month target's month", () => {
+      const rent = createCategory(db, "Rent");
+      const gift = createCategory(db, "Gift");
+      setTarget(db, rent, monthly(110_000));
+      setTarget(db, gift, byMonth(5_000, "2026-12"));
+      expect(needs("2026-10")).toEqual([
+        ["Rent", 0],
+        ["Gift", 0],
+      ]);
+      expect(month("2026-10").needed).toBe(0);
+      expect(needs("2026-12")).toEqual([
+        ["Rent", 110_000],
+        ["Gift", 5_000],
+      ]);
+      expect(needs("2027-01")).toEqual([
+        ["Rent", 110_000],
+        ["Gift", 0],
+      ]);
+    });
+
+    it("leave archived and income categories out of the month's total", () => {
+      const rent = createCategory(db, "Rent");
+      const old = createCategory(db, "Old");
+      const salary = createIncomeCategory("Salary");
+      setTarget(db, rent, monthly(1_000));
+      setTarget(db, old, monthly(2_000));
+      archiveCategory(db, old);
+      // An income category gets none; this covers a hand-edited database.
+      db.update(categories)
+        .set({ targetKind: "monthly", targetAmount: 4_000 })
+        .where(eq(categories.id, salary))
+        .run();
+      expect(month(NOW).needed).toBe(1_000);
+    });
+  });
+
+  describe("assigning what they need", () => {
+    let rent: number;
+    let groceries: number;
+    let holiday: number;
+    let eatingOut: number;
+    beforeEach(() => {
+      rent = createCategory(db, "Rent");
+      groceries = createCategory(db, "Groceries");
+      holiday = createCategory(db, "Holiday");
+      eatingOut = createCategory(db, "Eating out");
+      createCategory(db, "Clothes");
+      setTarget(db, rent, monthly(110_000));
+      setTarget(db, groceries, topUp(40_000));
+      setTarget(db, holiday, byMonth(120_000, "2027-06"));
+      setTarget(db, eatingOut, topUp(11_000));
+      // Groceries has €65 left from October; Rent has €300 assigned in November.
+      setAssigned(db, groceries, "2026-10", 6_500);
+      setAssigned(db, rent, NOW, 30_000);
+      // Eating out already has what it needs.
+      setAssigned(db, eatingOut, NOW, 11_000);
+    });
+
+    const assignedIn = (m: Month) =>
+      month(m).groups.flatMap((g) => g.categories.map((c) => [c.name, c.assigned]));
+
+    /** Assigns the targets of a month from a page drawn in November, while it is November. */
+    const assignAll = (m: Month) => assignTargets(db, m, NOW, NOW);
+
+    it("adds each category's need to what it has assigned, and nothing else", () => {
+      const before = month(NOW).readyToAssign;
+      expect(month(NOW).needed).toBe(80_000 + 33_500 + 15_000);
+
+      expect(assignAll(NOW)).toBe(3);
+      expect(assignedIn(NOW)).toEqual([
+        ["Rent", 110_000],
+        ["Groceries", 33_500],
+        ["Holiday", 15_000],
+        ["Eating out", 11_000],
+        ["Clothes", 0],
+      ]);
+      expect(month(NOW).needed).toBe(0);
+      expect(month(NOW).readyToAssign).toBe(before - 128_500);
+      // Other months stay as they were.
+      expect(assignedIn("2026-10").map(([, a]) => a)).toEqual([0, 6_500, 0, 0, 0]);
+      expectEverythingAccountedFor();
+    });
+
+    it("adds nothing a second time", () => {
+      assignAll(NOW);
+      const after = month(NOW);
+      expect(assignAll(NOW)).toBe(0);
+      expect(month(NOW)).toEqual(after);
+    });
+
+    it("assigns everything even when there is not enough money, and Ready to assign goes below zero", () => {
+      setTarget(db, holiday, monthly(200_000));
+      assignAll(NOW);
+      expect(month(NOW).readyToAssign).toBe(100_000 - 6_500 - 110_000 - 33_500 - 200_000 - 11_000);
+      expect(month(NOW).needed).toBe(0);
+      expectEverythingAccountedFor();
+    });
+
+    it("fills a later month too, but not a month that is over", () => {
+      expect(assignAll("2026-10")).toBe(0);
+      expect(assignedIn("2026-10").map(([, a]) => a)).toEqual([0, 6_500, 0, 0, 0]);
+
+      // Eating out keeps November's €110 into December, which tops it up already.
+      expect(assignAll("2026-12")).toBe(3);
+      expect(assignedIn("2026-12")).toEqual([
+        ["Rent", 110_000],
+        ["Groceries", 33_500],
+        // December to June: €1,200 over 7 months, rounded up.
+        ["Holiday", 17_143],
+        ["Eating out", 0],
+        ["Clothes", 0],
+      ]);
+      expect(month("2026-12").needed).toBe(0);
+    });
+
+    it("gives nothing to archived and income categories", () => {
+      archiveCategory(db, holiday);
+      const salary = createIncomeCategory("Salary");
+      db.update(categories)
+        .set({ targetKind: "monthly", targetAmount: 4_000 })
+        .where(eq(categories.id, salary))
+        .run();
+      expect(assignAll(NOW)).toBe(2);
+      const given = db
+        .select()
+        .from(assignments)
+        .where(eq(assignments.month, NOW))
+        .all()
+        .map((a) => a.categoryId);
+      expect(given).not.toContain(holiday);
+      expect(given).not.toContain(salary);
+    });
+
+    it("assigns nothing when the month has changed since the page worked out the needs", () => {
+      // The page was drawn in November, but on the server it is December now.
+      const before = assignedIn(NOW);
+      expect(assignTargets(db, NOW, NOW, "2026-12")).toBe("month-changed");
+      expect(assignTargets(db, "2026-12", NOW, "2026-12")).toBe("month-changed");
+      expect(assignedIn(NOW)).toEqual(before);
+      expect(assignedIn("2026-12").map(([, a]) => a)).toEqual([0, 0, 0, 0, 0]);
+      // Drawn again in December, the page's needs hold.
+      expect(assignTargets(db, "2026-12", "2026-12", "2026-12")).toBe(3);
+    });
+
+    it("reaches a by-a-month target exactly, when each month is assigned as it comes", () => {
+      const gift = createCategory(db, "Gift");
+      setTarget(db, gift, byMonth(100_001, "2027-02"));
+      const given: number[] = [];
+      for (let m: Month = NOW; m <= "2027-04"; m = addMonths(m, 1)) {
+        assignTargets(db, m, m, m);
+        given.push(
+          getBudgetMonth(db, m, m).groups[0].categories.find((c) => c.id === gift)!.assigned,
+        );
+      }
+      // November to February, the first rounded up; nothing after February.
+      expect(given).toEqual([25_001, 25_000, 25_000, 25_000, 0, 0]);
+    });
+
+    it("assigns all or nothing, in one transaction", () => {
+      // Storing Holiday's amount, after Rent's and Groceries', fails.
+      db.run(
+        sql.raw(`
+          CREATE TRIGGER holiday_fails BEFORE INSERT ON assignments
+          WHEN NEW.month = '2026-11' AND NEW.category_id = ${holiday}
+          BEGIN SELECT RAISE(ABORT, 'no'); END
+        `),
+      );
+      const before = assignedIn(NOW);
+      expect(() => assignAll(NOW)).toThrow();
+      expect(assignedIn(NOW)).toEqual(before);
+    });
   });
 });

@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { accountTypes } from "../lib/account-types";
 import type { IsoDate, Month } from "../lib/dates";
+import { targetKinds } from "../lib/targets";
 
 const createdAt = integer("created_at", { mode: "timestamp" })
   .notNull()
@@ -68,6 +69,15 @@ export const categories = sqliteTable("categories", {
    * src/lib/category-icons.ts. Null for the envelope every category starts with.
    */
   icon: text("icon"),
+  /**
+   * The category's target, read with `readTarget` (src/lib/targets.ts): its
+   * kind, its amount in minor units (above zero), and for "byMonth" the
+   * month to reach it by. All null for a category without one; an income
+   * category never has one. An archived category keeps its target.
+   */
+  targetKind: text("target_kind", { enum: targetKinds }),
+  targetAmount: integer("target_amount"),
+  targetMonth: text("target_month").$type<Month>(),
   createdAt,
 });
 

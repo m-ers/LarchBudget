@@ -5,7 +5,9 @@ import {
   assign,
   assignAndSave,
   assignedField,
+  goToNextMonth,
   headerFigure,
+  readyButton,
 } from "./helpers";
 import { expect, test } from "./fixtures";
 
@@ -41,6 +43,25 @@ test("a new month can start with what each category got last month", async ({ pa
   await expect(assignedField(page, "Fun")).toHaveValue("");
   await expect(headerFigure(page)).toHaveText("€2,610.00");
   await expect(page.getByText(/^Nothing assigned in/)).toHaveCount(0);
+});
+
+test("from the keyboard, the focus stays on the month once the same is assigned", async ({
+  page,
+}) => {
+  await goToNextMonth(page);
+  // The line above the groups comes right after the big figure.
+  await readyButton(page).focus();
+  await page.keyboard.press("Tab");
+  const button = page.getByRole("button", { name: `Assign the same as ${monthName(0)}` });
+  await expect(button).toBeFocused();
+  await page.keyboard.press("Enter");
+
+  await expect(assignedField(page, "Rent")).toHaveValue("1,100.00");
+  await expect(page.getByText(/^Nothing assigned in/)).toHaveCount(0);
+  // The line has gone, but the focus has not fallen back to the page.
+  await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
+  expect(await page.evaluate(() => document.activeElement === document.body)).toBe(false);
+  await expect(page.getByRole("status")).toHaveText(`Assigned the same as ${monthName(0)}.`);
 });
 
 test("the offer goes once something is assigned in the month", async ({ page }) => {

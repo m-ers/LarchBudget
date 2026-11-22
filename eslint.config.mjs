@@ -45,7 +45,10 @@ const eslintConfig = defineConfig([
   },
   {
     // Components read through src/app/queries and change through src/app/actions.
+    // Their unit tests may use a database, to check what the page shows
+    // before a change is saved against what the server then has.
     files: ["src/components/**"],
+    ignores: ["src/components/**/*.test.ts"],
     rules: {
       "@typescript-eslint/no-restricted-imports": [
         "error",

@@ -1,5 +1,6 @@
-import type { BudgetMonth, GroupRow, MoneyEnd } from "@/db/budget";
+import type { BudgetMonth, CategoryRow, GroupRow, MoneyEnd } from "@/db/budget";
 import type { CategoryIcon } from "@/lib/category-icons";
+import { categoryNeeds, type Target } from "@/lib/targets";
 
 /**
  * A change the budget page shows before the server has confirmed it.
@@ -32,6 +33,12 @@ export type BudgetChange =
       groupId: number;
       /** The new place in the palette of group colours. */
       slot: number;
+    }
+  | {
+      type: "target";
+      categoryId: number;
+      /** The new target; null for none. */
+      target: Target | null;
     };
 
 /**
@@ -49,6 +56,8 @@ export function applyChange(budget: BudgetMonth, change: BudgetChange): BudgetMo
       return setIcon(budget, change.categoryId, change.icon ?? undefined);
     case "color":
       return setColor(budget, change.groupId, change.slot);
+    case "target":
+      return setTarget(budget, change.categoryId, change.target);
   }
 }
 
@@ -73,11 +82,56 @@ export function moveChanges(
   });
 }
 
-/** Assigning moves money between Ready to assign and one category. */
+/**
+ * "Assign targets", as the changes it makes: each category whose target
+ * needs money gets a new Assigned amount with that added. The needs are
+ * the ones shown, worked out as the server works them out.
+ */
+export function targetChanges(groups: GroupRow[]): BudgetChange[] {
+  return groups
+    .flatMap((g) => g.categories)
+    .filter((c) => c.needed > 0)
+    .map((c) => ({ type: "assign" as const, categoryId: c.id, amount: c.assigned + c.needed }));
+}
+
+/**
+ * Assigning moves money between Ready to assign and one category. What its
+ * target needs follows from the new amount.
+ */
 function assign(budget: BudgetMonth, categoryId: number, amount: number): BudgetMonth {
   const category = budget.groups.flatMap((g) => g.categories).find((c) => c.id === categoryId);
   if (!category) return budget;
   const delta = amount - category.assigned;
+
+  return withCategory(budget, category, {
+    assigned: amount,
+    available: category.available + delta,
+    balance: category.balance + delta,
+  });
+}
+
+/** A new target changes only what its category, and so the month, still needs. */
+function setTarget(budget: BudgetMonth, categoryId: number, target: Target | null): BudgetMonth {
+  const category = budget.groups.flatMap((g) => g.categories).find((c) => c.id === categoryId);
+  if (!category) return budget;
+  return withCategory(budget, category, { target });
+}
+
+/**
+ * The month with one category changed, and every figure that adds it up
+ * moved along: its group, the totals, Ready to assign, and what the
+ * targets need, worked out again for the category.
+ */
+function withCategory(
+  budget: BudgetMonth,
+  category: CategoryRow,
+  change: Partial<Pick<CategoryRow, "assigned" | "available" | "balance" | "target">>,
+): BudgetMonth {
+  const changed = { ...category, ...change };
+  changed.needed = categoryNeeds(changed, budget.month, budget.thisMonth);
+  const assigned = changed.assigned - category.assigned;
+  const available = changed.available - category.available;
+  const balance = changed.balance - category.balance;
 
   return {
     ...budget,
@@ -85,32 +139,24 @@ function assign(budget: BudgetMonth, categoryId: number, amount: number): Budget
       group.categories.includes(category)
         ? {
             ...group,
-            assigned: group.assigned + delta,
-            available: group.available + delta,
-            categories: group.categories.map((c) =>
-              c === category
-                ? {
-                    ...c,
-                    assigned: amount,
-                    available: c.available + delta,
-                    balance: c.balance + delta,
-                  }
-                : c,
-            ),
+            assigned: group.assigned + assigned,
+            available: group.available + available,
+            categories: group.categories.map((c) => (c === category ? changed : c)),
           }
         : group,
     ),
     totals: {
       ...budget.totals,
-      assigned: budget.totals.assigned + delta,
-      available: budget.totals.available + delta,
+      assigned: budget.totals.assigned + assigned,
+      available: budget.totals.available + available,
     },
-    readyToAssign: budget.readyToAssign - delta,
+    readyToAssign: budget.readyToAssign - balance,
     // Assigned in this month is one of the parts Ready to assign is made of.
     readyBreakdown: {
       ...budget.readyBreakdown,
-      assigned: budget.readyBreakdown.assigned + delta,
+      assigned: budget.readyBreakdown.assigned + assigned,
     },
+    needed: budget.needed + changed.needed - category.needed,
   };
 }
 

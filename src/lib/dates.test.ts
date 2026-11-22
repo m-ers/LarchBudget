@@ -5,9 +5,11 @@ import {
   daysLeftInMonth,
   formatDate,
   formatMonth,
+  formatMonthShort,
   isMonth,
   monthLabelParts,
   monthName,
+  monthsBetween,
   today,
 } from "./dates";
 
@@ -27,6 +29,15 @@ describe("addMonths", () => {
     expect(addMonths("2026-12", 1)).toBe("2027-01");
     expect(addMonths("2026-01", -1)).toBe("2025-12");
     expect(addMonths("2026-03", -15)).toBe("2024-12");
+  });
+});
+
+describe("monthsBetween", () => {
+  it("counts the months from one to another, across years and backwards", () => {
+    expect(monthsBetween("2026-11", "2026-11")).toBe(0);
+    expect(monthsBetween("2026-11", "2027-06")).toBe(7);
+    expect(monthsBetween("2026-12", "2027-01")).toBe(1);
+    expect(monthsBetween("2027-01", "2026-12")).toBe(-1);
   });
 });
 
@@ -76,6 +87,13 @@ describe("formatMonth", () => {
   it("names the month and year in the locale's words", () => {
     expect(formatMonth("2026-11", "en-US")).toBe("November 2026");
     expect(formatMonth("2026-03", "nl-NL")).toBe("maart 2026");
+  });
+});
+
+describe("formatMonthShort", () => {
+  it("writes the month in fewer letters, in the language", () => {
+    expect(formatMonthShort("2027-06", "en-US")).toBe("Jun 2027");
+    expect(formatMonthShort("2027-03", "nl-NL")).toBe("mrt 2027");
   });
 });
 

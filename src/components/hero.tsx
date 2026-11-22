@@ -14,7 +14,7 @@ export function Hero({
   return (
     <section
       ref={ref}
-      className="relative flex h-34 shrink-0 items-center justify-between gap-6 overflow-hidden rounded-2xl bg-brand px-8 text-white"
+      className="relative flex h-34 shrink-0 items-center justify-between gap-6 overflow-hidden rounded-2xl bg-brand px-8 text-white [--focus-ring:white]"
     >
       <div
         aria-hidden="true"
@@ -25,9 +25,27 @@ export function Hero({
   );
 }
 
-/** The page title inside a `Hero`. */
-export function HeroTitle({ children }: { children: React.ReactNode }) {
-  return <h1 className="text-[27px] leading-none font-semibold tracking-[-0.02em]">{children}</h1>;
+/**
+ * The page title inside a `Hero`. With `tabIndex={-1}` the page can give it
+ * the focus, as when the button that had the focus goes away. Its focus
+ * ring is white, to show on the brand colour; marked important, as the ring
+ * in globals.css is outside Tailwind's layers and would win otherwise.
+ */
+export function HeroTitle({
+  tabIndex,
+  children,
+}: {
+  tabIndex?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <h1
+      tabIndex={tabIndex}
+      className="rounded-[7px] text-[27px] leading-none font-semibold tracking-[-0.02em]"
+    >
+      {children}
+    </h1>
+  );
 }
 
 /** The line under the title inside a `Hero`. */
@@ -104,7 +122,7 @@ export function HeroFigure({
       {...button}
       // A tone behind it on hover and while what it opens is open; the
       // padding is taken back by the margin, so it does not move.
-      className="relative -mx-3 -my-2 rounded-xl px-3 py-2 text-right transition-colors hover:bg-white/8 focus-visible:outline-white aria-expanded:bg-white/12"
+      className="relative -mx-3 -my-2 rounded-xl px-3 py-2 text-right transition-colors hover:bg-white/8 aria-expanded:bg-white/12"
     >
       {content}
     </button>
