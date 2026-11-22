@@ -57,6 +57,12 @@ export const categories = sqliteTable("categories", {
    * what comes in through it goes to Ready to assign, and it has no group.
    */
   income: integer("income", { mode: "boolean" }).notNull().default(false),
+  /**
+   * Only for an income category: what comes in during a month counts as
+   * received in the next month, such as a salary paid near the end of the
+   * month (see src/lib/income.ts). Ready to assign does not change.
+   */
+  nextMonth: integer("next_month", { mode: "boolean" }).notNull().default(false),
   createdAt,
 });
 

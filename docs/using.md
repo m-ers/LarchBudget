@@ -101,6 +101,13 @@ Income categories, such as Salary, sit above the groups. They hold no money:
 what comes in through them is ready to assign. They show what came in each
 month, and tell your salary apart from a refund or a transfer.
 
+Paid near the end of the month, for the month after? Choose **Counts for the
+next month** in the category's menu. Everything that comes in through it
+during a month then shows as received in the month after: a salary paid on
+25 October counts for November. An arrow after the name marks such a
+category. Ready to assign does not change: the money can be assigned as soon
+as it is there.
+
 ## Importing from your bank
 
 Transactions come in through a CSV file that you download from your bank's

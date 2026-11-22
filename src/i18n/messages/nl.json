@@ -403,7 +403,9 @@
       "newLabel": "Nieuwe inkomstencategorie",
       "newPlaceholder": "Nieuwe inkomstencategorie",
       "newPlaceholderFirst": "Nieuwe inkomstencategorie, bijv. Salaris",
-      "received": "{{amount}} ontvangen"
+      "received": "{{amount}} ontvangen",
+      "nextMonth": "Telt voor de volgende maand",
+      "nextMonthHint": "Telt voor de volgende maand: dit is wat er in {{month}} binnenkwam."
     },
     "addByName": {
       "adding": "Toevoegen…",

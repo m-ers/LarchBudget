@@ -6,11 +6,13 @@ import {
   moveCategoryAction,
   moveCategoryToGroupAction,
   renameCategoryAction,
+  setNextMonthAction,
 } from "@/app/actions";
-import { useT } from "@/i18n/client";
+import { useDateLocale, useT } from "@/i18n/client";
+import { addMonths, formatMonth } from "@/lib/dates";
 import { formatMoney } from "@/lib/money";
 import { ErrorText } from "../form";
-import { MoreIcon } from "../icons";
+import { ArrowRightIcon, MoreIcon } from "../icons";
 import { InlineName, type InlineNameHandle } from "../inline-name";
 import { Menu, type useMenu } from "../menu";
 import { useSave } from "../use-save";
@@ -33,6 +35,11 @@ type Props = {
    * category, which holds no money and has no group to leave.
    */
   money?: { balance: number; available: number; onMoveMoney: (flow: Flow) => void };
+  /**
+   * For an income category: whether what comes in counts for the next month,
+   * which its menu switches. Left out for an expense category.
+   */
+  nextMonth?: boolean;
 };
 
 /** The category that was just moved to another group, until its new row has the focus. */
@@ -42,8 +49,9 @@ let movedToGroup: number | null = null;
  * Category name: click to rename. The category's actions are in a menu
  * beside it, whose button shows on row hover.
  */
-export function CategoryName({ category: { id, name }, place, menu, money }: Props) {
-  const { currency, locale, figures } = useBudget();
+export function CategoryName({ category: { id, name }, place, menu, money, nextMonth }: Props) {
+  const { month, currency, locale, figures, show } = useBudget();
+  const dates = useDateLocale();
   const t = useT();
   const { error, pending, save } = useSave();
   const nameField = useRef<InlineNameHandle>(null);
@@ -101,6 +109,24 @@ export function CategoryName({ category: { id, name }, place, menu, money }: Pro
       ]
     : [];
 
+  // Only an income category receives money, for its own month or the next.
+  const incomeItems =
+    nextMonth === undefined
+      ? []
+      : [
+          {
+            label: t("budget.income.nextMonth"),
+            checked: nextMonth,
+            onSelect: () =>
+              save(
+                () => setNextMonthAction(id, !nextMonth),
+                undefined,
+                undefined,
+                () => show({ type: "next-month", categoryId: id, on: !nextMonth }),
+              ),
+          },
+        ];
+
   return (
     <div className="flex min-w-0 items-center gap-1">
       {/* Only the name dims while a change is saved: dimming the menu too
@@ -112,6 +138,22 @@ export function CategoryName({ category: { id, name }, place, menu, money }: Pro
         onSave={(text) => renameCategoryAction(id, text)}
         className={`text-[15.5px] font-medium ${pending ? "opacity-60" : ""}`}
       />
+      {nextMonth && (
+        // What it shows came in the month before: say so, without a word in the row.
+        <span
+          title={t("budget.income.nextMonthHint", {
+            month: formatMonth(addMonths(month, -1), dates),
+          })}
+          className="flex shrink-0 cursor-help text-muted"
+        >
+          <ArrowRightIcon width={15} height={15} aria-hidden="true" />
+          <span className="sr-only">
+            {t("budget.income.nextMonthHint", {
+              month: formatMonth(addMonths(month, -1), dates),
+            })}
+          </span>
+        </span>
+      )}
       <Menu
         label={t("budget.menu.actionsFor", { name })}
         state={menu}
@@ -129,6 +171,7 @@ export function CategoryName({ category: { id, name }, place, menu, money }: Pro
             disabled: place.last,
           },
           ...expenseItems,
+          ...incomeItems,
           { label: t("budget.menu.archive"), onSelect: archive, destructive: true },
         ]}
       >

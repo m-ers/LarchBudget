@@ -7,12 +7,19 @@ import type { BudgetMonth, GroupRow, MoneyEnd } from "@/db/budget";
  * server's figures arrive while a save is still under way, the change is
  * applied again on top of them, and must then not count twice.
  */
-export type BudgetChange = {
-  type: "assign";
-  categoryId: number;
-  /** The new amount assigned in the viewed month, in minor units. */
-  amount: number;
-};
+export type BudgetChange =
+  | {
+      type: "assign";
+      categoryId: number;
+      /** The new amount assigned in the viewed month, in minor units. */
+      amount: number;
+    }
+  | {
+      /** Whether what comes in through an income category counts for the next month. */
+      type: "next-month";
+      categoryId: number;
+      on: boolean;
+    };
 
 /**
  * The budget month as it will be once `change` is saved. The server's
@@ -23,6 +30,8 @@ export function applyChange(budget: BudgetMonth, change: BudgetChange): BudgetMo
   switch (change.type) {
     case "assign":
       return assign(budget, change.categoryId, change.amount);
+    case "next-month":
+      return nextMonth(budget, change.categoryId, change.on);
   }
 }
 
@@ -81,5 +90,21 @@ function assign(budget: BudgetMonth, categoryId: number, amount: number): Budget
     },
     readyToAssign: budget.readyToAssign - delta,
     inCategories: budget.inCategories + delta,
+  };
+}
+
+/**
+ * Only the setting shows at once. What the category received depends on
+ * transactions in other days, so that comes with the server's figures.
+ */
+function nextMonth(budget: BudgetMonth, categoryId: number, on: boolean): BudgetMonth {
+  const { categories } = budget.income;
+  if (!categories.some((c) => c.id === categoryId && c.nextMonth !== on)) return budget;
+  return {
+    ...budget,
+    income: {
+      ...budget.income,
+      categories: categories.map((c) => (c.id === categoryId ? { ...c, nextMonth: on } : c)),
+    },
   };
 }

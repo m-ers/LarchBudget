@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { addMonths, monthStart, type Month } from "../lib/dates";
 import { groupColors } from "../lib/group-colors";
+import { receivedPeriod } from "../lib/income";
 import type { Db } from "./index";
 import { assignments, categories, categoryGroups } from "./schema";
 
@@ -58,15 +59,20 @@ export type GroupRow = {
 export type IncomeCategoryRow = {
   id: number;
   name: string;
-  /** Net transactions in the viewed month: what came in through it. */
+  /**
+   * What came in through it for the viewed month (net): in the month itself,
+   * or, when it counts for the next month, in the days `receivedPeriod` gives.
+   */
   received: number;
+  /** Whether what comes in counts for the next month. */
+  nextMonth: boolean;
 };
 
 export type BudgetMonth = {
   /** The expense categories, in their groups. */
   groups: GroupRow[];
   /**
-   * The visible income categories, and what came in through all of them in
+   * The visible income categories, and what came in through all of them for
    * the viewed month. They hold no money, so no other figure counts them.
    */
   income: { categories: IncomeCategoryRow[]; received: number };
@@ -86,12 +92,17 @@ export type BudgetMonth = {
 export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
   const start = monthStart(month);
   const next = monthStart(addMonths(month, 1));
+  // The days an income category counts as received in this month.
+  const own = receivedPeriod(month, false);
+  const shifted = receivedPeriod(month, true);
 
   const rows = db.all<{
     id: number;
     group_id: number | null;
     name: string;
     income: number;
+    next_month: number;
+    received: number | null;
     assigned: number;
     assigned_through: number;
     assigned_total: number;
@@ -104,6 +115,13 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
       c.group_id,
       c.name,
       c.income,
+      c.next_month,
+      CASE WHEN c.income THEN
+        coalesce((SELECT sum(t.amount) FROM transactions t
+                  WHERE t.category_id = c.id
+                    AND t.date >= CASE WHEN c.next_month THEN ${shifted.first} ELSE ${own.first} END
+                    AND t.date <= CASE WHEN c.next_month THEN ${shifted.last} ELSE ${own.last} END), 0)
+      END AS received,
       coalesce((SELECT sum(a.amount) FROM assignments a
                 WHERE a.category_id = c.id AND a.month = ${month}), 0) AS assigned,
       coalesce((SELECT sum(a.amount) FROM assignments a
@@ -136,10 +154,16 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
 
   // Income categories hold no money: their transactions stay in Ready to
   // assign, and they count in no group, total or balance. Even an amount
-  // assigned to one by hand in the database is ignored.
+  // assigned to one by hand in the database is ignored. Counting for the
+  // next month only changes which month they show as received in.
   const income = rows
     .filter((r) => r.income)
-    .map((r) => ({ id: r.id, name: r.name, received: r.activity }));
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      received: r.received ?? 0,
+      nextMonth: r.next_month === 1,
+    }));
   const expenses = rows.filter((r) => !r.income);
 
   const byGroup = new Map<number | null, CategoryRow[]>();
@@ -356,6 +380,27 @@ function groupNameTaken(db: Db, name: string, exceptId?: number): boolean {
     sql`SELECT id FROM category_groups WHERE lower(name) = lower(${name})`,
   );
   return rows.some((r) => r.id !== exceptId);
+}
+
+/**
+ * Sets whether what comes in through an income category counts for the
+ * next month (see `receivedPeriod`). Returns false, and changes
+ * nothing, when the category does not exist, is archived, or is an expense
+ * category, which receives nothing.
+ */
+export function setNextMonth(db: Db, categoryId: number, on: boolean): boolean {
+  const changed = db
+    .update(categories)
+    .set({ nextMonth: on })
+    .where(
+      and(
+        eq(categories.id, categoryId),
+        eq(categories.archived, false),
+        eq(categories.income, true),
+      ),
+    )
+    .run();
+  return changed.changes > 0;
 }
 
 /** Creates a category at the end of a group. Returns its id, or why it was not created. */

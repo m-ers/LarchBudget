@@ -183,6 +183,10 @@ test("an income category is renamed, moved and archived from its menu, and comes
     "Move down",
     "Archive",
   ]);
+  // And one setting of its own: see income-next-month.e2e.ts.
+  await expect(page.getByRole("menu").getByRole("menuitemcheckbox")).toHaveText([
+    "Counts for the next month",
+  ]);
   await expect(menuItem(page, "Move up")).toHaveAttribute("aria-disabled", "true");
   await menuItem(page, "Move down").click();
   await expect.poll(() => incomeNames(page)).toEqual(["Benefits", "Salary"]);
@@ -216,6 +220,7 @@ test("an expense category cannot be moved into Income or get money from an incom
   await addIncomeCategories(page, ["Salary"]);
   await openMenu(page, "Groceries");
   await expect(menuItem(page, "Move to Income")).toHaveCount(0);
+  await expect(page.getByRole("menuitemcheckbox")).toHaveCount(0);
   await menuItem(page, "Move money…").click();
   const picker = page.getByRole("combobox", { name: "Move to" });
   await expect(picker.locator("option")).toHaveText(["Ready to assign (€1,000.00)"]);

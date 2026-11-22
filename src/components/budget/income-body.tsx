@@ -5,6 +5,7 @@ import { useState } from "react";
 import { createIncomeCategoryAction } from "@/app/actions";
 import type { BudgetMonth, IncomeCategoryRow } from "@/db/budget";
 import { useT } from "@/i18n/client";
+import { addMonths } from "@/lib/dates";
 import { groupColor } from "@/lib/group-colors";
 import { formatMoney } from "@/lib/money";
 import { transactionsHref } from "@/lib/transactions-address";
@@ -80,7 +81,11 @@ export function IncomeBody({ income }: { income: BudgetMonth["income"] }) {
   );
 }
 
-/** One income category: its name and actions, and in the last column what came in this month. */
+/**
+ * One income category: its name and actions, and in the last column what
+ * came in for this month. For a category that counts for the next month,
+ * that is what came in the month before, and its amount leads there.
+ */
 function IncomeRow({
   category,
   first,
@@ -92,9 +97,11 @@ function IncomeRow({
 }) {
   const { month, currency, locale } = useBudget();
   const t = useT();
-  const { id, received } = category;
+  const { id, received, nextMonth } = category;
   const amount = formatMoney(received, currency, locale);
   const menu = useMenu();
+  // What it received came in this month, or the month before.
+  const receivedIn = nextMonth ? addMonths(month, -1) : month;
 
   return (
     <tr className="data-row group/row" onContextMenu={menu.openAtPointer}>
@@ -102,7 +109,12 @@ function IncomeRow({
         <EnvelopeToken color={groupColor(null)} />
       </td>
       <td>
-        <CategoryName category={category} place={{ groupId: null, first, last }} menu={menu} />
+        <CategoryName
+          category={category}
+          place={{ groupId: null, first, last }}
+          menu={menu}
+          nextMonth={nextMonth}
+        />
       </td>
       <td />
       <td />
@@ -110,9 +122,11 @@ function IncomeRow({
         {received === 0 ? (
           <span className="text-muted">{amount}</span>
         ) : (
-          // The month's transactions behind the amount.
           <Link
-            href={transactionsHref({ showAll: true, filter: { category: id, month } })}
+            href={transactionsHref({
+              showAll: true,
+              filter: { category: id, month: receivedIn },
+            })}
             title={t("budget.row.seeTransactions")}
             className="rounded-sm underline-offset-2 hover:underline"
           >

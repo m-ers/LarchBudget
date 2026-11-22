@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useLayoutEffect, useRef, useState } from "react";
+import { CheckIcon } from "./icons";
 
 export type MenuItem = {
   label: string;
@@ -9,6 +10,11 @@ export type MenuItem = {
   disabled?: boolean;
   /** Archive, Delete: listed last, after a thin rule. */
   destructive?: boolean;
+  /**
+   * For a setting that is on or off: choosing the item switches it, and a
+   * check mark shows while it is on. Left out for an ordinary action.
+   */
+  checked?: boolean;
 };
 
 /** What has focus once the menu opens. */
@@ -49,7 +55,11 @@ export function useMenu() {
 
 /** The items that can be chosen, in the order they are shown. */
 const choosable = (menu: HTMLElement) =>
-  Array.from(menu.querySelectorAll<HTMLElement>("[role=menuitem]:not([aria-disabled=true])"));
+  Array.from(
+    menu.querySelectorAll<HTMLElement>(
+      ":is([role=menuitem], [role=menuitemcheckbox]):not([aria-disabled=true])",
+    ),
+  );
 
 /**
  * A button that opens a short list of actions. It works like a menu in the
@@ -145,11 +155,12 @@ export function Menu({
   const destructive = items.filter((item) => item.destructive);
   // The item with focus is marked by its background alone: the page's
   // focus ring would crowd the card.
-  const item = ({ label: text, onSelect, disabled }: MenuItem) => (
+  const item = ({ label: text, onSelect, disabled, checked }: MenuItem) => (
     <button
       key={text}
       type="button"
-      role="menuitem"
+      role={checked === undefined ? "menuitem" : "menuitemcheckbox"}
+      aria-checked={checked}
       tabIndex={-1}
       aria-disabled={disabled || undefined}
       onPointerMove={(e) => {
@@ -165,9 +176,10 @@ export function Menu({
         close(e.detail === 0);
         onSelect();
       }}
-      className="block w-full truncate rounded-md px-2.5 py-1.5 text-left outline-none! focus:bg-hover aria-disabled:cursor-default aria-disabled:text-muted/60"
+      className="flex w-full items-center justify-between gap-4 rounded-md px-2.5 py-1.5 text-left outline-none! focus:bg-hover aria-disabled:cursor-default aria-disabled:text-muted/60"
     >
-      {text}
+      <span className="truncate">{text}</span>
+      {checked && <CheckIcon width={15} height={15} className="shrink-0" />}
     </button>
   );
 
