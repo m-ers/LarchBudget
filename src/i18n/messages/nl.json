@@ -442,7 +442,8 @@
     },
     "assignTargets": {
       "button": "{{amount}} toewijzen",
-      "label": "Doelen toewijzen: {{amount}}",
+      "label_one": "{{amount}} toewijzen aan je doel",
+      "label_other": "{{amount}} toewijzen aan je doelen",
       "need_one": "Je doel heeft deze maand nog {{amount}} nodig.",
       "need_other": "Je doelen hebben deze maand nog {{amount}} nodig.",
       "done": "Doelen toegewezen."

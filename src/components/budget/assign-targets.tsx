@@ -25,7 +25,8 @@ export function AssignTargets({ state }: { state: ReturnType<typeof useSave> }) 
     <button
       type="button"
       disabled={state.pending}
-      aria-label={t("budget.assignTargets.label", { amount })}
+      // Its name starts with the text it shows, so voice control finds it by what people see.
+      aria-label={t("budget.assignTargets.label", { count, amount })}
       title={t("budget.assignTargets.need", { count, amount })}
       onClick={() => {
         // The button goes at once, and the focus would fall back to the

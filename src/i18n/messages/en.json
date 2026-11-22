@@ -499,7 +499,8 @@
     },
     "assignTargets": {
       "button": "{{amount}} to assign",
-      "label": "Assign what targets need: {{amount}}",
+      "label_one": "{{amount}} to assign, for your target",
+      "label_other": "{{amount}} to assign, for your targets",
       "need_one": "Your target needs {{amount}} more this month.",
       "need_other": "Your targets need {{amount}} more this month.",
       "done": "Targets assigned."

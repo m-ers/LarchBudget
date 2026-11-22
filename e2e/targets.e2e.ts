@@ -87,7 +87,7 @@ const explanation = (page: Page, name: string) => available(page, name).locator(
 
 /** The small button in the header, under the month: "◎ €455 to assign". */
 const assignTargetsButton = (page: Page) =>
-  page.getByRole("button", { name: /^Assign what targets need: / });
+  page.getByRole("button", { name: / to assign, for your targets?$/ });
 
 /** Sets or changes a category's target from its menu, and waits until it is saved. */
 async function setTarget(page: Page, name: string, kind: Kind, amount: string, by?: number) {
@@ -145,7 +145,7 @@ test.describe("with an account and categories", () => {
     await expect(assignedField(page, "Eating out")).toHaveAccessibleDescription("");
     // The header offers to assign all of it.
     await expect(assignTargetsButton(page)).toHaveAccessibleName(
-      "Assign what targets need: €1,671.43",
+      "€1,671.43 to assign, for your targets",
     );
     await expect(assignTargetsButton(page)).toHaveText("€1,671.43 to assign");
     await expect(assignTargetsButton(page)).toHaveAttribute(
@@ -536,6 +536,7 @@ test.describe("with an account and categories", () => {
 
     await setTarget(page, "Groceries", "Every month", "50");
     await expect(assignTargetsButton(page)).toHaveText("€50 to assign");
+    await expect(assignTargetsButton(page)).toHaveAccessibleName("€50 to assign, for your target");
     await expect(assignTargetsButton(page)).toHaveAttribute(
       "title",
       "Your target needs €50 more this month.",
@@ -580,7 +581,7 @@ test.describe("in Dutch, with amounts written the Dutch way", () => {
     const button = (name: string) =>
       page.getByRole("button", { name: new RegExp(`^Doel van ${name} toewijzen: `) });
     const dutchMark = (name: string) => row(name).locator("[data-target-mark]");
-    const headerButton = page.getByRole("button", { name: /^Doelen toewijzen: / });
+    const headerButton = page.getByRole("button", { name: / toewijzen aan je doelen?$/ });
 
     async function setDutchTarget(name: string, kind: string, amount: string, by?: number) {
       await row(name).hover();
@@ -634,7 +635,7 @@ test.describe("in Dutch, with amounts written the Dutch way", () => {
     );
 
     await expect(headerButton).toHaveText(/^€\s[\d.,]+ toewijzen$/);
-    await expect(headerButton).toHaveAccessibleName(/^Doelen toewijzen: €\s[\d.,]+$/);
+    await expect(headerButton).toHaveAccessibleName(/^€\s[\d.,]+ toewijzen aan je doelen$/);
     await expect(headerButton).toHaveAttribute(
       "title",
       /^Je doelen hebben deze maand nog €\s[\d.,]+ nodig\.$/,
