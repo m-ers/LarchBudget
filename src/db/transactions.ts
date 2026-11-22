@@ -1,14 +1,22 @@
 import { createHash } from "node:crypto";
-import { and, desc, eq, isNotNull, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
 import { addMonths, monthStart, type IsoDate, type Month } from "../lib/dates";
 import type { Cursor, TransactionFilter } from "../lib/transactions-address";
 import { byName, syncStartingBalance } from "./accounts";
 import { UNGROUPED } from "./budget";
 import type { Db } from "./index";
-import { accounts, categories, categoryGroups, deletedImports, transactions } from "./schema";
+import {
+  accounts,
+  categories,
+  categoryGroups,
+  deletedImports,
+  transactionSplits,
+  transactions,
+} from "./schema";
 
 /**
- * Importing bank transactions and sorting them into categories.
+ * Importing bank transactions, adding and changing them by hand, and
+ * sorting them into categories, whole or split.
  *
  * Like `budget.ts`, these functions take the database as an argument and
  * never touch Next.js, so they can be unit tested.
@@ -182,6 +190,18 @@ export type TransactionRow = {
   toSort: boolean;
   /** The account's "Starting balance" row, which is not sorted into a category. */
   starting: boolean;
+  /** Came from a bank file: its date and amount stay as the bank has them. */
+  imported: boolean;
+  /** For a split transaction, its parts in the order they were entered; empty otherwise. */
+  parts: SplitPart[];
+};
+
+export type SplitPart = {
+  /** Null for a part in no category. */
+  categoryId: number | null;
+  category: string | null;
+  categoryArchived: boolean;
+  amount: number;
 };
 
 /** Escapes what LIKE treats as a wildcard, so a search for "50%" finds "50%". */
@@ -199,10 +219,15 @@ function filterConditions(filter: TransactionFilter): SQL[] {
     );
   }
   if (filter.accountId !== undefined) conditions.push(eq(transactions.accountId, filter.accountId));
-  if (filter.category === "none") {
-    conditions.push(sql`${transactions.categoryId} IS NULL AND ${transactions.starting} = 0`);
-  } else if (filter.category !== undefined) {
-    conditions.push(eq(transactions.categoryId, filter.category));
+  if (filter.category !== undefined) {
+    // A split transaction is in a category when one of its parts is.
+    const whole =
+      filter.category === "none"
+        ? sql`${transactions.categoryId} IS NULL AND ${transactions.starting} = 0 AND ${transactions.split} = 0`
+        : eq(transactions.categoryId, filter.category);
+    conditions.push(
+      sql`(${whole} OR (${transactions.split} = 1 AND EXISTS (SELECT 1 FROM ${transactionSplits} s WHERE s.transaction_id = ${transactions.id} AND ${partIn(filter.category)})))`,
+    );
   }
   if (filter.month) {
     conditions.push(
@@ -210,6 +235,11 @@ function filterConditions(filter: TransactionFilter): SQL[] {
     );
   }
   return conditions;
+}
+
+/** Whether split part `s` is in the category a filter asks for ("none": in no category). */
+function partIn(category: number | "none"): SQL {
+  return category === "none" ? sql`s.category_id IS NULL` : sql`s.category_id = ${category}`;
 }
 
 /**
@@ -228,7 +258,7 @@ export function listTransactions(
       sql`(${transactions.date}, ${transactions.id}) < (${options.before.date}, ${options.before.id})`,
     );
   }
-  return db
+  const rows = db
     .select({
       id: transactions.id,
       date: transactions.date,
@@ -241,6 +271,8 @@ export function listTransactions(
       categoryArchived: sql<boolean>`coalesce(${categories.archived}, 0)`.mapWith(Boolean),
       toSort: transactions.toSort,
       starting: transactions.starting,
+      imported: sql<boolean>`${transactions.importId} IS NOT NULL`.mapWith(Boolean),
+      split: transactions.split,
     })
     .from(transactions)
     .innerJoin(accounts, eq(accounts.id, transactions.accountId))
@@ -249,6 +281,35 @@ export function listTransactions(
     .orderBy(desc(transactions.date), desc(transactions.id))
     .limit(options.limit)
     .all();
+
+  const parts = getParts(
+    db,
+    rows.flatMap((row) => (row.split ? [row.id] : [])),
+  );
+  return rows.map(({ split, ...row }) => ({ ...row, parts: (split && parts.get(row.id)) || [] }));
+}
+
+/** The parts of these split transactions, by transaction, in the order they were entered. */
+function getParts(db: Db, ids: number[]): Map<number, SplitPart[]> {
+  const parts = new Map<number, SplitPart[]>();
+  if (ids.length === 0) return parts;
+  const rows = db
+    .select({
+      transactionId: transactionSplits.transactionId,
+      categoryId: transactionSplits.categoryId,
+      category: categories.name,
+      categoryArchived: sql<boolean>`coalesce(${categories.archived}, 0)`.mapWith(Boolean),
+      amount: transactionSplits.amount,
+    })
+    .from(transactionSplits)
+    .leftJoin(categories, eq(categories.id, transactionSplits.categoryId))
+    .where(inArray(transactionSplits.transactionId, ids))
+    .orderBy(transactionSplits.id)
+    .all();
+  for (const { transactionId, ...part } of rows) {
+    parts.set(transactionId, [...(parts.get(transactionId) ?? []), part]);
+  }
+  return parts;
 }
 
 /**
@@ -260,11 +321,16 @@ export function summarizeTransactions(
   db: Db,
   filter: TransactionFilter,
 ): { count: number; moneyIn: number; moneyOut: number } {
+  // Narrowed to a category, a split transaction counts with its part in that category only.
+  const amount =
+    filter.category === undefined
+      ? sql`${transactions.amount}`
+      : sql`CASE WHEN ${transactions.split} = 1 THEN (SELECT sum(s.amount) FROM ${transactionSplits} s WHERE s.transaction_id = ${transactions.id} AND ${partIn(filter.category)}) ELSE ${transactions.amount} END`;
   const [row] = db
     .select({
       count: sql<number>`count(*)`,
-      moneyIn: sql<number>`coalesce(sum(CASE WHEN ${transactions.amount} > 0 AND ${transactions.starting} = 0 THEN ${transactions.amount} END), 0)`,
-      moneyOut: sql<number>`coalesce(sum(CASE WHEN ${transactions.amount} < 0 AND ${transactions.starting} = 0 THEN ${transactions.amount} END), 0)`,
+      moneyIn: sql<number>`coalesce(sum(CASE WHEN ${amount} > 0 AND ${transactions.starting} = 0 THEN ${amount} END), 0)`,
+      moneyOut: sql<number>`coalesce(sum(CASE WHEN ${amount} < 0 AND ${transactions.starting} = 0 THEN ${amount} END), 0)`,
     })
     .from(transactions)
     .where(and(...filterConditions(filter)))
@@ -288,7 +354,8 @@ export type Suggestion = { categoryId: number | null; category: string | null };
 /**
  * For each of these payees, where the latest sorted transaction with the same
  * payee (ignoring case and surrounding spaces) went, keyed by the payee as it
- * was given. Nothing is suggested when that category has since been archived.
+ * was given. Nothing is suggested when that category has since been archived,
+ * or when that transaction was split: one category would not be right.
  * One query for all payees, so a whole page costs one read.
  */
 export function suggestCategories(db: Db, payees: string[]): Map<string, Suggestion> {
@@ -302,6 +369,7 @@ export function suggestCategories(db: Db, payees: string[]): Map<string, Suggest
       SELECT
         lower(trim(payee)) AS key,
         category_id,
+        split,
         row_number() OVER (
           PARTITION BY lower(trim(payee)) ORDER BY date DESC, id DESC
         ) AS rank
@@ -310,7 +378,7 @@ export function suggestCategories(db: Db, payees: string[]): Map<string, Suggest
         AND lower(trim(payee)) IN (SELECT lower(trim(value)) FROM json_each(${JSON.stringify(wanted)}))
     ) AS last ON last.key = lower(trim(wanted.value)) AND last.rank = 1
     LEFT JOIN categories ON categories.id = last.category_id
-    WHERE last.category_id IS NULL OR categories.archived = 0
+    WHERE last.split = 0 AND (last.category_id IS NULL OR categories.archived = 0)
   `);
   return new Map(
     found.map((row) => [row.payee, { categoryId: row.category_id, category: row.name }]),
@@ -333,31 +401,190 @@ export type SortTarget = number | "ready" | "unsorted";
 /** What came of sorting: it worked, or why it could not. */
 export type SortResult = "sorted" | "no-transaction" | "no-category" | "starting";
 
+/** Sorts a whole transaction into one place. A split transaction stops being split. */
 export function sortTransaction(db: Db, id: number, target: SortTarget): SortResult {
-  const [found] = db
-    .select({ starting: transactions.starting })
-    .from(transactions)
-    .where(eq(transactions.id, id))
-    .all();
-  if (!found) return "no-transaction";
-  // A starting balance is not income or spending: it belongs to no category.
-  if (found.starting) return "starting";
-  if (typeof target === "number") {
-    const category = db
+  return db.transaction((tx) => {
+    const [found] = tx
+      .select({ starting: transactions.starting })
+      .from(transactions)
+      .where(eq(transactions.id, id))
+      .all();
+    if (!found) return "no-transaction";
+    // A starting balance is not income or spending: it belongs to no category.
+    if (found.starting) return "starting";
+    if (typeof target === "number" && !categoryOpen(tx, target)) return "no-category";
+    writePlace(tx, id, target);
+    return "sorted";
+  });
+}
+
+/** Whether a category exists and is not archived, so something can be sorted into it. */
+function categoryOpen(db: Db, id: number): boolean {
+  return (
+    db
       .select({ id: categories.id })
       .from(categories)
-      .where(and(eq(categories.id, target), eq(categories.archived, false)))
-      .all();
-    if (category.length === 0) return "no-category";
+      .where(and(eq(categories.id, id), eq(categories.archived, false)))
+      .all().length > 0
+  );
+}
+
+/** Where a transaction goes: one place, or parts. Checked by the caller. */
+type Place = SortTarget | NewPart[];
+
+/** A part of a split as it is entered. Null for no category. */
+export type NewPart = { categoryId: number | null; amount: number };
+
+/** Puts a transaction in one place, or splits it into parts, replacing any parts it had. */
+function writePlace(db: Db, id: number, place: Place): void {
+  db.delete(transactionSplits).where(eq(transactionSplits.transactionId, id)).run();
+  if (Array.isArray(place)) {
+    db.update(transactions)
+      .set({ categoryId: null, toSort: false, split: true })
+      .where(eq(transactions.id, id))
+      .run();
+    db.insert(transactionSplits)
+      .values(place.map((part) => ({ transactionId: id, ...part })))
+      .run();
+  } else {
+    db.update(transactions)
+      .set({
+        categoryId: typeof place === "number" ? place : null,
+        toSort: place === "unsorted",
+        split: false,
+      })
+      .where(eq(transactions.id, id))
+      .run();
   }
-  db.update(transactions)
-    .set({
-      categoryId: typeof target === "number" ? target : null,
-      toSort: target === "unsorted",
-    })
-    .where(eq(transactions.id, id))
-    .run();
-  return "sorted";
+}
+
+/** The fewest parts a split has. One part is just the category. */
+export const MIN_PARTS = 2;
+
+/**
+ * Why a place cannot be used for a transaction of `amount`, or null when it
+ * can: parts must be at least two, none of them zero, and add up to the
+ * amount. Categories must be open, except one the transaction is in already
+ * (`kept`), so an archived category can stay where it is.
+ */
+function checkPlace(
+  db: Db,
+  place: Place,
+  amount: number,
+  kept: Set<number>,
+): "no-category" | "parts" | null {
+  const usable = (id: number | null) => id === null || kept.has(id) || categoryOpen(db, id);
+  if (!Array.isArray(place)) {
+    return typeof place === "number" && !usable(place) ? "no-category" : null;
+  }
+  if (place.length < MIN_PARTS || place.some((part) => part.amount === 0)) return "parts";
+  if (place.reduce((sum, part) => sum + part.amount, 0) !== amount) return "parts";
+  return place.every((part) => usable(part.categoryId)) ? null : "no-category";
+}
+
+/** A transaction as entered by hand, or changed. Amounts in minor units; negative = money out. */
+export type TransactionInput = {
+  date: IsoDate;
+  amount: number;
+  payee: string | null;
+  note: string | null;
+  /** One place, or the parts of a split that add up to `amount`. */
+  place: Place;
+};
+
+/**
+ * Adds a transaction by hand, such as a cash payment, to an open account.
+ * Like an imported one, a transaction dated on or before the account's
+ * balance date is filled in behind the balance entered for that day.
+ * Returns its id, or why it could not be added: the account is gone or
+ * closed, a category is gone or archived, or the parts are not right.
+ */
+export function addTransaction(
+  db: Db,
+  accountId: number,
+  input: TransactionInput,
+): { id: number } | "no-account" | "no-category" | "parts" {
+  return db.transaction((tx) => {
+    const [account] = tx
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(and(eq(accounts.id, accountId), eq(accounts.archived, false)))
+      .all();
+    if (!account) return "no-account";
+    const problem = checkPlace(tx, input.place, input.amount, new Set());
+    if (problem) return problem;
+
+    const [{ id }] = tx
+      .insert(transactions)
+      .values({
+        accountId,
+        date: input.date,
+        amount: input.amount,
+        payee: input.payee,
+        note: input.note,
+      })
+      .returning({ id: transactions.id })
+      .all();
+    writePlace(tx, id, input.place);
+    syncStartingBalance(tx, accountId);
+    return { id };
+  });
+}
+
+/**
+ * Changes a transaction. Its date and amount stay as they are when it was
+ * imported, so the account keeps matching the bank (`imported`), or when its
+ * account is closed, which has to keep holding nothing (`closed`). A
+ * starting balance is changed on the Accounts page instead.
+ */
+export function editTransaction(
+  db: Db,
+  id: number,
+  input: TransactionInput,
+): "saved" | "no-transaction" | "starting" | "imported" | "closed" | "no-category" | "parts" {
+  return db.transaction((tx) => {
+    const [found] = tx
+      .select({
+        accountId: transactions.accountId,
+        date: transactions.date,
+        amount: transactions.amount,
+        categoryId: transactions.categoryId,
+        importId: transactions.importId,
+        starting: transactions.starting,
+        closed: accounts.archived,
+      })
+      .from(transactions)
+      .innerJoin(accounts, eq(accounts.id, transactions.accountId))
+      .where(eq(transactions.id, id))
+      .all();
+    if (!found) return "no-transaction";
+    if (found.starting) return "starting";
+    const moved = input.date !== found.date || input.amount !== found.amount;
+    if (moved && found.importId !== null) return "imported";
+    if (moved && found.closed) return "closed";
+
+    const kept = new Set(
+      [
+        found.categoryId,
+        ...tx
+          .select({ categoryId: transactionSplits.categoryId })
+          .from(transactionSplits)
+          .where(eq(transactionSplits.transactionId, id))
+          .all()
+          .map((part) => part.categoryId),
+      ].filter((categoryId) => categoryId !== null),
+    );
+    const problem = checkPlace(tx, input.place, input.amount, kept);
+    if (problem) return problem;
+
+    tx.update(transactions)
+      .set({ date: input.date, amount: input.amount, payee: input.payee, note: input.note })
+      .where(eq(transactions.id, id))
+      .run();
+    writePlace(tx, id, input.place);
+    if (moved) syncStartingBalance(tx, found.accountId);
+    return "saved";
+  });
 }
 
 /**

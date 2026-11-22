@@ -189,7 +189,11 @@
     "transactions": {
       "gone": "Die transactie bestaat niet meer. Laad de pagina opnieuw.",
       "startingNotSortable": "Een beginsaldo wordt niet bij een categorie ingedeeld.",
-      "startingNotDeletable": "Een beginsaldo kan niet worden verwijderd."
+      "startingNotDeletable": "Een beginsaldo kan niet worden verwijderd.",
+      "startingNotEditable": "Een beginsaldo wijzig je op de pagina Rekeningen.",
+      "imported": "De datum en het bedrag van een geïmporteerde transactie blijven zoals de bank ze heeft.",
+      "partZero": "Een deel kan niet nul zijn.",
+      "partsTotal": "De delen moeten samen het bedrag zijn."
     }
   },
   "import": {

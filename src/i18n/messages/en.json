@@ -189,7 +189,11 @@
     "transactions": {
       "gone": "That transaction no longer exists. Reload the page.",
       "startingNotSortable": "A starting balance does not go into a category.",
-      "startingNotDeletable": "A starting balance cannot be deleted."
+      "startingNotDeletable": "A starting balance cannot be deleted.",
+      "startingNotEditable": "A starting balance is changed on the Accounts page.",
+      "imported": "The date and amount of an imported transaction stay as the bank has them.",
+      "partZero": "A part cannot be zero.",
+      "partsTotal": "The parts have to add up to the amount."
     }
   },
   "import": {

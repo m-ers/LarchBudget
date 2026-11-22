@@ -642,6 +642,133 @@ export async function sortTransactionAction(
   return result === "no-category" ? categoryGone(t) : done();
 }
 
+/** The most parts one transaction can be split into; a receipt never needs more. */
+const MAX_PARTS = 30;
+
+/**
+ * A transaction as typed into its form. Amounts are as typed and never
+ * negative: `direction` says whether the money went out or came in. A part
+ * goes the same way as the whole, unless it is typed with a minus (a refund
+ * within a payment).
+ */
+const transactionForm = z.object({
+  // A day of leeway, for a server whose clock is in another time zone.
+  date: z.iso
+    .date("errors.accounts.notADate")
+    .refine(
+      (date) => date <= today(new Date(Date.now() + 86_400_000)),
+      "errors.accounts.futureDate",
+    )
+    .refine((date) => date >= EARLIEST_BALANCE_DATE, "errors.accounts.checkYear")
+    .transform((date) => date as IsoDate),
+  amount: z.string().max(40),
+  direction: z.enum(["out", "in"]),
+  payee: z.string().trim().max(MAX_PAYEE_LENGTH),
+  note: z.string().trim().max(MAX_NOTE_LENGTH),
+  place: z.union([
+    sortTarget,
+    z
+      .array(z.object({ categoryId: id.nullable(), amount: z.string().max(40) }))
+      .min(transactions.MIN_PARTS)
+      .max(MAX_PARTS),
+  ]),
+});
+
+export type TransactionForm = z.input<typeof transactionForm>;
+
+/** Reads a transaction's form into what the database takes, or the first problem as text. */
+function readTransactionForm(
+  t: Translate,
+  input: unknown,
+): { ok: true; value: transactions.TransactionInput } | Failure {
+  const parsed = transactionForm.safeParse(input);
+  if (!parsed.success) {
+    const message = parsed.error.issues[0].message;
+    return message.startsWith("errors.") ? firstProblem(t, parsed.error) : unexpected(t);
+  }
+  const { date, direction, payee, note, place } = parsed.data;
+  const sign = direction === "out" ? -1 : 1;
+
+  const amount = parseAmount(parsed.data.amount);
+  if (amount === null) return fail(t("errors.budget.notAnAmount"));
+  if (amount <= 0) return fail(t("errors.budget.amountNotPositive"));
+
+  let parts: transactions.NewPart[] | null = null;
+  if (Array.isArray(place)) {
+    parts = [];
+    for (const part of place) {
+      const partAmount = parseAmount(part.amount);
+      if (partAmount === null) return fail(t("errors.budget.notAnAmount"));
+      if (partAmount === 0) return fail(t("errors.transactions.partZero"));
+      parts.push({ categoryId: part.categoryId, amount: sign * partAmount });
+    }
+  }
+  return {
+    ok: true,
+    value: {
+      date,
+      amount: sign * amount,
+      payee: payee || null,
+      note: note || null,
+      place: parts ?? (place as transactions.SortTarget),
+    },
+  };
+}
+
+/** Turns why a transaction could not be added or changed into a message. */
+function transactionProblem(
+  t: Translate,
+  problem: "no-category" | "parts" | "imported" | "closed" | "starting" | "no-transaction",
+): Failure {
+  switch (problem) {
+    case "no-category":
+      return categoryGone(t);
+    case "parts":
+      return fail(t("errors.transactions.partsTotal"));
+    case "imported":
+      return fail(t("errors.transactions.imported"));
+    case "closed":
+      return fail(t("errors.accounts.closed"));
+    case "starting":
+      return fail(t("errors.transactions.startingNotEditable"));
+    case "no-transaction":
+      return transactionGone(t);
+  }
+}
+
+/** Adds a transaction by hand, such as a cash payment. */
+export async function addTransactionAction(
+  accountId: number,
+  form: TransactionForm,
+): Promise<ActionResult> {
+  const t = await getT();
+  const db = await database();
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(accountId).success) return unexpected(t);
+  const read = readTransactionForm(t, form);
+  if (!read.ok) return read;
+
+  const result = transactions.addTransaction(db, accountId, read.value);
+  if (result === "no-account") return accountGone(t);
+  return typeof result === "string" ? transactionProblem(t, result) : done();
+}
+
+/** Changes a transaction: for an imported one, everything but its date and amount. */
+export async function editTransactionAction(
+  transactionId: number,
+  form: TransactionForm,
+): Promise<ActionResult> {
+  const t = await getT();
+  const db = await database();
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(transactionId).success) return unexpected(t);
+  const read = readTransactionForm(t, form);
+  if (!read.ok) return read;
+
+  const result = transactions.editTransaction(db, transactionId, read.value);
+  return result === "saved" ? done() : transactionProblem(t, result);
+}
+
 export async function deleteTransactionAction(transactionId: number): Promise<ActionResult> {
   const t = await getT();
   const db = await database();
