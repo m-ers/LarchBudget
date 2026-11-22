@@ -3,6 +3,7 @@ import { cache } from "react";
 import { getDb, type Db } from "@/db";
 import * as accounts from "@/db/accounts";
 import * as budget from "@/db/budget";
+import * as rules from "@/db/rules";
 import * as transactions from "@/db/transactions";
 import type { Month } from "@/lib/dates";
 import type { TransactionFilter } from "@/lib/transactions-address";
@@ -67,4 +68,8 @@ export async function getCategoryOptions() {
 
 export async function getImportAccounts() {
   return transactions.getImportAccounts(await database());
+}
+
+export async function getRules() {
+  return rules.listRules(await database());
 }

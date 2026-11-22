@@ -48,3 +48,12 @@ export function buildMatcher(
     return null;
   };
 }
+
+/**
+ * What a category dropdown holds for where a rule sends transactions: ""
+ * while none is chosen, "ready" for no category, or the category's id.
+ */
+export function rulePlace(categoryId: number | null | undefined): string {
+  if (categoryId === undefined) return "";
+  return categoryId === null ? "ready" : String(categoryId);
+}

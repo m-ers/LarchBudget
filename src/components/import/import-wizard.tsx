@@ -330,6 +330,16 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
               <CheckIcon className="text-brand" width={20} height={20} strokeWidth={2.4} />
               {t("import.result.imported", { count: done.imported, account: done.account })}
             </h2>
+            {done.byRules > 0 && (
+              <p className="mt-1 text-muted">
+                {done.byRules === done.imported
+                  ? t("import.result.byRulesAll", { count: done.byRules })
+                  : t("import.result.byRulesSome", {
+                      count: done.byRules,
+                      rest: done.imported - done.byRules,
+                    })}
+              </p>
+            )}
             {done.duplicates > 0 && (
               <p className="mt-1 text-muted">
                 {t("import.result.duplicates", { count: done.duplicates })}
@@ -352,8 +362,13 @@ export function ImportWizard({ accounts, currency, locale }: Props) {
 
         <div className="mt-5 flex items-center gap-3">
           {undone === null && done.imported > 0 && (
-            <Link href="/transactions" className={`${buttonBase} px-4 py-2.5`}>
-              {t("import.result.sortNow")}
+            <Link
+              href={done.byRules === done.imported ? "/transactions?show=all" : "/transactions"}
+              className={`${buttonBase} px-4 py-2.5`}
+            >
+              {done.byRules === done.imported
+                ? t("import.result.viewThem")
+                : t("import.result.sortNow")}
             </Link>
           )}
           <button type="button" onClick={reset} className={quietButton}>

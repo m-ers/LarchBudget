@@ -45,6 +45,13 @@ export const GearIcon = (props: SVGProps<SVGSVGElement>) => (
   </Icon>
 );
 
+/** Lucide's "list-filter" icon (lucide.dev), ISC License, Copyright (c) Lucide Icons and Contributors. */
+export const RulesIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M3 6h18M7 12h10M10 18h4" />
+  </Icon>
+);
+
 export const UploadIcon = (props: SVGProps<SVGSVGElement>) => (
   <Icon {...props}>
     <path d="M12 16V5m0 0-4 4m4-4 4 4M5 19h14" />
@@ -109,6 +116,21 @@ export const SplitIcon = (props: SVGProps<SVGSVGElement>) => (
   <Icon {...props}>
     <path d="M12 21v-7.5a3 3 0 0 0-.9-2.1L5 5.5M12 13.5a3 3 0 0 1 .9-2.1L19 5.5" />
     <path d="M5 10.5v-5h5M19 10.5v-5h-5" />
+  </Icon>
+);
+
+/** Lucide's "list-filter-plus" icon (lucide.dev), ISC License, Copyright (c) Lucide Icons and Contributors. */
+export const AddRuleIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M12 5H2M6 12h12M9 19h6M16 5h6M19 8V2" />
+  </Icon>
+);
+
+/** Lucide's "wand-sparkles" icon (lucide.dev), ISC License, Copyright (c) Lucide Icons and Contributors. */
+export const WandIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72" />
+    <path d="m14 7 3 3M5 6v4M19 14v4M10 2v2M7 8H3M21 16h-4M11 3H9" />
   </Icon>
 );
 
