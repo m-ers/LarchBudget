@@ -10,6 +10,7 @@ out of them. This page explains how that works and what every screen does.
 - [Income](#income)
 - [Importing from your bank](#importing-from-your-bank)
 - [Sorting transactions](#sorting-transactions)
+- [Sorting rules](#sorting-rules)
 - [Finding transactions](#finding-transactions)
 - [Adding, changing and splitting](#adding-changing-and-splitting)
 
@@ -188,7 +189,8 @@ until you have given each a category.
 - Pick a category and the transaction is saved; the next one is ready at
   once.
 - For a payee you have sorted before, the category from last time is filled
-  in, in green. It is not saved yet: Enter or the check mark accepts it.
+  in, in green. It is not saved yet: Enter or the check mark accepts it. A
+  [rule](#sorting-rules) can sort them for you altogether.
 - Spending goes into the category it came out of. Income goes into an income
   category, such as Salary.
 - A transfer between two of your own accounts gets **No category**: it
@@ -196,6 +198,35 @@ until you have given each a category.
   change.
 - A transaction that is not sorted yet already counts: it lowers or raises
   Ready to assign until it has a category.
+
+## Sorting rules
+
+A rule sorts a transaction by the words in it, so a shop you visit often is
+sorted as soon as you import it. The **Rules** page lists them.
+
+- A rule says: when the payee or the note contains these words, sort it
+  into this category. Capitals and extra spaces do not matter, so
+  "fresh market" finds "FRESH MARKET 0042 AMSTERDAM". A rule can sort into
+  any category, into an income category, or into **No category**, for
+  transfers between your own accounts.
+- The icon that shows when you point at a transaction makes a rule from it:
+  it starts with the words of its payee, which you can shorten, and with its
+  category. Rules can also be added on the Rules page.
+- A rule works when you import, and when you save it: it also sorts what is
+  still to sort and fits. A transaction that you sorted, changed or split
+  yourself is never touched. After an import, the result says how many the
+  rules sorted.
+- When more than one rule fits, the one with the most text wins:
+  "fresh market bar" beats "market".
+- A transaction that a rule sorted has a small wand next to its category;
+  point at it to see the rule. The wand goes when you sort or change the
+  transaction yourself.
+- Changing a rule's category moves what it sorted, as long as nobody has
+  changed those transactions since. Deleting a rule leaves them where they
+  are.
+- When the category of a rule is archived, the rule sorts nothing until you
+  choose another category for it.
+- An import that only rules have sorted can still be undone.
 
 ## Finding transactions
 

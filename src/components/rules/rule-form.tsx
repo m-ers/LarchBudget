@@ -100,7 +100,7 @@ export function RuleForm({
           : "flex flex-col gap-3.5"
       }
     >
-      <div className={inline ? "min-w-56 flex-1" : undefined}>
+      <div className={inline ? "min-w-48 flex-1" : undefined}>
         <Field label={t("rules.form.text")} tip={t("rules.form.textTip")} tipId={tipId}>
           <input
             ref={textField}
@@ -118,7 +118,7 @@ export function RuleForm({
           />
         </Field>
       </div>
-      <div className={inline ? "w-72 max-w-full" : undefined}>
+      <div className={inline ? "w-60 max-w-full" : undefined}>
         <Field label={t("rules.form.category")}>
           <select
             value={place}
