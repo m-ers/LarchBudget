@@ -73,7 +73,10 @@ export function RuleRow({ rule }: { rule: RuleItem }) {
               ref={editButton}
               label={t("rules.row.editLabel", { text })}
               title={t("rules.row.editTitle")}
-              onClick={() => setEditing((was) => !was)}
+              onClick={() => {
+                setJustSorted(0);
+                setEditing((was) => !was);
+              }}
               revealOn={editing ? undefined : "row"}
               expanded={editing}
             >
