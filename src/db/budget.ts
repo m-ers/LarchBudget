@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { isCategoryIcon, type CategoryIcon } from "../lib/category-icons";
 import { addMonths, currentMonth, monthStart, type Month } from "../lib/dates";
 import { groupColors, isGroupColorSlot } from "../lib/group-colors";
@@ -114,6 +114,21 @@ export type BudgetMonth = {
 };
 
 /**
+ * The money that went through category `c` on the days `when` allows (a
+ * condition on `t.date`), as an SQL expression: its own transactions plus
+ * its parts of split transactions. Two lookups, so each is answered from
+ * its index.
+ */
+function categoryMoney(when: SQL): SQL {
+  return sql`(
+    coalesce((SELECT sum(t.amount) FROM transactions t
+              WHERE t.category_id = c.id AND ${when}), 0)
+    + coalesce((SELECT sum(s.amount) FROM transaction_splits s
+                JOIN transactions t ON t.id = s.transaction_id
+                WHERE s.category_id = c.id AND ${when}), 0))`;
+}
+
+/**
  * The figures of one month. `thisMonth` is the current month, which decides
  * whether targets still need money (see `targetNeeds`).
  */
@@ -157,10 +172,8 @@ export function getBudgetMonth(
       c.target_amount,
       c.target_month,
       CASE WHEN c.income THEN
-        coalesce((SELECT sum(t.amount) FROM transactions t
-                  WHERE t.category_id = c.id
-                    AND t.date >= CASE WHEN c.next_month THEN ${shifted.first} ELSE ${own.first} END
-                    AND t.date <= CASE WHEN c.next_month THEN ${shifted.last} ELSE ${own.last} END), 0)
+        ${categoryMoney(sql`t.date >= CASE WHEN c.next_month THEN ${shifted.first} ELSE ${own.first} END
+                        AND t.date <= CASE WHEN c.next_month THEN ${shifted.last} ELSE ${own.last} END`)}
       END AS received,
       coalesce((SELECT sum(a.amount) FROM assignments a
                 WHERE a.category_id = c.id AND a.month = ${month}), 0) AS assigned,
@@ -168,12 +181,9 @@ export function getBudgetMonth(
                 WHERE a.category_id = c.id AND a.month <= ${month}), 0) AS assigned_through,
       coalesce((SELECT sum(a.amount) FROM assignments a
                 WHERE a.category_id = c.id), 0) AS assigned_total,
-      coalesce((SELECT sum(t.amount) FROM transactions t
-                WHERE t.category_id = c.id AND t.date >= ${start} AND t.date < ${next}), 0) AS activity,
-      coalesce((SELECT sum(t.amount) FROM transactions t
-                WHERE t.category_id = c.id AND t.date < ${next}), 0) AS activity_through,
-      coalesce((SELECT sum(t.amount) FROM transactions t
-                WHERE t.category_id = c.id), 0) AS activity_total
+      ${categoryMoney(sql`t.date >= ${start} AND t.date < ${next}`)} AS activity,
+      ${categoryMoney(sql`t.date < ${next}`)} AS activity_through,
+      ${categoryMoney(sql`1`)} AS activity_total
     FROM categories c
     WHERE c.archived = 0
     ORDER BY c.sort_order, c.id
@@ -283,7 +293,12 @@ function getReadyBreakdown(db: Db, month: Month): ReadyBreakdown {
       sum(t.amount) AS amount,
       coalesce(c.archived = 0 AND c.income = 1, 0) AS income,
       coalesce(c.archived = 0 AND c.income = 1 AND c.next_month = 1, 0) AS next_month
-    FROM transactions t LEFT JOIN categories c ON c.id = t.category_id
+    FROM (
+      SELECT date, amount, category_id FROM transactions WHERE split = 0
+      UNION ALL
+      SELECT t.date, s.amount, s.category_id
+      FROM transaction_splits s JOIN transactions t ON t.id = s.transaction_id
+    ) t LEFT JOIN categories c ON c.id = t.category_id
     WHERE c.id IS NULL OR c.archived = 1 OR c.income = 1
     GROUP BY 1, 3, 4
   `);
@@ -770,7 +785,7 @@ export function getArchivedCategories(db: Db): ArchivedCategory[] {
           c.name,
           CASE WHEN c.income THEN 0 ELSE
             coalesce((SELECT sum(a.amount) FROM assignments a WHERE a.category_id = c.id), 0)
-              + coalesce((SELECT sum(t.amount) FROM transactions t WHERE t.category_id = c.id), 0)
+              + ${categoryMoney(sql`1`)}
           END AS balance,
           c.income
         FROM categories c

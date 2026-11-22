@@ -271,7 +271,7 @@ test("a picker draws the categories when it is first used, complete on the first
   await expect(first.locator("option")).toHaveCount(2);
 
   // Tabbing in is enough to type the first letters of a category.
-  await page.getByRole("link", { name: /^All/ }).focus();
+  await page.getByRole("button", { name: "Add transaction" }).focus();
   await page.keyboard.press("Tab");
   await expect(first).toBeFocused();
   await page.keyboard.type("R");

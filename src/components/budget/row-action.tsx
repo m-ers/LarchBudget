@@ -29,6 +29,8 @@ export function RowAction({
   onClick,
   revealOn,
   className = "",
+  ref,
+  expanded,
   children,
 }: {
   /** Accessible name, e.g. "Archive Groceries". */
@@ -38,12 +40,17 @@ export function RowAction({
   revealOn?: "row" | "head";
   /** More classes, such as `onBand`. */
   className?: string;
+  ref?: React.Ref<HTMLButtonElement>;
+  /** For a button that opens something under it: whether that is open. */
+  expanded?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <button
+      ref={ref}
       type="button"
       onClick={onClick}
+      aria-expanded={expanded}
       aria-label={label}
       title={title}
       className={`${rowActionLook(revealOn)} ${className}`}

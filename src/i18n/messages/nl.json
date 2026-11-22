@@ -31,14 +31,14 @@
   "transactions": {
     "page": {
       "title": "Transacties",
-      "lead": "Alles wat je van je bank hebt geïmporteerd. Deel elke transactie in bij een categorie.",
+      "lead": "De transacties van je bank en die je zelf toevoegt. Deel elke transactie in bij een categorie.",
       "allSorted": "Alles is ingedeeld",
       "toSort": "In te delen",
       "tabToSort": "In te delen",
       "tabAll": "Alle",
       "startingBalance": "Beginsaldo",
       "noName": "Geen naam",
-      "emptyNone": "Nog geen transacties. Ze komen binnen via een bestand dat je bij je bank downloadt.",
+      "emptyNone": "Nog geen transacties. Importeer een bestand van je bank, of voeg er zelf een toe.",
       "emptyImport": "Importeren van bank",
       "emptyNoMatch": "Geen transacties gevonden.",
       "emptySorted": "Alles is ingedeeld. Nieuwe transacties verschijnen hier na je volgende import.",
@@ -54,7 +54,8 @@
       "deleteQuestionNoPayee": "Deze transactie van {{amount}} op {{date}} verwijderen? Importeer je hetzelfde bankbestand later opnieuw, dan komt hij niet terug.",
       "showing": "{{shown}} van {{total}} getoond.",
       "newest": "Nieuwste",
-      "older": "Oudere"
+      "older": "Oudere",
+      "split": "Gesplitst"
     },
     "summary": {
       "all_one": "<n>{{count}}</n> transactie. Bij <b>{{in}}</b>, af <b>{{out}}</b>.",
@@ -91,6 +92,37 @@
     "delete": {
       "label": "{{what}} verwijderen",
       "title": "Verwijderen"
+    },
+    "form": {
+      "addButton": "Transactie toevoegen",
+      "addLabel": "Een transactie toevoegen",
+      "editLabel": "{{what}} wijzigen",
+      "editButton": "{{what}} wijzigen",
+      "editTitle": "Wijzigen",
+      "date": "Datum",
+      "payee": "Tegenpartij",
+      "account": "Rekening",
+      "amount": "Bedrag",
+      "direction": "Af of bij",
+      "out": "Af",
+      "in": "Bij",
+      "category": "Categorie",
+      "note": "Notitie",
+      "split": "Splitsen over categorieën",
+      "partCategory": "Categorie van deel {{n}}",
+      "partAmount": "Bedrag van deel {{n}}",
+      "removePart": "Deel {{n}} verwijderen",
+      "removePartTitle": "Deel verwijderen",
+      "addPart": "Deel toevoegen",
+      "left": "Nog {{amount}} te verdelen",
+      "tooMuch": "{{amount}} te veel",
+      "add": "Toevoegen",
+      "save": "Opslaan",
+      "cancel": "Annuleren",
+      "importedTip": "Zoals in het bankbestand. Wil je dit wijzigen, verwijder de transactie dan en voeg hem zelf toe.",
+      "takeRest": "Neem het restant van {{amount}}",
+      "takeRestLabel": "Deel {{n}} neemt het restant van {{amount}}",
+      "splitRow": "{{what}} splitsen over categorieën"
     }
   },
   "accounts": {
@@ -189,7 +221,12 @@
     "transactions": {
       "gone": "Die transactie bestaat niet meer. Laad de pagina opnieuw.",
       "startingNotSortable": "Een beginsaldo wordt niet bij een categorie ingedeeld.",
-      "startingNotDeletable": "Een beginsaldo kan niet worden verwijderd."
+      "startingNotDeletable": "Een beginsaldo kan niet worden verwijderd.",
+      "startingNotEditable": "Een beginsaldo wijzig je op de pagina Rekeningen.",
+      "imported": "De datum en het bedrag van een geïmporteerde transactie blijven zoals de bank ze heeft.",
+      "partZero": "Een deel kan niet nul zijn.",
+      "partsTotal": "De delen moeten samen het bedrag zijn.",
+      "partCategory": "Kies voor elk deel een categorie."
     }
   },
   "import": {

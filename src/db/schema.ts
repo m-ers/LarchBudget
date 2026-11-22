@@ -128,11 +128,20 @@ export const transactions = sqliteTable(
      */
     toSort: integer("to_sort", { mode: "boolean" }).notNull().default(false),
     /**
+     * True when the transaction is split over several categories: its parts
+     * are in `transactionSplits`, and its own category is null. The account
+     * side is still this one amount; only the categories see the parts.
+     */
+    split: integer("split", { mode: "boolean" }).notNull().default(false),
+    /**
      * Fingerprint of an imported row, unique per account, so importing an
      * overlapping file never adds the same transaction twice.
      */
     importId: text("import_id"),
-    /** Identifies the import that added this row, so one import can be undone. */
+    /**
+     * Identifies the import that added this row, so one import can be undone.
+     * Cleared when the row is changed by hand, so undoing keeps that work.
+     */
     importBatch: text("import_batch"),
     createdAt,
   },
@@ -146,6 +155,32 @@ export const transactions = sqliteTable(
       .on(t.date)
       .where(sql`${t.toSort} = 1`),
     uniqueIndex("transactions_account_import_unique").on(t.accountId, t.importId),
+  ],
+);
+
+/**
+ * The parts of a split transaction: how much of it goes to each category.
+ * The parts of one transaction add up to its amount. A category's money is
+ * its transactions plus its parts; the date is the transaction's.
+ */
+export const transactionSplits = sqliteTable(
+  "transaction_splits",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    transactionId: integer("transaction_id")
+      .notNull()
+      .references(() => transactions.id, { onDelete: "cascade" }),
+    /** Null for a part in no category, which stays in Ready to assign (like a transfer). */
+    categoryId: integer("category_id").references(() => categories.id, {
+      onDelete: "set null",
+    }),
+    /** Minor units, with the same sign as the transaction's own amount unless it is a refund within it. */
+    amount: integer("amount").notNull(),
+  },
+  (t) => [
+    index("transaction_splits_transaction_idx").on(t.transactionId),
+    // Ends in `amount`, so a category's parts are summed from the index alone.
+    index("transaction_splits_category_idx").on(t.categoryId, t.transactionId, t.amount),
   ],
 );
 

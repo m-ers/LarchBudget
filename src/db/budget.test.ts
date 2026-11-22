@@ -27,6 +27,7 @@ import {
   setTarget,
 } from "./budget";
 import { openDb, type Db } from "./index";
+import { addTransaction, editTransaction } from "./transactions";
 import { assignments, categories, transactions } from "./schema";
 import { created } from "./created";
 
@@ -1747,5 +1748,149 @@ describe("targets", () => {
       expect(() => assignAll(NOW)).toThrow();
       expect(assignedIn(NOW)).toEqual(before);
     });
+  });
+});
+
+describe("split transactions", () => {
+  let groceries: number;
+  let rent: number;
+  let salary: number;
+
+  beforeEach(() => {
+    groceries = createCategory(db, "Groceries");
+    rent = createCategory(db, "Rent");
+    salary = createIncomeCategory("Salary");
+  });
+
+  /** Adds a split transaction by hand; the parts are [category, amount]. */
+  function split(date: IsoDate, parts: [number | null, number][]) {
+    const result = addTransaction(db, checking, {
+      date,
+      amount: parts.reduce((sum, [, amount]) => sum + amount, 0),
+      payee: "Split",
+      note: null,
+      place: parts.map(([categoryId, amount]) => ({ categoryId, amount })),
+    });
+    if (typeof result === "string") throw new Error(`Not added: ${result}`);
+    return result.id;
+  }
+
+  const row = (month: Month, id: number) => rows(month).find((r) => r.id === id)!;
+
+  it("count each category's own part in its activity, available and balance", () => {
+    setAssigned(db, groceries, "2026-10", 5_000);
+    split("2026-10-10", [
+      [groceries, -3_000],
+      [rent, -2_000],
+    ]);
+    expect(row("2026-10", groceries)).toMatchObject({
+      activity: -3_000,
+      available: 2_000,
+      balance: 2_000,
+    });
+    expect(row("2026-10", rent)).toMatchObject({
+      activity: -2_000,
+      available: -2_000,
+      balance: -2_000,
+    });
+    // The month after: no activity, what is left carries on.
+    expect(row("2026-11", groceries)).toMatchObject({ activity: 0, available: 2_000 });
+    expectEverythingAccountedFor();
+  });
+
+  it("count a part in an income category as received, and one in no category as ready", () => {
+    split("2026-10-15", [
+      [salary, 8_000],
+      [null, 2_000],
+    ]);
+    const month = getBudgetMonth(db, "2026-10");
+    expect(month.income.received).toBe(8_000);
+    expect(month.income.categories.find((c) => c.id === salary)!.received).toBe(8_000);
+    expect(month.readyToAssign).toBe(110_000);
+    expect(expectReadyAddsUp("2026-10")).toMatchObject({ received: 8_000 });
+    expectEverythingAccountedFor();
+  });
+
+  it("keep money in all accounts equal to Ready to assign plus every balance", () => {
+    setAssigned(db, groceries, "2026-10", 5_000);
+    split("2026-10-10", [
+      [groceries, -3_000],
+      [rent, -2_000],
+      [null, -500],
+    ]);
+    split("2026-11-03", [
+      [groceries, -1_500],
+      [rent, 500],
+    ]);
+    split("2026-11-04", [
+      [salary, 4_000],
+      [groceries, -100],
+    ]);
+    for (const month of ["2026-10", "2026-11", "2026-12"] as const) {
+      const figures = getBudgetMonth(db, month);
+      const inAccounts = getAccounts(db).reduce((sum, a) => sum + a.balance, 0);
+      const balances = figures.groups
+        .flatMap((g) => g.categories)
+        .reduce((s, c) => s + c.balance, 0);
+      expect(figures.readyToAssign + balances).toBe(inAccounts);
+    }
+    expectEverythingAccountedFor();
+  });
+
+  it("follow the transaction's date when it is edited", () => {
+    const id = split("2026-10-10", [
+      [groceries, -3_000],
+      [salary, 1_000],
+    ]);
+    expect(row("2026-10", groceries).activity).toBe(-3_000);
+    expect(getBudgetMonth(db, "2026-10").income.received).toBe(1_000);
+    const result = editTransaction(db, id, {
+      date: "2026-11-10",
+      amount: -2_000,
+      payee: "Split",
+      note: null,
+      place: [
+        { categoryId: groceries, amount: -3_000 },
+        { categoryId: salary, amount: 1_000 },
+      ],
+    });
+    expect(result).toBe("saved");
+    expect(row("2026-10", groceries).activity).toBe(0);
+    expect(row("2026-11", groceries).activity).toBe(-3_000);
+    expect(getBudgetMonth(db, "2026-10").income.received).toBe(0);
+    expect(getBudgetMonth(db, "2026-11").income.received).toBe(1_000);
+    expectEverythingAccountedFor();
+  });
+
+  it("return the money of a part in an archived category to Ready to assign", () => {
+    setAssigned(db, groceries, "2026-10", 5_000);
+    split("2026-10-10", [
+      [groceries, -2_000],
+      [rent, -1_000],
+    ]);
+    const whole = created(budget.createCategory(db, "Whole", group));
+    spend(whole, "2026-10-11", -2_000);
+    const before = getBudgetMonth(db, "2026-10").readyToAssign;
+    archiveCategory(db, groceries);
+    archiveCategory(db, whole);
+    // Groceries held 5000 - 2000 = 3000, Whole held -2000: both come back.
+    expect(getBudgetMonth(db, "2026-10").readyToAssign).toBe(before + 3_000 - 2_000);
+    expect(getArchivedCategories(db).map((c) => [c.name, c.balance])).toEqual([
+      ["Groceries", 3_000],
+      ["Whole", -2_000],
+    ]);
+    expectEverythingAccountedFor();
+  });
+
+  it("count in the balance of archived categories", () => {
+    setAssigned(db, groceries, "2026-10", 5_000);
+    split("2026-10-10", [
+      [groceries, -3_000],
+      [rent, -2_000],
+    ]);
+    archiveCategory(db, groceries);
+    expect(getArchivedCategories(db)).toEqual([
+      { id: groceries, name: "Groceries", balance: 2_000, income: false },
+    ]);
   });
 });
