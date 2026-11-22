@@ -1,27 +1,31 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import type { IsoDate } from "../lib/dates";
-import { createAccount, getAccounts } from "./accounts";
+import { closeAccount, createAccount, deleteAccount, getAccounts } from "./accounts";
 import * as budget from "./budget";
 import { archiveCategory, getBudgetMonth, setAssigned } from "./budget";
 import { openDb, type Db } from "./index";
 import { created } from "./created";
-import { categories, deletedImports, transactions } from "./schema";
+import { categories, deletedImports, transactions, transactionSplits } from "./schema";
 import {
+  addTransaction,
   countTransactions,
   deleteTransaction,
+  editTransaction,
   findKnownRows,
   getCategoryOptions,
   getFilterOptions,
   getImportAccounts,
   importTransactions,
   listTransactions,
+  MIN_PARTS,
   saveImportMapping,
   sortTransaction,
   suggestCategories,
   summarizeTransactions,
   undoImport,
   type ImportRow,
+  type TransactionInput,
 } from "./transactions";
 
 let db: Db;
@@ -647,5 +651,519 @@ describe("deleting", () => {
     const bookshop = listTransactions(db, { limit: 50 }).find((t) => t.payee === "Bookshop")!;
     expect(deleteTransaction(db, bookshop.id)).toBe("deleted");
     expect(getAccounts(db)[0].balance).toBe(100_000);
+  });
+});
+
+/** Helpers for transactions made and changed by hand. */
+const input = (over: Partial<TransactionInput> = {}): TransactionInput => ({
+  date: "2026-11-10",
+  amount: -1_000,
+  payee: "Cash",
+  note: null,
+  place: groceries,
+  ...over,
+});
+
+const add = (over: Partial<TransactionInput> = {}, accountId = checking) => {
+  const result = addTransaction(db, accountId, input(over));
+  if (typeof result === "string") throw new Error(`Not added: ${result}`);
+  return result.id;
+};
+
+const find = (id: number) => listTransactions(db, { limit: 100 }).find((t) => t.id === id)!;
+const balance = () => getAccounts(db).find((a) => a.id === checking)!.balance;
+const splitRows = () => db.select().from(transactionSplits).all();
+
+describe("adding by hand", () => {
+  it("adds to an open account, in the category given", () => {
+    const id = add();
+    expect(find(id)).toMatchObject({
+      amount: -1_000,
+      payee: "Cash",
+      categoryId: groceries,
+      toSort: false,
+      imported: false,
+      parts: [],
+    });
+  });
+
+  it("is not to sort with ready, and to sort with unsorted", () => {
+    expect(find(add({ place: "ready" }))).toMatchObject({ categoryId: null, toSort: false });
+    expect(find(add({ place: "unsorted" }))).toMatchObject({ categoryId: null, toSort: true });
+  });
+
+  it("refuses an account that does not exist or is closed", () => {
+    expect(addTransaction(db, 999, input())).toBe("no-account");
+    const old = created(
+      createAccount(db, {
+        name: "Old",
+        type: "savings",
+        startingBalance: 0,
+        balanceDate: "2026-10-31",
+      }),
+    );
+    expect(closeAccount(db, old)).toBe("closed");
+    expect(addTransaction(db, old, input())).toBe("no-account");
+    expect(countTransactions(db).all).toBe(1);
+  });
+
+  it("refuses an archived or missing category and writes nothing", () => {
+    const old = createCategory(db, "Old", createGroup(db, "Past"));
+    archiveCategory(db, old);
+    expect(addTransaction(db, checking, input({ place: old }))).toBe("no-category");
+    expect(addTransaction(db, checking, input({ place: 999 }))).toBe("no-category");
+    expect(countTransactions(db).all).toBe(1);
+    expect(balance()).toBe(100_000);
+  });
+
+  it("leaves what the account holds on the balance date alone when dated on or before it", () => {
+    add({ date: "2026-10-31", amount: -2_000 });
+    add({ date: "2026-10-01", amount: 500 });
+    expect(balance()).toBe(100_000);
+  });
+
+  it("changes the balance by its amount when dated after the balance date", () => {
+    add({ date: "2026-11-01", amount: -2_000 });
+    expect(balance()).toBe(98_000);
+  });
+});
+
+describe("editing by hand", () => {
+  it("changes the date, amount, payee, note and place", () => {
+    const id = add();
+    const rent = createCategory(db, "Rent", createGroup(db, "Home"));
+    expect(
+      editTransaction(
+        db,
+        id,
+        input({ date: "2026-11-12", amount: -2_500, payee: "Landlord", note: "Nov", place: rent }),
+      ),
+    ).toBe("saved");
+    expect(find(id)).toMatchObject({
+      date: "2026-11-12",
+      amount: -2_500,
+      payee: "Landlord",
+      note: "Nov",
+      categoryId: rent,
+      toSort: false,
+    });
+    expect(balance()).toBe(97_500);
+  });
+
+  it("can put it back to sort", () => {
+    const id = add();
+    expect(editTransaction(db, id, input({ place: "unsorted" }))).toBe("saved");
+    expect(find(id)).toMatchObject({ categoryId: null, toSort: true });
+  });
+
+  it("keeps the starting balance rule when moved from after the balance date to before it", () => {
+    const id = add({ date: "2026-11-05", amount: -2_000 });
+    expect(balance()).toBe(98_000);
+    expect(editTransaction(db, id, input({ date: "2026-10-20", amount: -2_000 }))).toBe("saved");
+    expect(balance()).toBe(100_000);
+    expect(editTransaction(db, id, input({ date: "2026-11-05", amount: -3_000 }))).toBe("saved");
+    expect(balance()).toBe(97_000);
+  });
+
+  it("keeps the starting balance rule when the amount changes before the balance date", () => {
+    const id = add({ date: "2026-10-20", amount: -2_000 });
+    editTransaction(db, id, input({ date: "2026-10-20", amount: -9_000 }));
+    expect(balance()).toBe(100_000);
+  });
+
+  it("says so for a transaction that does not exist", () => {
+    expect(editTransaction(db, 999, input())).toBe("no-transaction");
+  });
+
+  it("does not change the starting balance row", () => {
+    const starting = listTransactions(db, { limit: 10 }).find((t) => t.starting)!;
+    expect(editTransaction(db, starting.id, input())).toBe("starting");
+    expect(find(starting.id)).toMatchObject({ amount: 100_000, payee: starting.payee });
+  });
+});
+
+describe("editing an imported transaction", () => {
+  const imported = () => {
+    importTransactions(db, checking, november, "a");
+    return listTransactions(db, { limit: 50 }).find((t) => t.payee === "Fresh Market")!;
+  };
+
+  it("is marked imported", () => {
+    expect(imported().imported).toBe(true);
+  });
+
+  it("can change payee, note and place", () => {
+    const t = imported();
+    expect(
+      editTransaction(
+        db,
+        t.id,
+        input({
+          date: t.date,
+          amount: t.amount,
+          payee: "Market",
+          note: "weekly",
+          place: groceries,
+        }),
+      ),
+    ).toBe("saved");
+    expect(find(t.id)).toMatchObject({
+      payee: "Market",
+      note: "weekly",
+      categoryId: groceries,
+      toSort: false,
+    });
+  });
+
+  it("refuses a changed date or amount and changes nothing, payee included", () => {
+    const t = imported();
+    const before = find(t.id);
+    expect(
+      editTransaction(db, t.id, input({ date: "2026-11-04", amount: t.amount, payee: "Other" })),
+    ).toBe("imported");
+    expect(
+      editTransaction(db, t.id, input({ date: t.date, amount: t.amount - 1, payee: "Other" })),
+    ).toBe("imported");
+    expect(find(t.id)).toEqual(before);
+    expect(getAccounts(db)[0].balance).toBe(100_000 + 285_000 - 4_510 - 700);
+  });
+
+  it("is not added again by the same file, and keeps the edits", () => {
+    const t = imported();
+    editTransaction(
+      db,
+      t.id,
+      input({ date: t.date, amount: t.amount, payee: "Market", place: groceries }),
+    );
+    const again = importTransactions(db, checking, november, "b");
+    expect(again).toMatchObject({ imported: 0 });
+    expect(countTransactions(db).all).toBe(5);
+    expect(find(t.id)).toMatchObject({ payee: "Market", categoryId: groceries, toSort: false });
+  });
+});
+
+describe("editing on a closed account", () => {
+  let old: number;
+  let id: number;
+
+  beforeEach(() => {
+    old = created(
+      createAccount(db, {
+        name: "Old",
+        type: "savings",
+        startingBalance: 0,
+        balanceDate: "2026-10-31",
+      }),
+    );
+    id = add({ date: "2026-11-02", amount: 500 }, old);
+    add({ date: "2026-11-03", amount: -500 }, old);
+    expect(closeAccount(db, old)).toBe("closed");
+  });
+
+  it("refuses a changed date or amount", () => {
+    expect(editTransaction(db, id, input({ date: "2026-11-09", amount: 500 }))).toBe("closed");
+    expect(editTransaction(db, id, input({ date: "2026-11-02", amount: 600 }))).toBe("closed");
+    expect(find(id)).toMatchObject({ date: "2026-11-02", amount: 500 });
+  });
+
+  it("still allows payee, note and category", () => {
+    expect(
+      editTransaction(
+        db,
+        id,
+        input({ date: "2026-11-02", amount: 500, payee: "Gift", note: "x", place: "ready" }),
+      ),
+    ).toBe("saved");
+    expect(find(id)).toMatchObject({ payee: "Gift", note: "x", categoryId: null });
+  });
+});
+
+describe("editing with an archived category", () => {
+  let old: number;
+
+  beforeEach(() => {
+    old = createCategory(db, "Old", createGroup(db, "Past"));
+  });
+
+  it("keeps the category a transaction is in", () => {
+    const id = add({ place: old });
+    archiveCategory(db, old);
+    expect(editTransaction(db, id, input({ place: old, payee: "Changed" }))).toBe("saved");
+    expect(find(id)).toMatchObject({ categoryId: old, payee: "Changed", categoryArchived: true });
+  });
+
+  it("keeps the category of one of its parts", () => {
+    const parts = [
+      { categoryId: old, amount: -600 },
+      { categoryId: groceries, amount: -400 },
+    ];
+    const id = add({ place: parts });
+    archiveCategory(db, old);
+    expect(editTransaction(db, id, input({ place: parts, note: "n" }))).toBe("saved");
+    expect(find(id).parts).toHaveLength(2);
+  });
+
+  it("does not take a transaction into it", () => {
+    const id = add();
+    archiveCategory(db, old);
+    expect(editTransaction(db, id, input({ place: old }))).toBe("no-category");
+    expect(
+      editTransaction(
+        db,
+        id,
+        input({
+          place: [
+            { categoryId: old, amount: -500 },
+            { categoryId: groceries, amount: -500 },
+          ],
+        }),
+      ),
+    ).toBe("no-category");
+    expect(find(id)).toMatchObject({ categoryId: groceries, parts: [] });
+  });
+});
+
+describe("splits", () => {
+  let rent: number;
+  const parts = (...amounts: [number | null, number][]) =>
+    amounts.map(([categoryId, amount]) => ({ categoryId, amount }));
+
+  beforeEach(() => {
+    rent = createCategory(db, "Rent", createGroup(db, "Home"));
+  });
+
+  it("needs at least two parts", () => {
+    expect(MIN_PARTS).toBe(2);
+    expect(addTransaction(db, checking, input({ place: parts([groceries, -1_000]) }))).toBe(
+      "parts",
+    );
+    expect(addTransaction(db, checking, input({ place: [] }))).toBe("parts");
+  });
+
+  it("refuses a part of 0", () => {
+    const place = parts([groceries, -1_000], [rent, 0], [null, 0]);
+    expect(addTransaction(db, checking, input({ place }))).toBe("parts");
+    const two = parts([groceries, -1_000], [rent, 0]);
+    expect(addTransaction(db, checking, input({ place: two }))).toBe("parts");
+  });
+
+  it("refuses parts that do not add up and changes nothing", () => {
+    expect(
+      addTransaction(db, checking, input({ place: parts([groceries, -600], [rent, -399]) })),
+    ).toBe("parts");
+    expect(
+      addTransaction(db, checking, input({ place: parts([groceries, -600], [rent, -401]) })),
+    ).toBe("parts");
+    expect(countTransactions(db).all).toBe(1);
+
+    const id = add({ place: parts([groceries, -600], [rent, -400]) });
+    const before = find(id);
+    expect(editTransaction(db, id, input({ place: parts([groceries, -1], [rent, -1]) }))).toBe(
+      "parts",
+    );
+    expect(editTransaction(db, id, input({ amount: -2_000, place: before.parts }))).toBe("parts");
+    expect(find(id)).toEqual(before);
+    expect(splitRows()).toHaveLength(2);
+  });
+
+  it("allows parts with different signs when they add up", () => {
+    const id = add({ place: parts([groceries, -1_500], [rent, 500]) });
+    expect(find(id).parts.map((p) => p.amount)).toEqual([-1_500, 500]);
+  });
+
+  it("has no category, is not to sort, and lists its parts in order", () => {
+    const id = add({ place: parts([rent, -300], [null, -200], [groceries, -500]) });
+    expect(find(id)).toMatchObject({ categoryId: null, category: null, toSort: false });
+    expect(find(id).parts).toEqual([
+      { categoryId: rent, category: "Rent", categoryArchived: false, amount: -300 },
+      { categoryId: null, category: null, categoryArchived: false, amount: -200 },
+      { categoryId: groceries, category: "Groceries", categoryArchived: false, amount: -500 },
+    ]);
+  });
+
+  it("is replaced by one category, which removes the parts", () => {
+    const id = add({ place: parts([groceries, -600], [rent, -400]) });
+    expect(editTransaction(db, id, input({ place: rent }))).toBe("saved");
+    expect(find(id)).toMatchObject({ categoryId: rent, parts: [] });
+    expect(splitRows()).toEqual([]);
+  });
+
+  it("is replaced by other parts, leaving only the new ones", () => {
+    const id = add({ place: parts([groceries, -600], [rent, -400]) });
+    expect(editTransaction(db, id, input({ place: parts([rent, -700], [null, -300]) }))).toBe(
+      "saved",
+    );
+    expect(find(id).parts.map((p) => [p.categoryId, p.amount])).toEqual([
+      [rent, -700],
+      [null, -300],
+    ]);
+    expect(splitRows()).toHaveLength(2);
+  });
+
+  it("is made whole by sorting it into one place", () => {
+    const id = add({ place: parts([groceries, -600], [rent, -400]) });
+    expect(sortTransaction(db, id, rent)).toBe("sorted");
+    expect(find(id)).toMatchObject({ categoryId: rent, parts: [] });
+    expect(splitRows()).toEqual([]);
+    const other = add({ place: parts([groceries, -600], [rent, -400]) });
+    sortTransaction(db, other, "unsorted");
+    expect(find(other)).toMatchObject({ toSort: true, parts: [] });
+  });
+
+  it("can be made from a whole transaction", () => {
+    const id = add();
+    expect(editTransaction(db, id, input({ place: parts([groceries, -600], [rent, -400]) }))).toBe(
+      "saved",
+    );
+    expect(find(id)).toMatchObject({ categoryId: null, toSort: false });
+    expect(find(id).parts).toHaveLength(2);
+  });
+
+  it("loses its parts when the transaction is deleted", () => {
+    const id = add({ place: parts([groceries, -600], [rent, -400]) });
+    add({ place: parts([groceries, -600], [rent, -400]) });
+    expect(splitRows()).toHaveLength(4);
+    expect(deleteTransaction(db, id)).toBe("deleted");
+    expect(splitRows()).toHaveLength(2);
+  });
+
+  it("loses its parts when its account is deleted", () => {
+    add({ place: parts([groceries, -600], [rent, -400]) });
+    expect(deleteAccount(db, checking)).toBe(true);
+    expect(splitRows()).toEqual([]);
+  });
+});
+
+describe("filtering split transactions", () => {
+  let rent: number;
+  let fun: number;
+  let wholeGroceries: number;
+  let splitId: number;
+
+  beforeEach(() => {
+    rent = createCategory(db, "Rent", createGroup(db, "Home"));
+    fun = createCategory(db, "Fun", createGroup(db, "Free"));
+    wholeGroceries = add({ amount: -500 });
+    splitId = add({
+      amount: -3_000,
+      place: [
+        { categoryId: groceries, amount: -2_000 },
+        { categoryId: rent, amount: -1_000 },
+      ],
+    });
+  });
+
+  const ids = (category: number | "none") =>
+    listTransactions(db, { filter: { category }, limit: 50 }).map((t) => t.id);
+
+  it("shows a split by a category one of its parts is in", () => {
+    expect(ids(rent)).toEqual([splitId]);
+    expect(ids(groceries).sort()).toEqual([wholeGroceries, splitId].sort());
+  });
+
+  it("does not show a split for a category none of its parts is in", () => {
+    expect(ids(fun)).toEqual([]);
+  });
+
+  it("counts only the matching part's amount with a category filter", () => {
+    expect(summarizeTransactions(db, { category: rent })).toEqual({
+      count: 1,
+      moneyIn: 0,
+      moneyOut: -1_000,
+    });
+    expect(summarizeTransactions(db, { category: groceries })).toEqual({
+      count: 2,
+      moneyIn: 0,
+      moneyOut: -2_500,
+    });
+  });
+
+  it("counts only the matching part, with its sign, when parts differ in sign", () => {
+    add({
+      amount: -1_000,
+      place: [
+        { categoryId: fun, amount: -1_500 },
+        { categoryId: rent, amount: 500 },
+      ],
+    });
+    expect(summarizeTransactions(db, { category: rent })).toEqual({
+      count: 2,
+      moneyIn: 500,
+      moneyOut: -1_000,
+    });
+  });
+
+  it("counts the whole amount without a category filter", () => {
+    expect(summarizeTransactions(db, {})).toMatchObject({ count: 3, moneyIn: 0, moneyOut: -3_500 });
+  });
+
+  describe("none", () => {
+    let readyId: number;
+    let noneSplit: number;
+    let unsorted: number;
+
+    beforeEach(() => {
+      readyId = add({ amount: -700, place: "ready" });
+      unsorted = add({ amount: -100, place: "unsorted" });
+      noneSplit = add({
+        amount: -1_200,
+        place: [
+          { categoryId: null, amount: -200 },
+          { categoryId: fun, amount: -1_000 },
+        ],
+      });
+    });
+
+    it("shows whole transactions without category and splits with a part in none", () => {
+      const shown = ids("none");
+      expect(shown.sort()).toEqual([readyId, unsorted, noneSplit].sort());
+    });
+
+    it("does not show starting balances or splits with every part in a category", () => {
+      const shown = listTransactions(db, { filter: { category: "none" }, limit: 50 });
+      expect(shown.some((t) => t.starting)).toBe(false);
+      expect(shown.map((t) => t.id)).not.toContain(splitId);
+    });
+
+    it("counts only the part without category in the summary", () => {
+      expect(summarizeTransactions(db, { category: "none" })).toEqual({
+        count: 3,
+        moneyIn: 0,
+        moneyOut: -700 - 100 - 200,
+      });
+    });
+  });
+});
+
+describe("suggesting for split transactions", () => {
+  it("suggests nothing when the latest sorted transaction of the payee is split", () => {
+    const rent = createCategory(db, "Rent", createGroup(db, "Home"));
+    add({ date: "2026-11-01", payee: "Shop", place: groceries });
+    add({
+      date: "2026-11-02",
+      payee: "Shop",
+      place: [
+        { categoryId: groceries, amount: -600 },
+        { categoryId: rent, amount: -400 },
+      ],
+    });
+    expect(suggestCategories(db, ["Shop"]).size).toBe(0);
+  });
+
+  it("suggests as before when a whole transaction came after a split", () => {
+    const rent = createCategory(db, "Rent", createGroup(db, "Home"));
+    add({
+      date: "2026-11-01",
+      payee: "Shop",
+      place: [
+        { categoryId: groceries, amount: -600 },
+        { categoryId: rent, amount: -400 },
+      ],
+    });
+    add({ date: "2026-11-02", payee: "Shop", place: rent });
+    expect(suggestCategories(db, ["Shop"]).get("Shop")).toEqual({
+      categoryId: rent,
+      category: "Rent",
+    });
   });
 });
