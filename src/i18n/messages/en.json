@@ -325,15 +325,6 @@
       "daysToGo_one": "<b>{{count}} day</b> to go",
       "daysToGo_other": "<b>{{count}} days</b> to go"
     },
-    "overview": {
-      "received": "Received",
-      "receivedTip": "What came in through your income categories for this month.",
-      "assigned": "Assigned",
-      "assignedTip": "What you put into your categories this month.",
-      "spent": "Spent",
-      "spentTip": "What was spent from your categories this month.",
-      "receivedFromLastMonthTip": "{{amount}} of it came in during {{lastMonth}} and counts for {{month}}."
-    },
     "ready": {
       "assignedMore": "Assigned more than you have",
       "readyToAssign": "Ready to assign",

@@ -95,21 +95,6 @@ export const newIncomeField = (page: Page) =>
 export const groupTotal = (page: Page, name: string) =>
   groupRow(page, name).getByRole("cell").last();
 
-/**
- * A figure under the month, found by its label ("Received", "Assigned",
- * "Spent", or the same in the page's language): its amount, e.g. "€1,195".
- */
-export const overviewFigure = (page: Page, label: string) =>
-  page
-    .locator("dt")
-    .filter({ hasText: exactly(label) })
-    .filter({ visible: true })
-    .locator("xpath=following-sibling::dd[1]");
-
-/** What a figure under the month says on hover: the element with its `title`. */
-export const overviewTip = (page: Page, label: string) =>
-  overviewFigure(page, label).locator("xpath=..");
-
 /** The name of a month counted from this one: `monthFromNow(-1)` is "October" in November. */
 export function monthFromNow(offset: number, locale = "en-US"): string {
   const date = new Date();

@@ -3,14 +3,15 @@ import {
   addAccount,
   addIncomeCategories,
   available,
+  breakdownLine,
   category,
   categoryRow,
+  expectBreakdownAddsUp,
   groupTotal,
   headerFigure,
   menuButton,
   openMenu,
-  overviewFigure,
-  overviewTip,
+  openReadyBreakdown,
 } from "./helpers";
 import { expect, test } from "./fixtures";
 
@@ -21,12 +22,26 @@ import { expect, test } from "./fixtures";
 const nextMonthItem = (page: Page) =>
   page.getByRole("menuitemcheckbox", { name: "Counts for the next month", exact: true });
 
-/** Received under the month, e.g. "€2,850". */
-const received = (page: Page) => overviewFigure(page, "Received");
-
-/** What Received says on hover, with what came in the month before when there is any. */
-const receivedTip = (page: Page) => overviewTip(page, "Received");
-const RECEIVED_TIP = "What came in through your income categories for this month.";
+/**
+ * Checks how Ready to assign adds up for October or November 2026: what it
+ * counts as received for the month, and what is already in for the month
+ * after it (none when not given). It opens the card and closes it again.
+ */
+async function expectCard(
+  page: Page,
+  month: "October" | "November",
+  received: string,
+  alreadyIn?: string,
+) {
+  const after = month === "October" ? "November" : "December";
+  await openReadyBreakdown(page);
+  await expect(breakdownLine(page, `Received for ${month}`)).toHaveText(received);
+  const later = breakdownLine(page, `Already in for ${after}`);
+  if (alreadyIn) await expect(later).toHaveText(alreadyIn);
+  else await expect(later).toHaveCount(0);
+  await expectBreakdownAddsUp(page);
+  await page.keyboard.press("Escape");
+}
 
 /** Opens a month, waiting until it is on screen. */
 async function openMonth(page: Page, month: string) {
@@ -95,13 +110,11 @@ test("what comes in during October counts for November, and Ready to assign stay
   await expect(available(page, "Salary")).toHaveText("€3,000.00");
   await expect(available(page, "Gifts")).toHaveText("€50.00");
   await expect(groupTotal(page, "Income")).toHaveText("€3,050.00 received");
-  await expect(received(page)).toHaveText("€3,050");
-  await expect(receivedTip(page)).toHaveAttribute("title", RECEIVED_TIP);
+  await expectCard(page, "October", "+ €3,050.00");
   await openMonth(page, "2026-11");
   await expect(available(page, "Salary")).toHaveText("€0.00");
   await expect(groupTotal(page, "Income")).toHaveText("€0.00 received");
-  await expect(received(page)).toHaveText("€0");
-  await expect(receivedTip(page)).toHaveAttribute("title", RECEIVED_TIP);
+  await expectCard(page, "November", "+ €0.00");
   await expect(headerFigure(page)).toHaveText(ready);
 
   // On: everything Salary received in October, on the 5th and the 25th,
@@ -110,12 +123,8 @@ test("what comes in during October counts for November, and Ready to assign stay
   await expect(available(page, "Salary")).toHaveText("€3,000.00");
   await expect(available(page, "Gifts")).toHaveText("€0.00");
   await expect(groupTotal(page, "Income")).toHaveText("€3,000.00 received");
-  // Under the month: all of it came in during October.
-  await expect(received(page)).toHaveText("€3,000");
-  await expect(receivedTip(page)).toHaveAttribute(
-    "title",
-    `${RECEIVED_TIP} €3,000 of it came in during October and counts for November.`,
-  );
+  // How Ready to assign adds up counts all of it as received for November.
+  await expectCard(page, "November", "+ €3,000.00");
   await expect(headerFigure(page)).toHaveText(ready);
   // An arrow after the name says why, and the amount leads to October.
   await expect(
@@ -134,24 +143,22 @@ test("what comes in during October counts for November, and Ready to assign stay
   await expect(available(page, "Salary")).toHaveText("€0.00");
   await expect(available(page, "Gifts")).toHaveText("€50.00");
   await expect(groupTotal(page, "Income")).toHaveText("€50.00 received");
-  await expect(received(page)).toHaveText("€50");
-  await expect(receivedTip(page)).toHaveAttribute("title", RECEIVED_TIP);
+  // There, Salary's money is already in for November.
+  await expectCard(page, "October", "+ €50.00", "+ €3,000.00");
   await expect(headerFigure(page)).toHaveText(ready);
 
   // Off again: everything back where it arrived.
   await switchSalary(page);
   await expect(available(page, "Salary")).toHaveText("€3,000.00");
   await expect(groupTotal(page, "Income")).toHaveText("€3,050.00 received");
-  await expect(received(page)).toHaveText("€3,050");
-  await expect(receivedTip(page)).toHaveAttribute("title", RECEIVED_TIP);
+  await expectCard(page, "October", "+ €3,050.00");
   await expect(categoryRow(page, "Salary").getByRole("link")).toHaveAttribute(
     "href",
     /^\/transactions\?show=all&category=\d+&month=2026-10$/,
   );
   await openMonth(page, "2026-11");
   await expect(available(page, "Salary")).toHaveText("€0.00");
-  await expect(received(page)).toHaveText("€0");
-  await expect(receivedTip(page)).toHaveAttribute("title", RECEIVED_TIP);
+  await expectCard(page, "November", "+ €0.00");
   await expect(headerFigure(page)).toHaveText(ready);
 });
 

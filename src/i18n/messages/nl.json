@@ -325,15 +325,6 @@
       "daysToGo_one": "nog <b>{{count}} dag</b>",
       "daysToGo_other": "nog <b>{{count}} dagen</b>"
     },
-    "overview": {
-      "received": "Ontvangen",
-      "receivedTip": "Wat er via je inkomstencategorieën voor deze maand binnenkwam.",
-      "assigned": "Toegewezen",
-      "assignedTip": "Wat je deze maand aan je categorieën hebt toegewezen.",
-      "spent": "Uitgegeven",
-      "spentTip": "Wat je deze maand uit je categorieën hebt uitgegeven.",
-      "receivedFromLastMonthTip": "{{amount}} hiervan kwam in {{lastMonth}} binnen en telt voor {{month}}."
-    },
     "ready": {
       "assignedMore": "Meer toegewezen dan je hebt",
       "readyToAssign": "Nog toe te wijzen",

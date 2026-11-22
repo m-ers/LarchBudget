@@ -3,14 +3,13 @@
 import Link from "next/link";
 import { useEffect, useOptimistic, useRef, useState } from "react";
 import type { ArchivedCategory, BudgetMonth, GroupRow } from "@/db/budget";
-import { useDateLocale, useT } from "@/i18n/client";
+import { useT } from "@/i18n/client";
 import { richText } from "@/i18n/rich";
 import type { Translate } from "@/i18n/translate";
-import { addMonths, monthName, type Month } from "@/lib/dates";
-import { fromLastMonth } from "@/lib/income";
-import { formatMoney, formatMoneyParts, formatMoneyRounded } from "@/lib/money";
+import type { Month } from "@/lib/dates";
+import { formatMoney, formatMoneyParts } from "@/lib/money";
 import { primaryButton } from "../form";
-import { Hero, HeroFigure, HeroStat, HeroStats } from "../hero";
+import { Hero, HeroFigure } from "../hero";
 import { ArchivedCategories } from "./archived-categories";
 import { applyChange } from "./budget-changes";
 import { BudgetContext } from "./budget-context";
@@ -62,9 +61,9 @@ function useInView(ref: React.RefObject<Element | null>): boolean {
 }
 
 /**
- * The budget page for one month: the header with what came in, was
- * assigned and was spent, and Ready to assign, which opens how it adds up;
- * and the table of income, groups and categories.
+ * The budget page for one month: the header with the month and Ready to
+ * assign, which opens how it adds up; and the table of income, groups and
+ * categories.
  *
  * It shows the server's figures with every change that is still being saved
  * applied on top (see `budget-changes.ts`), so a change and everything it
@@ -82,15 +81,6 @@ export function BudgetView({
 }: Props) {
   const t = useT();
   const [budget, show] = useOptimistic(saved, applyChange);
-  const dateLocale = useDateLocale();
-  const { spent, assigned } = budget.totals;
-  const { received } = budget.income;
-  // What of `received` came in during the month before. Like `received`, it
-  // is the server's: switching "Counts for the next month" changes what a
-  // category received, and that comes with the server's figures.
-  const earlier = fromLastMonth(saved.income.categories);
-  const money = (minorUnits: number) => formatMoneyRounded(minorUnits, currency, locale);
-  const receivedTip = t("budget.overview.receivedTip");
   const ready = budget.readyToAssign;
   const headline = readyHeadline(t, ready, budget.hasAccounts);
   const breakdown = useReadyBreakdown();
@@ -105,44 +95,13 @@ export function BudgetView({
           sticks out of it. */}
       <div className="relative shrink-0">
         <Hero ref={hero}>
-          {/* With the figures under the month, this starts near the top: the
-              figures then line up with Ready to assign. */}
-          <div className={budget.hasAccounts ? "relative self-start pt-5" : "relative"}>
-            {/* As high as the arrows, so "This month" does not move what is below. */}
-            <div className="flex h-7 items-center gap-x-4">
-              {monthNav}
-              {daysLeft !== null && (
-                <p className="text-[14.5px] whitespace-nowrap text-white/70">
-                  {richText(t, "budget.header.daysToGo", { count: daysLeft }, { b: bold })}
-                </p>
-              )}
-            </div>
-            {budget.hasAccounts && (
-              <HeroStats>
-                <HeroStat
-                  label={t("budget.overview.received")}
-                  value={money(received)}
-                  title={
-                    earlier > 0
-                      ? `${receivedTip} ${t("budget.overview.receivedFromLastMonthTip", {
-                          amount: money(earlier),
-                          lastMonth: monthName(addMonths(month, -1), dateLocale),
-                          month: monthName(month, dateLocale),
-                        })}`
-                      : receivedTip
-                  }
-                />
-                <HeroStat
-                  label={t("budget.overview.assigned")}
-                  value={money(assigned)}
-                  title={t("budget.overview.assignedTip")}
-                />
-                <HeroStat
-                  label={t("budget.overview.spent")}
-                  value={money(spent)}
-                  title={t("budget.overview.spentTip")}
-                />
-              </HeroStats>
+          {/* As high as the arrows, so "This month" does not move the title. */}
+          <div className="relative flex h-7 items-center gap-x-4">
+            {monthNav}
+            {daysLeft !== null && (
+              <p className="text-[14.5px] whitespace-nowrap text-white/70">
+                {richText(t, "budget.header.daysToGo", { count: daysLeft }, { b: bold })}
+              </p>
             )}
           </div>
           <HeroFigure

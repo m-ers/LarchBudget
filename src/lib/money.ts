@@ -21,11 +21,6 @@ const moneyFormat = memoize(
     new Intl.NumberFormat(locale, { style: "currency", currency }),
 );
 
-const roundedFormat = memoize(
-  (locale: string, currency: string) =>
-    new Intl.NumberFormat(locale, { style: "currency", currency, maximumFractionDigits: 0 }),
-);
-
 /** A plain number with the currency's decimals: grouped for reading, ungrouped for typing. */
 const plainFormat = memoize(
   (locale: string, currency: string, grouping: "grouped" | "ungrouped") => {
@@ -41,11 +36,6 @@ const plainFormat = memoize(
 /** Formats minor units for display, e.g. (123456, "EUR", "nl-NL") -> "€ 1.234,56". */
 export function formatMoney(minorUnits: number, currency: string, locale: string): string {
   return moneyFormat(locale, currency).format(toMajor(minorUnits, currency));
-}
-
-/** Formats minor units rounded to whole units, for summaries: 155800 -> "€1,558". */
-export function formatMoneyRounded(minorUnits: number, currency: string, locale: string): string {
-  return roundedFormat(locale, currency).format(toMajor(minorUnits, currency));
 }
 
 /**
