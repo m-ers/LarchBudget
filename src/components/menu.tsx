@@ -45,8 +45,15 @@ const GAP = 4;
  * above it when there is no room below in the window; with `at`, where the
  * pointer was. The position is set on the element itself: it depends on the
  * size the popup turns out to have, which is only known once it is drawn.
+ *
+ * It lines up with the anchor's left edge, or its right edge when there is
+ * no room on the right. With `align: "end"` it always lines up with the
+ * right edge, and stays there when the anchor changes width.
  */
-export function placePopup(popup: HTMLElement, at?: { x: number; y: number }) {
+export function placePopup(
+  popup: HTMLElement,
+  { at, align = "start" }: { at?: { x: number; y: number }; align?: "start" | "end" } = {},
+) {
   const anchor = popup.offsetParent;
   if (!anchor) return;
 
@@ -65,8 +72,13 @@ export function placePopup(popup: HTMLElement, at?: { x: number; y: number }) {
     if (!fitsBelow(top) && box.top - GAP - height >= MARGIN) top = box.top - GAP - height;
     if (left + width > window.innerWidth - MARGIN) left = box.right - width;
   }
-  popup.style.left = `${left - box.left}px`;
   popup.style.top = `${top - box.top}px`;
+  if (align === "end" && !at) {
+    popup.style.left = "auto";
+    popup.style.right = "0px";
+  } else {
+    popup.style.left = `${left - box.left}px`;
+  }
 }
 
 /** The card a menu or another popup is drawn on, placed with `placePopup`. */
@@ -161,7 +173,7 @@ export function Menu({
   useLayoutEffect(() => {
     const menu = list.current;
     if (!opened || !menu) return;
-    placePopup(menu, opened.at);
+    placePopup(menu, { at: opened.at });
 
     const target =
       opened.focus === "menu" ? menu : choosable(menu).at(opened.focus === "first" ? 0 : -1);

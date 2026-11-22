@@ -8,14 +8,16 @@ import {
   assignAndSave,
   assignedField,
   available,
+  breakdownLine,
   clickAway,
   countAnswers,
   groupTotal,
   headerFigure,
   menuButton,
+  monthFromNow,
   newGroupField,
+  openReadyBreakdown,
   slowConnection,
-  spentLine,
 } from "./helpers";
 import { expect, test } from "./fixtures";
 
@@ -57,9 +59,15 @@ test.describe("on a slow connection", () => {
     await expect(assignedField(page, "Rent")).toHaveValue("1,100.00", AT_ONCE);
     await expect(available(page, "Rent")).toHaveText("€1,100.00", AT_ONCE);
     await expect(groupTotal(page, "Fixed costs")).toHaveText("€1,195.00", AT_ONCE);
-    await expect(spentLine(page)).toContainText("spent of €1,195 assigned", AT_ONCE);
     await expect(headerFigure(page)).toHaveText("€1,305.00", AT_ONCE);
     await expect(page.getByText("Ready to assign", { exact: true })).toBeVisible(AT_ONCE);
+    // So does how Ready to assign adds up.
+    await openReadyBreakdown(page);
+    await expect(breakdownLine(page, `Assigned in ${monthFromNow(0)}`)).toHaveText(
+      "− €1,195.00",
+      AT_ONCE,
+    );
+    await page.keyboard.press("Escape");
     expect(answers()).toBe(0);
 
     // The label and its tone follow the figure.

@@ -15,12 +15,20 @@ export function rowActionLook(revealOn?: "row" | "head"): string {
   return `rounded-md p-1.5 text-muted hover:bg-hover hover:text-ink focus-visible:text-ink ${reveal}`;
 }
 
+/**
+ * For a button on a section heading's band, which has the hover tone
+ * itself: its hover goes a step darker. It is set on the button, so a menu
+ * the button opens keeps the usual tone.
+ */
+export const onBand = "[--hover:var(--line)]";
+
 /** A small icon button in a table row or group heading; see `rowActionLook`. */
 export function RowAction({
   label,
   title,
   onClick,
   revealOn,
+  className = "",
   children,
 }: {
   /** Accessible name, e.g. "Archive Groceries". */
@@ -28,6 +36,8 @@ export function RowAction({
   title: string;
   onClick: () => void;
   revealOn?: "row" | "head";
+  /** More classes, such as `onBand`. */
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -36,7 +46,7 @@ export function RowAction({
       onClick={onClick}
       aria-label={label}
       title={title}
-      className={rowActionLook(revealOn)}
+      className={`${rowActionLook(revealOn)} ${className}`}
     >
       {children}
     </button>

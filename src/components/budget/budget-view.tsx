@@ -7,9 +7,9 @@ import { useT } from "@/i18n/client";
 import { richText } from "@/i18n/rich";
 import type { Translate } from "@/i18n/translate";
 import type { Month } from "@/lib/dates";
-import { formatMoney, formatMoneyParts, formatMoneyRounded } from "@/lib/money";
+import { formatMoney, formatMoneyParts } from "@/lib/money";
 import { primaryButton } from "../form";
-import { Hero, HeroFigure, HeroLead } from "../hero";
+import { Hero, HeroFigure } from "../hero";
 import { ArchivedCategories } from "./archived-categories";
 import { applyChange } from "./budget-changes";
 import { BudgetContext } from "./budget-context";
@@ -17,6 +17,7 @@ import { CopyLastMonth } from "./copy-last-month";
 import { GroupBody, UngroupedBody } from "./group-body";
 import { IncomeBody } from "./income-body";
 import { NewGroup } from "./new-group";
+import { ReadyBreakdownCard, readyBreakdownButton, useReadyBreakdown } from "./ready-breakdown";
 import { TableHead } from "./table-head";
 
 type Props = {
@@ -60,8 +61,9 @@ function useInView(ref: React.RefObject<Element | null>): boolean {
 }
 
 /**
- * The budget page for one month: the header with Ready to assign, and the
- * table of income, groups and categories.
+ * The budget page for one month: the header with the month and Ready to
+ * assign, which opens how it adds up; and the table of income, groups and
+ * categories.
  *
  * It shows the server's figures with every change that is still being saved
  * applied on top (see `budget-changes.ts`), so a change and everything it
@@ -79,66 +81,47 @@ export function BudgetView({
 }: Props) {
   const t = useT();
   const [budget, show] = useOptimistic(saved, applyChange);
-  const { spent, assigned } = budget.totals;
-  const { received } = budget.income;
-  const showSpent = spent > 0 || assigned !== 0;
   const ready = budget.readyToAssign;
   const headline = readyHeadline(t, ready, budget.hasAccounts);
+  const breakdown = useReadyBreakdown();
   const hero = useRef<HTMLElement>(null);
   const heroInView = useInView(hero);
   const groupCount = budget.groups.filter(isGroup).length;
 
   return (
     <BudgetContext value={{ month, currency, locale, figures: budget, show }}>
-      <Hero ref={hero}>
-        <div className="relative">
-          {monthNav}
-          {(received !== 0 || showSpent) && (
-            <HeroLead>
-              {received !== 0 &&
-                richText(
-                  t,
-                  "budget.header.received",
-                  { amount: formatMoneyRounded(received, currency, locale) },
-                  { b: bold },
-                )}
-              {received !== 0 && showSpent && " · "}
-              {showSpent &&
-                richText(
-                  t,
-                  "budget.header.spent",
-                  {
-                    spent: formatMoneyRounded(spent, currency, locale),
-                    assigned: formatMoneyRounded(assigned, currency, locale),
-                  },
-                  { b: bold },
-                )}
-              {daysLeft !== null && (
-                <>
-                  {" · "}
-                  {richText(t, "budget.header.daysToGo", { count: daysLeft }, { b: bold })}
-                </>
-              )}
-            </HeroLead>
-          )}
-        </div>
-        {/* How the figure adds up, on hover. */}
-        <div
-          title={
-            budget.inCategories < 0
-              ? t("budget.header.readyWithOverspent", {
-                  inAccounts: formatMoney(budget.inAccounts, currency, locale),
-                  overspent: formatMoney(-budget.inCategories, currency, locale),
-                })
-              : t("budget.header.readyMinusCategories", {
-                  inAccounts: formatMoney(budget.inAccounts, currency, locale),
-                  inCategories: formatMoney(budget.inCategories, currency, locale),
-                })
-          }
-        >
-          <HeroFigure amount={formatMoneyParts(ready, currency, locale)} {...headline} />
-        </div>
-      </Hero>
+      {/* The card that shows how Ready to assign adds up opens under the
+          header, lined up with its right edge: the header clips what
+          sticks out of it. */}
+      <div className="relative shrink-0">
+        <Hero ref={hero}>
+          {/* As high as the arrows, so "This month" does not move the title. */}
+          <div className="relative flex h-7 items-center gap-x-4">
+            {monthNav}
+            {daysLeft !== null && (
+              <p className="text-[14.5px] whitespace-nowrap text-white/70">
+                {richText(t, "budget.header.daysToGo", { count: daysLeft }, { b: bold })}
+              </p>
+            )}
+          </div>
+          <HeroFigure
+            amount={formatMoneyParts(ready, currency, locale)}
+            {...headline}
+            button={
+              budget.hasAccounts
+                ? readyBreakdownButton(
+                    breakdown,
+                    t("budget.breakdown.button", {
+                      label: headline.label,
+                      amount: formatMoney(ready, currency, locale),
+                    }),
+                  )
+                : undefined
+            }
+          />
+        </Hero>
+        {breakdown.open && <ReadyBreakdownCard state={breakdown} />}
+      </div>
 
       <section className="flex-1 rounded-2xl border border-line bg-surface px-2.5 pt-1.5 pb-2.5">
         {!budget.hasAccounts && (

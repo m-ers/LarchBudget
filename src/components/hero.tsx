@@ -54,39 +54,59 @@ export function PageSkeleton() {
 /** "quiet" dims the amount; "done" also adds a check mark; "alert" marks a problem. */
 type Tone = "normal" | "quiet" | "done" | "alert";
 
-/** The one headline number of a page, with its label above it. */
+/**
+ * The one headline number of a page, with its label above it. With
+ * `button`, the whole of it is a button, such as one that shows how the
+ * number adds up; it looks the same until it is pointed at.
+ */
 export function HeroFigure({
   label,
   amount,
   tone = "normal",
+  button,
 }: {
   label: string;
   /** The figure and a quieter tail: [whole, cents] from `formatMoneyParts`, or a count and "". */
   amount: [string, string];
   tone?: Tone;
+  /** What makes it a button: its name, what it does, and whether what it opens is open. */
+  button?: Omit<React.ComponentProps<"button">, "type" | "className" | "children">;
 }) {
-  return (
-    <div className="relative text-right">
+  // Spans, as a button may hold no paragraphs.
+  const content = (
+    <>
       {tone === "alert" ? (
-        <p className="inline-flex items-center gap-1.5 rounded-md bg-bad-track py-0.5 pr-2.5 pl-2 text-sm font-semibold text-bad-ink">
+        <span className="inline-flex items-center gap-1.5 rounded-md bg-bad-track py-0.5 pr-2.5 pl-2 text-sm font-semibold text-bad-ink">
           <WarningIcon />
           {label}
-        </p>
+        </span>
       ) : (
-        <p className="flex items-center justify-end gap-1.5 text-sm font-medium text-white/80">
+        <span className="flex items-center justify-end gap-1.5 text-sm font-medium text-white/80">
           {tone === "done" && <CheckIcon width={16} height={16} strokeWidth={2.4} />}
           {label}
-        </p>
+        </span>
       )}
-      <p
+      <span
         data-testid="hero-figure"
-        className={`text-5xl leading-[1.1] font-semibold tracking-[-0.03em] ${
+        className={`block text-5xl leading-[1.1] font-semibold tracking-[-0.03em] ${
           tone === "done" || tone === "quiet" ? "opacity-55" : ""
         }`}
       >
         {amount[0]}
         <span className="opacity-60">{amount[1]}</span>
-      </p>
-    </div>
+      </span>
+    </>
+  );
+  if (!button) return <div className="relative text-right">{content}</div>;
+  return (
+    <button
+      type="button"
+      {...button}
+      // A tone behind it on hover and while what it opens is open; the
+      // padding is taken back by the margin, so it does not move.
+      className="relative -mx-3 -my-2 rounded-xl px-3 py-2 text-right transition-colors hover:bg-white/8 focus-visible:outline-white aria-expanded:bg-white/12"
+    >
+      {content}
+    </button>
   );
 }

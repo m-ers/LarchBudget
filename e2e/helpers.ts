@@ -95,8 +95,70 @@ export const newIncomeField = (page: Page) =>
 export const groupTotal = (page: Page, name: string) =>
   groupRow(page, name).getByRole("cell").last();
 
-/** The line under the month, e.g. "€0 spent of €1,195 assigned". */
-export const spentLine = (page: Page) => page.getByText(/ spent of /).filter({ visible: true });
+/** The name of a month counted from this one: `monthFromNow(-1)` is "October" in November. */
+export function monthFromNow(offset: number, locale = "en-US"): string {
+  const date = new Date();
+  date.setDate(1);
+  date.setMonth(date.getMonth() + offset);
+  return date.toLocaleString(locale, { month: "long" });
+}
+
+/** The big figure in the page header, as the button that shows how it adds up. */
+export const readyButton = (page: Page, action = "show how it adds up") =>
+  page.getByRole("button", { name: new RegExp(`, ${action}$`) });
+
+/** The card that shows how Ready to assign adds up, while it is open. */
+export const readyBreakdown = (page: Page, name = "How Ready to assign adds up") =>
+  page.getByRole("dialog", { name, exact: true });
+
+/** Opens the card with a click on the big figure. */
+export async function openReadyBreakdown(page: Page) {
+  await readyButton(page).click();
+  await expect(readyBreakdown(page)).toBeFocused();
+}
+
+/** The amount of one line of the open card, found by its text, e.g. "− €1,392.00". */
+export const breakdownLine = (page: Page, label: string, card = readyBreakdown(page)) =>
+  card
+    .locator("dt")
+    .filter({ hasText: exactly(label) })
+    .locator("xpath=following-sibling::dd[1]");
+
+/**
+ * Checks every line of the open card, as [text, amount] pairs, ending with
+ * Ready to assign: ["Assigned in November", "− €1,392.00"], …,
+ * ["Ready to assign", "= €5,608.00"].
+ */
+export async function expectBreakdown(
+  page: Page,
+  lines: [string, string][],
+  options?: { timeout?: number },
+) {
+  const card = readyBreakdown(page);
+  await expect(card.locator("dt")).toHaveText(
+    lines.map(([text]) => text),
+    options,
+  );
+  await expect(card.locator("dd")).toHaveText(
+    lines.map(([, amount]) => amount),
+    options,
+  );
+}
+
+/** "+ €2,850.00", "− €95.00" or "= -€695.00" in cents, with LOCALE en-US. */
+function signedCents(text: string): number {
+  const [sign, amount] = text.trim().split(/\s+/);
+  const cents = Math.round(Number(amount.replace(/[^\d.-]/g, "")) * 100);
+  return sign === "−" ? -cents : cents;
+}
+
+/** Checks that the lines of the open card add up to its last one, and that this is the big figure. */
+export async function expectBreakdownAddsUp(page: Page, card = readyBreakdown(page)) {
+  const amounts = (await card.locator("dd").allTextContents()).map(signedCents);
+  const total = amounts.pop();
+  expect(amounts.reduce((sum, amount) => sum + amount, 0)).toBe(total);
+  expect(signedCents(`= ${await headerFigure(page).innerText()}`)).toBe(total);
+}
 
 export const newGroupField = (page: Page) => page.getByRole("textbox", { name: "New group name" });
 

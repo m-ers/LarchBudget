@@ -77,6 +77,11 @@ export function monthLabelParts(month: Month, locale: string): Intl.DateTimeForm
   return monthFormat(locale).formatToParts(utc(month));
 }
 
+/** A month's name without the year, e.g. "November" or "november". */
+export function monthName(month: Month, locale: string): string {
+  return monthLabelParts(month, locale).find((part) => part.type === "month")?.value ?? "";
+}
+
 /** A month for display, e.g. "November 2026" or "november 2026". */
 export function formatMonth(month: Month, locale: string): string {
   return monthFormat(locale).format(utc(month));

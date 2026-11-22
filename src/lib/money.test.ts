@@ -3,7 +3,6 @@ import {
   formatAmount,
   formatMoney,
   formatMoneyParts,
-  formatMoneyRounded,
   minorUnitDigits,
   parseMoney,
   toInputValue,
@@ -84,14 +83,6 @@ describe("parseMoney", () => {
     expect(eur("1,234.5,6")).toBeNull();
     expect(eur("12345.678", "nl-NL")).toBeNull();
     expect(eur(",50")).toBeNull();
-  });
-});
-
-describe("formatMoneyRounded", () => {
-  it("rounds to whole units", () => {
-    expect(formatMoneyRounded(155800, "EUR", "en-US")).toBe("€1,558");
-    expect(formatMoneyRounded(155850, "EUR", "en-US")).toBe("€1,559");
-    expect(formatMoneyRounded(0, "EUR", "en-US")).toBe("€0");
   });
 });
 

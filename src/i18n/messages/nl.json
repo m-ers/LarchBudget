@@ -322,17 +322,24 @@
       "previousMonth": "Vorige maand",
       "nextMonth": "Volgende maand",
       "thisMonth": "Deze maand",
-      "received": "<b>{{amount}}</b> ontvangen",
-      "spent": "<b>{{spent}}</b> uitgegeven van {{assigned}} toegewezen",
       "daysToGo_one": "nog <b>{{count}} dag</b>",
-      "daysToGo_other": "nog <b>{{count}} dagen</b>",
-      "readyWithOverspent": "{{inAccounts}} op je rekeningen + {{overspent}} te veel uitgegeven in categorieën",
-      "readyMinusCategories": "{{inAccounts}} op je rekeningen − {{inCategories}} in categorieën"
+      "daysToGo_other": "nog <b>{{count}} dagen</b>"
     },
     "ready": {
       "assignedMore": "Meer toegewezen dan je hebt",
       "readyToAssign": "Nog toe te wijzen",
       "allAssigned": "Elke cent is toegewezen"
+    },
+    "breakdown": {
+      "button": "{{label}}: {{amount}}, laat zien hoe het is opgebouwd",
+      "title": "Hoe Nog toe te wijzen is opgebouwd",
+      "leftOver": "Over uit {{month}}",
+      "received": "Ontvangen voor {{month}}",
+      "withoutCategory": "Zonder categorie in {{month}}",
+      "assigned": "Toegewezen in {{month}}",
+      "assignedLater": "Toegewezen in latere maanden",
+      "alreadyIn": "Al binnen voor {{month}}",
+      "alreadyInLater": "Al binnen voor latere maanden"
     },
     "welcome": {
       "text": "<b>Welkom bij LarchBudget.</b> Voeg eerst de rekeningen toe waar je geld op staat. Hun saldo wordt geld dat je kunt toewijzen, en dat verdeel je daarna over categorieën.",

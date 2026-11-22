@@ -7,17 +7,20 @@ import {
   alert,
   available,
   bankFile,
+  breakdownLine,
   category,
   categoryRow,
   chosen,
   clickAway,
+  groupRow,
   groupTotal,
   headerFigure,
   incomeNames,
   menuItem,
+  monthFromNow,
   newIncomeField,
   openMenu,
-  spentLine,
+  openReadyBreakdown,
 } from "./helpers";
 import { expect, test } from "./fixtures";
 
@@ -88,11 +91,13 @@ test("a salary sorted into an income category shows under Income, with the same 
   await expect.poll(() => incomeNames(page)).toEqual(["Salary"]);
   await expect(available(page, "Salary")).toHaveText("€2,850.00");
   await expect(groupTotal(page, "Income")).toHaveText("€2,850.00 received");
-  // Under the month: what came in, and nothing spent or assigned yet.
-  await expect(page.getByText(/^€2,850 received/).filter({ visible: true })).toHaveText(
-    /^€2,850 received( · \d+ days? to go)?$/,
-  );
   await expect(headerFigure(page)).toHaveText(ready);
+  // Nothing spent or assigned yet; how Ready to assign adds up counts it as received.
+  await expect(groupRow(page, "Everyday").getByRole("cell").nth(1)).toHaveText("–");
+  await openReadyBreakdown(page);
+  await expect(breakdownLine(page, "Received for November")).toHaveText("+ €2,850.00");
+  await expect(breakdownLine(page, "Assigned in November")).toHaveText("+ €0.00");
+  await page.keyboard.press("Escape");
   // Nothing can be assigned to it, and nothing is spent from it.
   await expect(categoryRow(page, "Salary").getByRole("textbox")).toHaveCount(0);
   await expect(categoryRow(page, "Salary").getByRole("cell").nth(3)).toHaveText("");
@@ -200,7 +205,7 @@ test("an income category is renamed, moved and archived from its menu, and comes
   const ready = await headerFigure(page).innerText();
   expect(await archive(page, "Salary")).toBe('Archive "Salary"?');
   await expect(headerFigure(page)).toHaveText(ready);
-  await page.getByRole("button", { name: "Show" }).click();
+  await page.getByRole("button", { name: "Show", exact: true }).click();
   const archived = page
     .getByRole("list", { name: "Archived categories" })
     .getByRole("listitem")
@@ -229,10 +234,12 @@ test("an expense category cannot be moved into Income or get money from an incom
 test.describe("on the demo data", () => {
   test.use({ app: { seed: true } });
 
-  test("the salary shows under Income, and in the line under the month", async ({ page }) => {
+  test("the salary shows under Income, and as received for the month", async ({ page }) => {
     await page.goto("/");
     await expect.poll(() => incomeNames(page)).toEqual(["Salary"]);
     await expect(available(page, "Salary")).toHaveText("€2,850.00");
-    await expect(spentLine(page)).toContainText(/^€2,850 received · €[\d,]+ spent of /);
+    await expect(groupTotal(page, "Income")).toHaveText("€2,850.00 received");
+    await openReadyBreakdown(page);
+    await expect(breakdownLine(page, `Received for ${monthFromNow(0)}`)).toHaveText("+ €2,850.00");
   });
 });

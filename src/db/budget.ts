@@ -3,6 +3,7 @@ import { isCategoryIcon, type CategoryIcon } from "../lib/category-icons";
 import { addMonths, monthStart, type Month } from "../lib/dates";
 import { groupColors, isGroupColorSlot } from "../lib/group-colors";
 import { receivedPeriod } from "../lib/income";
+import { splitReadyToAssign, type ReadyBreakdown } from "../lib/ready";
 import type { Db } from "./index";
 import { assignments, categories, categoryGroups } from "./schema";
 
@@ -83,12 +84,13 @@ export type BudgetMonth = {
   income: { categories: IncomeCategoryRow[]; received: number };
   /** Over all visible expense categories. `spent` is the activity as a positive amount, never below zero. */
   totals: { assigned: number; spent: number; available: number };
-  /** Money in accounts that is not in any category, across all time: `inAccounts - inCategories`. */
+  /**
+   * Money in accounts that is not in any category, across all time: all the
+   * money in all accounts less what the visible expense categories hold.
+   */
   readyToAssign: number;
-  /** All the money in all accounts. */
-  inAccounts: number;
-  /** What all visible expense categories hold together, over all time. */
-  inCategories: number;
+  /** Ready to assign taken apart for the viewed month: its parts add up to it. */
+  readyBreakdown: ReadyBreakdown;
   hasAccounts: boolean;
   /** Whether anything was assigned to a visible expense category in the month before. */
   assignedLastMonth: boolean;
@@ -224,11 +226,44 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
       available: list.reduce((sum, c) => sum + c.available, 0),
     },
     readyToAssign: moneyInAccounts - inCategories,
-    inAccounts: moneyInAccounts,
-    inCategories,
+    readyBreakdown: getReadyBreakdown(db, month),
     hasAccounts: accountCount > 0,
     assignedLastMonth: assignedLastMonth === 1,
   };
+}
+
+/**
+ * Ready to assign taken apart for a month (see `splitReadyToAssign`): the
+ * money outside the visible expense categories, per month it came in and
+ * per kind, and what was assigned to those categories, per month.
+ */
+function getReadyBreakdown(db: Db, month: Month): ReadyBreakdown {
+  const money = db.all<{ month: Month; amount: number; income: number; next_month: number }>(sql`
+    SELECT
+      substr(t.date, 1, 7) AS month,
+      sum(t.amount) AS amount,
+      coalesce(c.archived = 0 AND c.income = 1, 0) AS income,
+      coalesce(c.archived = 0 AND c.income = 1 AND c.next_month = 1, 0) AS next_month
+    FROM transactions t LEFT JOIN categories c ON c.id = t.category_id
+    WHERE c.id IS NULL OR c.archived = 1 OR c.income = 1
+    GROUP BY 1, 3, 4
+  `);
+  const assigned = db.all<{ month: Month; amount: number }>(sql`
+    SELECT a.month, sum(a.amount) AS amount
+    FROM assignments a JOIN categories c ON c.id = a.category_id
+    WHERE c.archived = 0 AND c.income = 0
+    GROUP BY a.month
+  `);
+  return splitReadyToAssign(
+    month,
+    money.map((m) => ({
+      month: m.month,
+      amount: m.amount,
+      income: m.income === 1,
+      nextMonth: m.next_month === 1,
+    })),
+    assigned,
+  );
 }
 
 /**

@@ -322,17 +322,24 @@
       "previousMonth": "Previous month",
       "nextMonth": "Next month",
       "thisMonth": "This month",
-      "received": "<b>{{amount}}</b> received",
-      "spent": "<b>{{spent}}</b> spent of {{assigned}} assigned",
       "daysToGo_one": "<b>{{count}} day</b> to go",
-      "daysToGo_other": "<b>{{count}} days</b> to go",
-      "readyWithOverspent": "{{inAccounts}} in your accounts + {{overspent}} overspent in categories",
-      "readyMinusCategories": "{{inAccounts}} in your accounts − {{inCategories}} in categories"
+      "daysToGo_other": "<b>{{count}} days</b> to go"
     },
     "ready": {
       "assignedMore": "Assigned more than you have",
       "readyToAssign": "Ready to assign",
       "allAssigned": "Every cent is assigned"
+    },
+    "breakdown": {
+      "button": "{{label}}: {{amount}}, show how it adds up",
+      "title": "How Ready to assign adds up",
+      "leftOver": "Left over from {{month}}",
+      "received": "Received for {{month}}",
+      "withoutCategory": "Without a category in {{month}}",
+      "assigned": "Assigned in {{month}}",
+      "assignedLater": "Assigned in later months",
+      "alreadyIn": "Already in for {{month}}",
+      "alreadyInLater": "Already in for later months"
     },
     "welcome": {
       "text": "<b>Welcome to LarchBudget.</b> Start by adding the accounts your money is in. Their balance becomes your money to assign, and then you divide it over categories.",

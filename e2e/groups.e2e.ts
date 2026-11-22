@@ -93,7 +93,7 @@ test.describe("deleting an empty group", () => {
   });
 });
 
-test("a group heading always shows how to add a category; its menu shows on hover", async ({
+test("a group heading shows its + and its menu on hover, and when reached by keyboard", async ({
   page,
 }) => {
   await page.goto("/");
@@ -103,11 +103,21 @@ test("a group heading always shows how to add a category; its menu shows on hove
 
   const add = page.getByRole("button", { name: "Add a category to Fixed" });
   const menu = groupMenuButton(page, "Fixed");
-  await expect(add).toHaveCSS("opacity", "1");
+  await expect(add).toHaveCSS("opacity", "0");
   await expect(menu).toHaveCSS("opacity", "0");
 
   await groupHeading(page, "Fixed").hover();
+  await expect(add).toHaveCSS("opacity", "1");
   await expect(menu).toHaveCSS("opacity", "1");
   await add.click();
   await expect(newCategoryField(page, "Fixed")).toBeFocused();
+
+  // From the keyboard: Tab from the group's name reaches the + and shows it.
+  await page.keyboard.press("Escape");
+  await page.mouse.move(0, 0);
+  await expect(add).toHaveCSS("opacity", "0");
+  await groupHeading(page, "Fixed").getByRole("button").first().focus();
+  await page.keyboard.press("Tab");
+  await expect(add).toBeFocused();
+  await expect(add).toHaveCSS("opacity", "1");
 });

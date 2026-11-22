@@ -49,7 +49,7 @@ test("an archived category comes back in its group, with its money", async ({ pa
   expect(held).toBeGreaterThan(0);
 
   await expect(archivedLine(page)).toHaveText("2 archived categories · Show");
-  await page.getByRole("button", { name: "Show" }).click();
+  await page.getByRole("button", { name: "Show", exact: true }).click();
   const money = new Intl.NumberFormat("en-US", { style: "currency", currency: "EUR" });
   const holiday = archivedList(page).getByRole("listitem").filter({ hasText: "Holiday" });
   await expect(holiday).toContainText("Restoring takes €750.00 out of Ready to assign.");
@@ -70,7 +70,7 @@ test("a category is not restored while another has its name", async ({ page }) =
   await archive(page, "Rent");
   await addCategories(page, "Fixed costs", ["rent"]);
   await clickAway(page);
-  await page.getByRole("button", { name: "Show" }).click();
+  await page.getByRole("button", { name: "Show", exact: true }).click();
   await page.getByRole("button", { name: "Restore Rent" }).click();
   await expect(
     alert(page, "Another category already has this name. Rename that one first."),
@@ -84,7 +84,7 @@ test("a category of a deleted group comes back in the first group", async ({ pag
   await menuItem(page, "Delete group").click();
   await expect.poll(() => groupNames(page)).toEqual(["Fixed costs", "Everyday"]);
 
-  await page.getByRole("button", { name: "Show" }).click();
+  await page.getByRole("button", { name: "Show", exact: true }).click();
   await page.getByRole("button", { name: "Restore Holiday" }).click();
   await expect
     .poll(() => categoriesIn(page, "Fixed costs"))
