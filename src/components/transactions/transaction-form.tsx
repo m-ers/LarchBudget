@@ -13,7 +13,8 @@ import { formatMoney, parseMoney, toInputValue } from "@/lib/money";
 import { ErrorText, Field, field, primaryButton, selectField, sizedField } from "../form";
 import { EqualsIcon, InfoIcon, PlusIcon, SplitIcon } from "../icons";
 import { useSave } from "../use-save";
-import { AccountChoices, CategoryChoices } from "./category-choices";
+import { AccountChoices } from "./category-choices";
+import { CategoryOptions, NO_CATEGORY } from "./category-options";
 
 /** A transaction as the form changes it. */
 export type EditedTransaction = {
@@ -53,7 +54,6 @@ type Props = {
 );
 
 const UNSORTED = "unsorted";
-const NO_CATEGORY = "ready";
 /** A part whose category is not chosen yet. */
 const NOT_CHOSEN = "";
 
@@ -81,7 +81,6 @@ export function TransactionForm(props: Props) {
   const { currency, locale, onClose } = props;
   const t = useT();
   const dates = useDateLocale();
-  const groups = useContext(CategoryChoices);
   const accounts = useContext(AccountChoices);
   const { error, setError, pending, save } = useSave();
   const form = useRef<HTMLFormElement>(null);
@@ -142,30 +141,7 @@ export function TransactionForm(props: Props) {
     }
   }
 
-  const hasIncome = groups.some((group) => group.id === "income");
-  const noCategory = hasIncome
-    ? t("transactions.picker.noCategoryTransfer")
-    : t("transactions.picker.noCategoryIncomeOrTransfer");
-
-  const options = (
-    <>
-      <option value={NO_CATEGORY}>{noCategory}</option>
-      {[...archived].map(([id, name]) => (
-        <option key={id} value={id}>
-          {t("transactions.picker.archived", { name })}
-        </option>
-      ))}
-      {groups.map((group) => (
-        <optgroup key={String(group.id)} label={group.name}>
-          {group.categories.map((category) => (
-            <option key={category.id} value={category.id}>
-              {category.name}
-            </option>
-          ))}
-        </optgroup>
-      ))}
-    </>
-  );
+  const options = <CategoryOptions archived={archived} />;
 
   /** The parts with the first one set to what the others leave, while it follows. */
   function withFirstFollowing(list: Part[], whole: number | null, follows = firstFollows): Part[] {

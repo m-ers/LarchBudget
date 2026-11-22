@@ -4,7 +4,8 @@ import { createContext, useContext, useLayoutEffect, useRef, useState } from "re
 import { useT } from "@/i18n/client";
 import { formatAmount } from "@/lib/money";
 import { RowAction } from "../budget/row-action";
-import { PencilIcon, SplitIcon } from "../icons";
+import { AddRuleIcon, PencilIcon, SplitIcon } from "../icons";
+import { RuleForm } from "../rules/rule-form";
 import { TransactionForm, type EditedTransaction } from "./transaction-form";
 
 /** Opens and closes the form under a row, for the edit button in its last cell. */
@@ -15,7 +16,14 @@ const RowEditing = createContext<{
   openSplit: () => void;
   /** Takes the button, so focus can go back to it when the form closes. */
   button: (element: HTMLButtonElement | null) => void;
+  /** The form to make a sorting rule from this transaction. */
+  ruleOpen: boolean;
+  toggleRule: () => void;
+  ruleButton: (element: HTMLButtonElement | null) => void;
 } | null>(null);
+
+/** What a sorting rule made from a transaction starts with: the words to look for, and the category. */
+export type RuleSeed = { text: string; place: string };
 
 /**
  * One transaction in the list: its row, the parts of a split in small lines
@@ -23,11 +31,14 @@ const RowEditing = createContext<{
  */
 export function TransactionRow({
   transaction,
+  ruleSeed,
   currency,
   locale,
   children,
 }: {
   transaction: EditedTransaction;
+  /** Set when a rule can be made from this transaction; the form starts with it. */
+  ruleSeed?: RuleSeed;
   currency: string;
   locale: string;
   /** The row's cells, drawn on the server; one of them holds `EditTransaction`. */
@@ -37,7 +48,9 @@ export function TransactionRow({
   const [open, setOpen] = useState(false);
   // Opened by the split button: the form starts divided in two parts.
   const [splitFirst, setSplitFirst] = useState(false);
+  const [ruleOpen, setRuleOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
+  const ruleButton = useRef<HTMLButtonElement>(null);
   const id = transaction.id;
 
   // On the To sort list, or narrowed to a category, a saved transaction can
@@ -64,14 +77,24 @@ export function TransactionRow({
         open,
         toggle: () => {
           setSplitFirst(false);
+          setRuleOpen(false);
           setOpen((was) => !was);
         },
         openSplit: () => {
           setSplitFirst(true);
+          setRuleOpen(false);
           setOpen(true);
         },
         button: (element) => {
           button.current = element;
+        },
+        ruleOpen,
+        toggleRule: () => {
+          setOpen(false);
+          setRuleOpen((was) => !was);
+        },
+        ruleButton: (element) => {
+          ruleButton.current = element;
         },
       }}
     >
@@ -95,6 +118,23 @@ export function TransactionRow({
           <td />
         </tr>
       ))}
+      {ruleOpen && ruleSeed && (
+        <tr data-transaction-row={id}>
+          <td colSpan={6} className="px-1 pt-1 pb-3">
+            <RuleForm
+              layout="inline"
+              label={t("rules.form.fromTransaction")}
+              submitLabel={t("rules.form.add")}
+              text={ruleSeed.text}
+              place={ruleSeed.place}
+              onClose={(byKeyboard) => {
+                setRuleOpen(false);
+                if (byKeyboard) ruleButton.current?.focus();
+              }}
+            />
+          </td>
+        </tr>
+      )}
       {open && (
         <tr data-transaction-row={id}>
           <td colSpan={6} className="px-1 pt-1 pb-3">
@@ -160,6 +200,29 @@ export function SplitTransaction({
       revealOn="row"
     >
       <SplitIcon width={15} height={15} />
+    </RowAction>
+  );
+}
+
+/**
+ * The icon that opens the form to make a sorting rule from this
+ * transaction: its words, and its category. Shown on row hover and keyboard focus.
+ */
+export function RuleFromTransaction({ describedAs }: { describedAs: string }) {
+  const t = useT();
+  const editing = useContext(RowEditing);
+  if (!editing) return null;
+  const { ruleOpen, toggleRule, ruleButton } = editing;
+  return (
+    <RowAction
+      ref={ruleButton}
+      label={t("rules.row.makeLabel", { what: describedAs })}
+      title={t("rules.row.makeTitle")}
+      onClick={toggleRule}
+      revealOn={ruleOpen ? undefined : "row"}
+      expanded={ruleOpen}
+    >
+      <AddRuleIcon width={15} height={15} />
     </RowAction>
   );
 }

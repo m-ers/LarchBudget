@@ -7,6 +7,7 @@ import { z } from "zod";
 import { getDb, type Db } from "@/db";
 import * as accounts from "@/db/accounts";
 import * as budget from "@/db/budget";
+import * as rules from "@/db/rules";
 import * as transactions from "@/db/transactions";
 import { accountTypes } from "@/lib/account-types";
 import { isCategoryIcon, type CategoryIcon } from "@/lib/category-icons";
@@ -23,7 +24,13 @@ import {
   MAX_ROWS,
 } from "@/lib/import/limits";
 import { applyMapping, isMapping, serializeMapping, type Mapping } from "@/lib/import/mapping";
-import { EARLIEST_BALANCE_DATE, MAX_AMOUNT, MAX_NAME_LENGTH } from "@/lib/limits";
+import {
+  EARLIEST_BALANCE_DATE,
+  MAX_AMOUNT,
+  MAX_NAME_LENGTH,
+  MAX_RULE_TEXT_LENGTH,
+  MAX_RULES,
+} from "@/lib/limits";
 import { minorUnitDigits, parseMoney } from "@/lib/money";
 import type { ActionResult, Failure } from "@/lib/result";
 import { isTargetKind, type Target } from "@/lib/targets";
@@ -797,6 +804,78 @@ export async function deleteTransactionAction(transactionId: number): Promise<Ac
   if (result === "no-transaction") return transactionGone(t);
   if (result === "closed") return fail(t("errors.accounts.closed"));
   return result === "starting" ? fail(t("errors.transactions.startingNotDeletable")) : done();
+}
+
+// ---- Sorting rules ---------------------------------------------------------
+
+const ruleText = z.string().max(1_000);
+const ruleTarget = z.union([id, z.literal("ready")]);
+
+/** `sorted`: how many transactions the rule sorted or moved just now. */
+type RuleResult = { ok: true; sorted: number } | Failure;
+
+function ruleProblem(t: Translate, problem: rules.RuleProblem): Failure {
+  switch (problem) {
+    case "empty":
+      return fail(t("errors.rules.empty"));
+    case "too-long":
+      return fail(t("errors.rules.tooLong", { max: MAX_RULE_TEXT_LENGTH }));
+    case "text-taken":
+      return fail(t("errors.rules.textTaken"));
+    case "no-category":
+      return categoryGone(t);
+    case "too-many":
+      return fail(t("errors.rules.tooMany", { max: MAX_RULES }));
+    case "no-rule":
+      return fail(t("errors.rules.gone"));
+  }
+}
+
+/** Makes a rule, and sorts the transactions still to sort that it fits. */
+export async function createRuleAction(
+  text: string,
+  target: rules.RuleTarget,
+): Promise<RuleResult> {
+  const t = await getT();
+  const db = await database();
+  if (!db) return loggedOut(t);
+  const parsedText = ruleText.safeParse(text);
+  const parsedTarget = ruleTarget.safeParse(target);
+  if (!parsedText.success || !parsedTarget.success) return unexpected(t);
+
+  const result = rules.createRule(db, parsedText.data, parsedTarget.data);
+  if (typeof result === "string") return ruleProblem(t, result);
+  refresh();
+  return { ok: true, sorted: result.sorted };
+}
+
+/** Changes what a rule looks for and where it sends transactions. */
+export async function updateRuleAction(
+  ruleId: number,
+  text: string,
+  target: rules.RuleTarget,
+): Promise<RuleResult> {
+  const t = await getT();
+  const db = await database();
+  if (!db) return loggedOut(t);
+  const parsedText = ruleText.safeParse(text);
+  const parsedTarget = ruleTarget.safeParse(target);
+  if (!id.safeParse(ruleId).success || !parsedText.success || !parsedTarget.success) {
+    return unexpected(t);
+  }
+
+  const result = rules.updateRule(db, ruleId, parsedText.data, parsedTarget.data);
+  if (typeof result === "string") return ruleProblem(t, result);
+  refresh();
+  return { ok: true, sorted: result.sorted };
+}
+
+export async function deleteRuleAction(ruleId: number): Promise<ActionResult> {
+  const t = await getT();
+  const db = await database();
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(ruleId).success) return unexpected(t);
+  return rules.deleteRule(db, ruleId) ? done() : fail(t("errors.rules.gone"));
 }
 
 /**

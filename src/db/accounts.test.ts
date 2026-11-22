@@ -348,6 +348,7 @@ describe("an account's entered balance", () => {
     const result = importTransactions(db, checking, november, "a");
     expect(result).toEqual({
       imported: 6,
+      byRules: 0,
       duplicates: 0,
       beforeBalance: 6,
       startingBalance: 195_490,

@@ -44,8 +44,8 @@ skips the ones you imported before.
 
 Every transaction goes into a category. For a payee you have sorted before,
 the category from last time is filled in already, and Enter accepts it. A
-receipt that covers two categories can be split, and a cash payment added
-yourself.
+rule can sort a shop you visit often as soon as you import it. A receipt that
+covers two categories can be split, and a cash payment added yourself.
 
 <img src="docs/images/transactions.png" alt="The transactions that still need a category, several with last time's category filled in" />
 

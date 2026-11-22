@@ -11,6 +11,7 @@ import {
   getTransactions,
 } from "@/app/queries";
 import { primaryButton } from "@/components/form";
+import { WandIcon } from "@/components/icons";
 import { Hero, HeroFigure, HeroLead, HeroTitle } from "@/components/hero";
 import { CategoryChoicesProvider } from "@/components/transactions/category-choices";
 import { CategorySelect } from "@/components/transactions/category-select";
@@ -19,6 +20,7 @@ import { DeleteTransaction } from "@/components/transactions/delete-transaction"
 import { TransactionFilters } from "@/components/transactions/transaction-filters";
 import {
   EditTransaction,
+  RuleFromTransaction,
   SplitTransaction,
   TransactionRow,
 } from "@/components/transactions/transaction-row";
@@ -27,6 +29,7 @@ import { richText } from "@/i18n/rich";
 import { getConfig } from "@/lib/config";
 import { formatDate, formatMonth } from "@/lib/dates";
 import { formatAmount, formatMoney } from "@/lib/money";
+import { rulePlace } from "@/lib/rules";
 import { readAddress, transactionsHref } from "@/lib/transactions-address";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -199,7 +202,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
                   <th scope="col" className={`${heading} w-28 text-right`}>
                     {t("transactions.page.headingAmount")}
                   </th>
-                  <th scope="col" className={`${heading} w-24 pr-2.5`}>
+                  <th scope="col" className={`${heading} w-32 pr-2.5`}>
                     <span className="sr-only">{t("transactions.page.headingActions")}</span>
                   </th>
                 </tr>
@@ -212,10 +215,26 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
                     ? t("transactions.page.describedAs", { payee, date })
                     : t("transactions.page.describedAsNoPayee", { date });
                   const amount = formatAmount(row.amount, currency, locale);
+                  // A rule can be made from the words in the payee, or in the note without one.
+                  const ruleText = row.payee ?? row.note;
+                  const suggestion = row.payee ? suggestions.get(row.payee) : undefined;
+                  const ruleSeed =
+                    row.starting || !ruleText
+                      ? undefined
+                      : {
+                          text: ruleText,
+                          // Where it is already, or where the suggestion points; an archived category cannot be chosen.
+                          place: row.toSort
+                            ? rulePlace(suggestion?.categoryId)
+                            : row.parts.length > 0 || row.categoryArchived
+                              ? rulePlace(undefined)
+                              : rulePlace(row.categoryId),
+                        };
                   return (
                     <TransactionRow
                       key={row.id}
                       transaction={row}
+                      ruleSeed={ruleSeed}
                       currency={currency}
                       locale={locale}
                     >
@@ -237,16 +256,28 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
                         ) : row.parts.length > 0 ? (
                           <span className="pl-2.5 font-medium">{t("transactions.page.split")}</span>
                         ) : (
-                          <CategorySelect
-                            transactionId={row.id}
-                            describedAs={describedAs}
-                            amount={amount}
-                            categoryId={row.categoryId}
-                            categoryName={row.category}
-                            categoryArchived={row.categoryArchived}
-                            toSort={row.toSort}
-                            suggestion={row.payee ? suggestions.get(row.payee) : undefined}
-                          />
+                          <span className="flex items-start gap-1.5">
+                            <CategorySelect
+                              transactionId={row.id}
+                              describedAs={describedAs}
+                              amount={amount}
+                              categoryId={row.categoryId}
+                              categoryName={row.category}
+                              categoryArchived={row.categoryArchived}
+                              toSort={row.toSort}
+                              suggestion={suggestion}
+                            />
+                            {row.rule !== null && (
+                              <span
+                                role="img"
+                                aria-label={t("rules.mark.label", { text: row.rule })}
+                                title={t("rules.mark.title", { text: row.rule })}
+                                className="grid size-[34px] shrink-0 place-items-center text-muted"
+                              >
+                                <WandIcon width={15} height={15} />
+                              </span>
+                            )}
+                          </span>
                         )}
                       </td>
                       <td className="text-right font-semibold whitespace-nowrap tabular-nums">
@@ -261,6 +292,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
                               describedAs={describedAs}
                               split={row.parts.length > 0}
                             />
+                            {ruleSeed && <RuleFromTransaction describedAs={describedAs} />}
                             <DeleteTransaction
                               transactionId={row.id}
                               describedAs={describedAs}

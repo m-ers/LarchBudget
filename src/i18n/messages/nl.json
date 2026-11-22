@@ -5,6 +5,7 @@
   "nav": {
     "budget": "Budget",
     "transactions": "Transacties",
+    "rules": "Regels",
     "accounts": "Rekeningen",
     "settings": "Instellingen",
     "import": "Importeren",
@@ -125,6 +126,49 @@
       "splitRow": "{{what}} splitsen over categorieën"
     }
   },
+  "rules": {
+    "title": "Regels",
+    "lead": "Deel transacties in op de woorden erin. Een regel deelt in wat je importeert, en wat nog niet is ingedeeld zodra je de regel opslaat.",
+    "sortedByRules": "Ingedeeld door regels",
+    "empty": "Nog geen regels. Een regel deelt een transactie in op de woorden in de tegenpartij of notitie, zodat een winkel waar je vaak komt meteen is ingedeeld als je importeert.",
+    "table": {
+      "text": "Tegenpartij of notitie bevat",
+      "category": "Categorie",
+      "sorted": "Ingedeeld",
+      "noCategory": "Geen categorie"
+    },
+    "form": {
+      "text": "Tegenpartij of notitie bevat",
+      "textTip": "Hoofdletters en extra spaties maken niet uit. Passen er meer regels, dan wint de regel met de meeste tekst.",
+      "textPlaceholder": "bijv. Verse Markt",
+      "category": "Categorie",
+      "add": "Regel toevoegen",
+      "save": "Opslaan",
+      "cancel": "Annuleren",
+      "fromTransaction": "Een regel maken van deze transactie"
+    },
+    "add": {
+      "title": "Regel toevoegen",
+      "sorted_one": "{{count}} transactie ingedeeld.",
+      "sorted_other": "{{count}} transacties ingedeeld."
+    },
+    "row": {
+      "editLabel": "De regel {{text}} wijzigen",
+      "editTitle": "Wijzigen",
+      "deleteLabel": "De regel {{text}} verwijderen",
+      "deleteTitle": "Regel verwijderen",
+      "deleteQuestion": "De regel \"{{text}}\" verwijderen? Wat hij heeft ingedeeld blijft waar het is.",
+      "archivedTip": "Deze categorie is gearchiveerd, dus de regel deelt niets in. Kies voor de regel een andere categorie.",
+      "justSorted_one": "{{count}} transactie ingedeeld.",
+      "justSorted_other": "{{count}} transacties ingedeeld.",
+      "makeLabel": "Altijd indelen zoals {{what}}",
+      "makeTitle": "Altijd zo indelen"
+    },
+    "mark": {
+      "label": "Ingedeeld door de regel {{text}}",
+      "title": "Ingedeeld door de regel “{{text}}”"
+    }
+  },
   "accounts": {
     "title": "Rekeningen",
     "lead": "Waar je geld staat. Transacties komen binnen via imports van je bank.",
@@ -227,6 +271,14 @@
       "partZero": "Een deel kan niet nul zijn.",
       "partsTotal": "De delen moeten samen het bedrag zijn.",
       "partCategory": "Kies voor elk deel een categorie."
+    },
+    "rules": {
+      "empty": "Typ de woorden om op te zoeken.",
+      "tooLong": "Houd het onder de {{max}} tekens.",
+      "textTaken": "Je hebt al een regel voor deze woorden.",
+      "noCategory": "Kies een categorie.",
+      "tooMany": "Je hebt {{max}} regels, het maximum.",
+      "gone": "Die regel bestaat niet meer."
     }
   },
   "import": {
@@ -352,7 +404,12 @@
       "balanceAll_one": "Die is van {{date}} of eerder en zit al in het saldo van {{balance}} dat je voor die dag hebt ingevuld.",
       "balanceAll_other": "Ze zijn van {{date}} of eerder en zitten al in het saldo van {{balance}} dat je voor die dag hebt ingevuld.",
       "allDuplicates_one": "De transactie in dit bestand stond al in LarchBudget.",
-      "allDuplicates_other": "Alle {{count}} transacties in dit bestand stonden al in LarchBudget."
+      "allDuplicates_other": "Alle {{count}} transacties in dit bestand stonden al in LarchBudget.",
+      "byRulesAll_one": "Je regels hebben hem ingedeeld.",
+      "byRulesAll_other": "Je regels hebben alle {{count}} ingedeeld.",
+      "byRulesSome_one": "Je regels hebben er {{count}} ingedeeld; {{rest}} in te delen.",
+      "byRulesSome_other": "Je regels hebben er {{count}} ingedeeld; {{rest}} in te delen.",
+      "viewThem": "Toon ze"
     }
   },
   "budget": {

@@ -101,6 +101,20 @@ export const assignments = sqliteTable(
 );
 
 /**
+ * A rule that sorts transactions by what is written in them: a transaction
+ * whose payee or note contains `text` (ignoring capitals) goes to the
+ * category. See `src/db/rules.ts` for how rules are applied.
+ */
+export const sortingRules = sqliteTable("sorting_rules", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  /** What to look for, as typed, without spaces around it. Never empty. */
+  text: text("text").notNull(),
+  /** Where matching transactions go. Null for no category, on purpose: transfers, or income without a category. */
+  categoryId: integer("category_id").references(() => categories.id, { onDelete: "cascade" }),
+  createdAt,
+});
+
+/**
  * The ledger. Account balances are never stored; they are the sum of an
  * account's transactions. A transaction without a category counts towards
  * "Ready to assign" (income adds to it, uncategorised spending reduces it).
@@ -143,6 +157,12 @@ export const transactions = sqliteTable(
      * Cleared when the row is changed by hand, so undoing keeps that work.
      */
     importBatch: text("import_batch"),
+    /**
+     * The rule that sorted this transaction, while nobody has changed it
+     * since: sorting it, changing it or splitting it by hand clears this.
+     * Cleared as well when the rule is deleted.
+     */
+    ruleId: integer("rule_id").references(() => sortingRules.id, { onDelete: "set null" }),
     createdAt,
   },
   (t) => [
@@ -155,6 +175,9 @@ export const transactions = sqliteTable(
       .on(t.date)
       .where(sql`${t.toSort} = 1`),
     uniqueIndex("transactions_account_import_unique").on(t.accountId, t.importId),
+    index("transactions_rule_idx")
+      .on(t.ruleId)
+      .where(sql`${t.ruleId} IS NOT NULL`),
   ],
 );
 

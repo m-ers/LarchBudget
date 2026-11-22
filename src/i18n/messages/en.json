@@ -5,6 +5,7 @@
   "nav": {
     "budget": "Budget",
     "transactions": "Transactions",
+    "rules": "Rules",
     "accounts": "Accounts",
     "settings": "Settings",
     "import": "Import from bank",
@@ -125,6 +126,49 @@
       "splitRow": "Split {{what}} over categories"
     }
   },
+  "rules": {
+    "title": "Rules",
+    "lead": "Sort transactions by the words in them. A rule sorts what you import, and what is still to sort when you save it.",
+    "sortedByRules": "Sorted by rules",
+    "empty": "No rules yet. A rule sorts a transaction by the words in its payee or note, so a shop you visit often is sorted as soon as you import it.",
+    "table": {
+      "text": "Payee or note contains",
+      "category": "Category",
+      "sorted": "Sorted",
+      "noCategory": "No category"
+    },
+    "form": {
+      "text": "Payee or note contains",
+      "textTip": "Capitals and extra spaces do not matter. When more than one rule fits, the one with the most text wins.",
+      "textPlaceholder": "e.g. Fresh Market",
+      "category": "Category",
+      "add": "Add rule",
+      "save": "Save",
+      "cancel": "Cancel",
+      "fromTransaction": "Make a rule from this transaction"
+    },
+    "add": {
+      "title": "Add a rule",
+      "sorted_one": "{{count}} transaction sorted.",
+      "sorted_other": "{{count}} transactions sorted."
+    },
+    "row": {
+      "editLabel": "Change the rule {{text}}",
+      "editTitle": "Change",
+      "deleteLabel": "Delete the rule {{text}}",
+      "deleteTitle": "Delete rule",
+      "deleteQuestion": "Delete the rule \"{{text}}\"? What it sorted stays where it is.",
+      "archivedTip": "This category is archived, so the rule sorts nothing. Change the rule to use another category.",
+      "justSorted_one": "{{count}} transaction sorted.",
+      "justSorted_other": "{{count}} transactions sorted.",
+      "makeLabel": "Always sort like {{what}}",
+      "makeTitle": "Always sort like this"
+    },
+    "mark": {
+      "label": "Sorted by the rule {{text}}",
+      "title": "Sorted by the rule “{{text}}”"
+    }
+  },
   "accounts": {
     "title": "Accounts",
     "lead": "Where your money is. Transactions come in through bank imports.",
@@ -227,6 +271,14 @@
       "partZero": "A part cannot be zero.",
       "partsTotal": "The parts have to add up to the amount.",
       "partCategory": "Choose a category for each part."
+    },
+    "rules": {
+      "empty": "Type the words to look for.",
+      "tooLong": "Keep it under {{max}} characters.",
+      "textTaken": "You already have a rule for these words.",
+      "noCategory": "Choose a category.",
+      "tooMany": "You have {{max}} rules, the most there can be.",
+      "gone": "That rule no longer exists."
     }
   },
   "import": {
@@ -352,7 +404,12 @@
       "balanceAll_one": "It is from {{date}} or earlier. The balance of {{balance}} you entered for that day already includes it.",
       "balanceAll_other": "They are from {{date}} or earlier. The balance of {{balance}} you entered for that day already includes them.",
       "allDuplicates_one": "The transaction in this file was already in LarchBudget.",
-      "allDuplicates_other": "All {{count}} transactions in this file were already in LarchBudget."
+      "allDuplicates_other": "All {{count}} transactions in this file were already in LarchBudget.",
+      "byRulesAll_one": "It was sorted by your rules.",
+      "byRulesAll_other": "All {{count}} were sorted by your rules.",
+      "byRulesSome_one": "{{count}} was sorted by your rules; {{rest}} to sort.",
+      "byRulesSome_other": "{{count}} were sorted by your rules; {{rest}} to sort.",
+      "viewThem": "Show them"
     }
   },
   "budget": {

@@ -3,11 +3,12 @@
 import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import { useT } from "@/i18n/client";
-import { EnvelopeIcon, GearIcon, ListIcon, UploadIcon, WalletIcon } from "./icons";
+import { EnvelopeIcon, GearIcon, ListIcon, RulesIcon, UploadIcon, WalletIcon } from "./icons";
 
 const items = [
   { href: "/", label: "nav.budget", icon: EnvelopeIcon },
   { href: "/transactions", label: "nav.transactions", icon: ListIcon },
+  { href: "/rules", label: "nav.rules", icon: RulesIcon },
   { href: "/accounts", label: "nav.accounts", icon: WalletIcon },
   { href: "/settings", label: "nav.settings", icon: GearIcon },
 ] as const;
