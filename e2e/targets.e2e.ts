@@ -8,14 +8,16 @@ import {
   assignAndSave,
   assignedField,
   available,
+  breakdownLine,
   categoryRow,
   countAnswers,
   groupTotal,
   headerFigure,
   menuButton,
   menuItem,
+  monthFromNow,
   openMenu,
-  overviewFigure,
+  openReadyBreakdown,
   slowConnection,
 } from "./helpers";
 import { expect, test } from "./fixtures";
@@ -366,7 +368,10 @@ test.describe("with an account and categories", () => {
     await assignAndSave(page, "Rent", "300");
     await assignAndSave(page, "Eating out", "80");
     await expect(headerFigure(page)).toHaveText("€2,620.00");
-    await expect(overviewFigure(page, "Assigned")).toHaveText("€380");
+    const assignedThisMonth = () => breakdownLine(page, `Assigned in ${monthFromNow(0)}`);
+    await openReadyBreakdown(page);
+    await expect(assignedThisMonth()).toHaveText("− €380.00");
+    await page.keyboard.press("Escape");
     await expect(assignTargetsButton(page)).toHaveText("€1,371.43 to assign");
 
     // Everything shows before the server has answered.
@@ -379,7 +384,6 @@ test.describe("with an account and categories", () => {
     await expect(assignedField(page, "Holiday")).toHaveValue("171.43", atOnce);
     await expect(assignedField(page, "Eating out")).toHaveValue("80.00", atOnce);
     await expect(headerFigure(page)).toHaveText("€1,248.57", atOnce);
-    await expect(overviewFigure(page, "Assigned")).toHaveText("€1,751", atOnce);
     await expect(anyTargetButton(page)).toHaveCount(0, atOnce);
     await expect(assignTargetsButton(page)).toHaveCount(0, atOnce);
     await expect(mark(page, "Holiday")).toHaveAttribute(
@@ -387,6 +391,9 @@ test.describe("with an account and categories", () => {
       `Target: €1,200 by ${monthLabel(6, "long")} · reached.`,
       atOnce,
     );
+    await openReadyBreakdown(page);
+    await expect(assignedThisMonth()).toHaveText("− €1,751.43", atOnce);
+    await page.keyboard.press("Escape");
 
     // And it is stored.
     await answered;

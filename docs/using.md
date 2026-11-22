@@ -136,8 +136,9 @@ At the end of the month:
 1. Your salary comes in, and [counts for the next month](#income).
 2. Open the next month with the arrow beside the month.
 3. Choose **◎ … to assign** under the month.
-4. Compare **Received** with **Assigned** under the month. What is left
-   stays in Ready to assign, free for anything else.
+4. Click **Ready to assign** to compare what was received for the month
+   with what you assigned in it. What is left stays in Ready to assign, free
+   for anything else.
 
 ## Income
 
