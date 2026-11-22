@@ -9,12 +9,14 @@ import { addMonths } from "@/lib/dates";
 import { groupColor } from "@/lib/group-colors";
 import { formatMoney } from "@/lib/money";
 import { transactionsHref } from "@/lib/transactions-address";
-import { EnvelopeToken, PlusIcon } from "../icons";
+import { PlusIcon } from "../icons";
 import { useMenu } from "../menu";
+import { useSave } from "../use-save";
 import { useAddByName } from "./add-by-name";
 import { useBudget } from "./budget-context";
 import { CategoryName } from "./category-name";
 import { NewCategoryRow, SectionHeading } from "./group-body";
+import { IconPicker } from "./icon-picker";
 import { RowAction } from "./row-action";
 
 /**
@@ -102,11 +104,13 @@ function IncomeRow({
   const menu = useMenu();
   // What it received came in this month, or the month before.
   const receivedIn = nextMonth ? addMonths(month, -1) : month;
+  // Choosing the icon; a failure is reported beside the name.
+  const iconSave = useSave();
 
   return (
     <tr className="data-row group/row" onContextMenu={menu.openAtPointer}>
       <td className="h-[43px] w-[54px] pl-3.5">
-        <EnvelopeToken color={groupColor(null)} />
+        <IconPicker category={category} color={groupColor(null)} save={iconSave.save} />
       </td>
       <td>
         <CategoryName
@@ -114,6 +118,7 @@ function IncomeRow({
           place={{ groupId: null, first, last }}
           menu={menu}
           nextMonth={nextMonth}
+          iconError={iconSave.error}
         />
       </td>
       <td />

@@ -8,12 +8,13 @@ import type { Translate } from "@/i18n/translate";
 import { explainAvailable } from "@/lib/gauge";
 import { formatAmount, formatMoney } from "@/lib/money";
 import { transactionsHref } from "@/lib/transactions-address";
-import { EnvelopeToken } from "../icons";
 import { useMenu } from "../menu";
+import { useSave } from "../use-save";
 import { AssignedInput } from "./assigned-input";
 import { useBudget } from "./budget-context";
 import { CategoryName, type Place } from "./category-name";
 import { Gauge } from "./gauge";
+import { IconPicker } from "./icon-picker";
 import { MoveMoney, type Flow } from "./move-money";
 
 /** The Spent column: spending as a positive amount, a net refund with a plus sign. */
@@ -67,6 +68,8 @@ export function CategoryRow({
   const availableLabel = formatMoney(available, currency, locale);
   const t = useT();
   const menu = useMenu();
+  // Choosing the icon; a failure is reported beside the name.
+  const iconSave = useSave();
   // Which way money is being moved, while that form is open.
   const [moving, setMoving] = useState<Flow | null>(null);
 
@@ -74,7 +77,7 @@ export function CategoryRow({
     <>
       <tr className="data-row group/row" onContextMenu={menu.openAtPointer}>
         <td className="h-[43px] w-[54px] pl-3.5">
-          <EnvelopeToken color={color} />
+          <IconPicker category={category} color={color} save={iconSave.save} />
         </td>
         <td>
           <CategoryName
@@ -82,6 +85,7 @@ export function CategoryRow({
             place={place}
             menu={menu}
             money={{ balance: category.balance, available, onMoveMoney: setMoving }}
+            iconError={iconSave.error}
           />
         </td>
         <td>

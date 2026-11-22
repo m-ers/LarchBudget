@@ -40,6 +40,8 @@ type Props = {
    * which its menu switches. Left out for an expense category.
    */
   nextMonth?: boolean;
+  /** Why choosing the row's icon failed, reported here with the row's other failures. */
+  iconError?: string | null;
 };
 
 /** The category that was just moved to another group, until its new row has the focus. */
@@ -49,7 +51,14 @@ let movedToGroup: number | null = null;
  * Category name: click to rename. The category's actions are in a menu
  * beside it, whose button shows on row hover.
  */
-export function CategoryName({ category: { id, name }, place, menu, money, nextMonth }: Props) {
+export function CategoryName({
+  category: { id, name },
+  place,
+  menu,
+  money,
+  nextMonth,
+  iconError,
+}: Props) {
   const { month, currency, locale, figures, show } = useBudget();
   const dates = useDateLocale();
   const t = useT();
@@ -177,7 +186,7 @@ export function CategoryName({ category: { id, name }, place, menu, money, nextM
       >
         <MoreIcon width={15} height={15} />
       </Menu>
-      <ErrorText error={error} as="span" className="text-xs" />
+      <ErrorText error={error ?? iconError} as="span" className="text-xs" />
     </div>
   );
 }

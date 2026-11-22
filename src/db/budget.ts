@@ -1,4 +1,5 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { isCategoryIcon, type CategoryIcon } from "../lib/category-icons";
 import { addMonths, monthStart, type Month } from "../lib/dates";
 import { groupColors } from "../lib/group-colors";
 import { receivedPeriod } from "../lib/income";
@@ -31,6 +32,8 @@ export const UNGROUPED = "Ungrouped";
 export type CategoryRow = {
   id: number;
   name: string;
+  /** The icon chosen for it; left out for the envelope. */
+  icon?: CategoryIcon;
   /** Assigned in the viewed month. */
   assigned: number;
   /** Net transactions in the viewed month (negative = spent). */
@@ -59,6 +62,8 @@ export type GroupRow = {
 export type IncomeCategoryRow = {
   id: number;
   name: string;
+  /** The icon chosen for it; left out for the envelope. */
+  icon?: CategoryIcon;
   /**
    * What came in through it for the viewed month (net): in the month itself,
    * or, when it counts for the next month, in the days `receivedPeriod` gives.
@@ -100,6 +105,7 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
     id: number;
     group_id: number | null;
     name: string;
+    icon: string | null;
     income: number;
     next_month: number;
     received: number | null;
@@ -114,6 +120,7 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
       c.id,
       c.group_id,
       c.name,
+      c.icon,
       c.income,
       c.next_month,
       CASE WHEN c.income THEN
@@ -152,6 +159,9 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
                 AND a.month = ${addMonths(month, -1)}) AS assignedLastMonth
   `);
 
+  // An icon that is not in the set (from a hand-edited database) shows the envelope.
+  const icon = (r: { icon: string | null }) => (isCategoryIcon(r.icon) ? r.icon : undefined);
+
   // Income categories hold no money: their transactions stay in Ready to
   // assign, and they count in no group, total or balance. Even an amount
   // assigned to one by hand in the database is ignored. Counting for the
@@ -161,6 +171,7 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
     .map((r) => ({
       id: r.id,
       name: r.name,
+      icon: icon(r),
       received: r.received ?? 0,
       nextMonth: r.next_month === 1,
     }));
@@ -171,6 +182,7 @@ export function getBudgetMonth(db: Db, month: Month): BudgetMonth {
     const row = {
       id: r.id,
       name: r.name,
+      icon: icon(r),
       assigned: r.assigned,
       activity: r.activity,
       available: r.assigned_through + r.activity_through,
@@ -446,6 +458,20 @@ export function renameCategory(db: Db, id: number, name: string): boolean {
     tx.update(categories).set({ name }).where(eq(categories.id, id)).run();
     return true;
   });
+}
+
+/**
+ * Gives a category an icon, or the envelope again with null. Returns false,
+ * and changes nothing, when the category does not exist or is archived.
+ */
+export function setCategoryIcon(db: Db, id: number, icon: CategoryIcon | null): boolean {
+  return (
+    db
+      .update(categories)
+      .set({ icon })
+      .where(and(eq(categories.id, id), eq(categories.archived, false)))
+      .run().changes > 0
+  );
 }
 
 /**

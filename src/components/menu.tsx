@@ -28,6 +28,51 @@ const MARGIN = 8;
 const GAP = 4;
 
 /**
+ * Places a menu, or another popup that opens from a button, before it is
+ * first painted. It is drawn with `absolute` inside its anchor, the
+ * element it is positioned in (`relative`), and opens under the anchor, or
+ * above it when there is no room below in the window; with `at`, where the
+ * pointer was. The position is set on the element itself: it depends on the
+ * size the popup turns out to have, which is only known once it is drawn.
+ */
+export function placePopup(popup: HTMLElement, at?: { x: number; y: number }) {
+  const anchor = popup.offsetParent;
+  if (!anchor) return;
+
+  const box = anchor.getBoundingClientRect();
+  const { offsetWidth: width, offsetHeight: height } = popup;
+  const fitsBelow = (top: number) => top + height <= window.innerHeight - MARGIN;
+  let left: number;
+  let top: number;
+  if (at) {
+    ({ x: left, y: top } = at);
+    if (!fitsBelow(top)) top = Math.max(MARGIN, top - height);
+    if (left + width > window.innerWidth - MARGIN) left -= width;
+  } else {
+    left = box.left;
+    top = box.bottom + GAP;
+    if (!fitsBelow(top) && box.top - GAP - height >= MARGIN) top = box.top - GAP - height;
+    if (left + width > window.innerWidth - MARGIN) left = box.right - width;
+  }
+  popup.style.left = `${left - box.left}px`;
+  popup.style.top = `${top - box.top}px`;
+}
+
+/** The card a menu or another popup is drawn on, placed with `placePopup`. */
+export const popupCard =
+  "absolute top-full left-0 z-20 rounded-xl border border-line bg-surface p-1 shadow-[0_6px_24px_-4px_rgb(22_24_29/0.16)] outline-none!";
+
+/**
+ * For a popup's `onBlur`: whether the focus really left it, so it should
+ * close. Not when the focus moves within it, or when the whole window loses
+ * the focus, after which the focus comes back to it.
+ */
+export function focusLeft(e: React.FocusEvent<HTMLElement>): boolean {
+  const popup = e.currentTarget;
+  return !popup.contains(e.relatedTarget) && !popup.contains(document.activeElement);
+}
+
+/**
  * Whether one `Menu` is open. Held by the row, so a right-click anywhere
  * on the row opens the same menu.
  */
@@ -89,30 +134,10 @@ export function Menu({
   const id = useId();
 
   // Place the menu before it is first painted, then hand it the focus.
-  // The position is set on the element itself: it depends on the size the
-  // menu turns out to have, which is only known once it is drawn.
   useLayoutEffect(() => {
     const menu = list.current;
-    const anchor = menu?.offsetParent;
-    if (!opened || !menu || !anchor) return;
-
-    const box = anchor.getBoundingClientRect();
-    const { offsetWidth: width, offsetHeight: height } = menu;
-    const fitsBelow = (top: number) => top + height <= window.innerHeight - MARGIN;
-    let left: number;
-    let top: number;
-    if (opened.at) {
-      ({ x: left, y: top } = opened.at);
-      if (!fitsBelow(top)) top = Math.max(MARGIN, top - height);
-      if (left + width > window.innerWidth - MARGIN) left -= width;
-    } else {
-      left = box.left;
-      top = box.bottom + GAP;
-      if (!fitsBelow(top) && box.top - GAP - height >= MARGIN) top = box.top - GAP - height;
-      if (left + width > window.innerWidth - MARGIN) left = box.right - width;
-    }
-    menu.style.left = `${left - box.left}px`;
-    menu.style.top = `${top - box.top}px`;
+    if (!opened || !menu) return;
+    placePopup(menu, opened.at);
 
     const target =
       opened.focus === "menu" ? menu : choosable(menu).at(opened.focus === "first" ? 0 : -1);
@@ -220,13 +245,9 @@ export function Menu({
           // Clicking the menu's edge or its rule leaves the focus where it is.
           onMouseDown={(e) => e.preventDefault()}
           onBlur={(e) => {
-            const menu = e.currentTarget;
-            if (menu.contains(e.relatedTarget)) return;
-            // When the whole window loses focus, the focus stays in the menu.
-            if (menu.contains(document.activeElement)) return;
-            setOpened(null);
+            if (focusLeft(e)) setOpened(null);
           }}
-          className="absolute top-full left-0 z-20 w-max max-w-80 min-w-44 rounded-xl border border-line bg-surface p-1 text-left text-[15px] font-normal tracking-normal text-ink normal-case shadow-[0_6px_24px_-4px_rgb(22_24_29/0.16)] outline-none!"
+          className={`${popupCard} w-max max-w-80 min-w-44 text-left text-[15px] font-normal tracking-normal text-ink normal-case`}
         >
           {regular.map(item)}
           {regular.length > 0 && destructive.length > 0 && (

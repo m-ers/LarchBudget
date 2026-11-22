@@ -63,6 +63,11 @@ export const categories = sqliteTable("categories", {
    * month (see src/lib/income.ts). Ready to assign does not change.
    */
   nextMonth: integer("next_month", { mode: "boolean" }).notNull().default(false),
+  /**
+   * The icon at the start of its row: one of the ids in
+   * src/lib/category-icons.ts. Null for the envelope every category starts with.
+   */
+  icon: text("icon"),
   createdAt,
 });
 

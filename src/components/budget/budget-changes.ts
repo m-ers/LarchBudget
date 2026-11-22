@@ -1,4 +1,5 @@
 import type { BudgetMonth, GroupRow, MoneyEnd } from "@/db/budget";
+import type { CategoryIcon } from "@/lib/category-icons";
 
 /**
  * A change the budget page shows before the server has confirmed it.
@@ -19,6 +20,12 @@ export type BudgetChange =
       type: "next-month";
       categoryId: number;
       on: boolean;
+    }
+  | {
+      type: "icon";
+      categoryId: number;
+      /** The new icon; null for the envelope. */
+      icon: CategoryIcon | null;
     };
 
 /**
@@ -32,6 +39,8 @@ export function applyChange(budget: BudgetMonth, change: BudgetChange): BudgetMo
       return assign(budget, change.categoryId, change.amount);
     case "next-month":
       return nextMonth(budget, change.categoryId, change.on);
+    case "icon":
+      return setIcon(budget, change.categoryId, change.icon ?? undefined);
   }
 }
 
@@ -106,5 +115,30 @@ function nextMonth(budget: BudgetMonth, categoryId: number, on: boolean): Budget
       ...budget.income,
       categories: categories.map((c) => (c.id === categoryId ? { ...c, nextMonth: on } : c)),
     },
+  };
+}
+
+/** An icon changes only the row of its category, expense or income. */
+function setIcon(
+  budget: BudgetMonth,
+  categoryId: number,
+  icon: CategoryIcon | undefined,
+): BudgetMonth {
+  const holds = (categories: { id: number }[]) => categories.some((c) => c.id === categoryId);
+  const withIcon = <C extends { id: number }>(categories: C[]) =>
+    categories.map((c) => (c.id === categoryId ? { ...c, icon } : c));
+
+  if (holds(budget.income.categories)) {
+    return {
+      ...budget,
+      income: { ...budget.income, categories: withIcon(budget.income.categories) },
+    };
+  }
+  if (!budget.groups.some((group) => holds(group.categories))) return budget;
+  return {
+    ...budget,
+    groups: budget.groups.map((group) =>
+      holds(group.categories) ? { ...group, categories: withIcon(group.categories) } : group,
+    ),
   };
 }
