@@ -85,14 +85,15 @@ holds what was tried to make it faster on a slow connection.
 
 Defined in `src/db/schema.ts`; the budget maths lives in `src/db/budget.ts`.
 
-| Table             | Holds                                                              |
-| ----------------- | ------------------------------------------------------------------ |
-| `accounts`        | Where money lives: checking, savings, cash, credit card.           |
-| `category_groups` | Named sections of the budget; each has a fixed colour.             |
-| `categories`      | The purposes you set money aside for, and the income categories.   |
-| `assignments`     | Money put into a category in a given month.                        |
-| `transactions`    | The ledger. Each row moves money in or out of one account.         |
-| `deleted_imports` | Imported transactions that were deleted, so they do not come back. |
+| Table                | Holds                                                              |
+| -------------------- | ------------------------------------------------------------------ |
+| `accounts`           | Where money lives: checking, savings, cash, credit card.           |
+| `category_groups`    | Named sections of the budget; each has a fixed colour.             |
+| `categories`         | The purposes you set money aside for, and the income categories.   |
+| `assignments`        | Money put into a category in a given month.                        |
+| `transactions`       | The ledger. Each row moves money in or out of one account.         |
+| `transaction_splits` | The parts of a split transaction, each in its own category.        |
+| `deleted_imports`    | Imported transactions that were deleted, so they do not come back. |
 
 Three rules keep the numbers trustworthy:
 
@@ -100,7 +101,9 @@ Three rules keep the numbers trustworthy:
   helpers in `src/lib/money.ts` to parse and format them.
 - **Balances are never stored.** An account's balance is the sum of its
   transactions, and a category's balance is its assignments plus its
-  transactions. What an account stores is the balance its owner entered for
+  transactions and its parts of split transactions. A split transaction has
+  no category of its own; its account still sees the one amount. What an
+  account stores is the balance its owner entered for
   one day; its "Starting balance" transaction is worked out from that, so
   importing older transactions later does not change the balance of that day.
 - **A transaction without a category counts towards Ready to assign.**
