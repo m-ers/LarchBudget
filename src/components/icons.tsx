@@ -97,6 +97,13 @@ export const MoreIcon = (props: SVGProps<SVGSVGElement>) => (
   </Icon>
 );
 
+export const PencilIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M5 19h3.5L18.2 9.3a2.05 2.05 0 0 0-2.9-2.9L5.6 16.1 5 19Z" />
+    <path d="m14 7.8 2.6 2.6" />
+  </Icon>
+);
+
 export const CheckIcon = (props: SVGProps<SVGSVGElement>) => (
   <Icon {...props}>
     <path d="m5 12.5 4.5 4.5L19 7.5" />

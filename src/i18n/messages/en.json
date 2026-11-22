@@ -31,14 +31,14 @@
   "transactions": {
     "page": {
       "title": "Transactions",
-      "lead": "Everything imported from your bank. Sort each one into a category.",
+      "lead": "Your bank's transactions and the ones you add. Sort each one into a category.",
       "allSorted": "Everything is sorted",
       "toSort": "To sort",
       "tabToSort": "To sort",
       "tabAll": "All",
       "startingBalance": "Starting balance",
       "noName": "No name",
-      "emptyNone": "No transactions yet. They come in through a file you download from your bank.",
+      "emptyNone": "No transactions yet. Import a file from your bank, or add one yourself.",
       "emptyImport": "Import from bank",
       "emptyNoMatch": "No transactions match.",
       "emptySorted": "Everything is sorted. New transactions appear here after your next import.",
@@ -54,7 +54,8 @@
       "deleteQuestionNoPayee": "Delete this transaction of {{amount}} on {{date}}? A later import of the same bank file will not bring it back.",
       "showing": "Showing {{shown}} of {{total}}.",
       "newest": "Newest",
-      "older": "Older"
+      "older": "Older",
+      "split": "Split"
     },
     "summary": {
       "all_one": "<n>{{count}}</n> transaction. Money in <b>{{in}}</b>, money out <b>{{out}}</b>.",
@@ -91,6 +92,34 @@
     "delete": {
       "label": "Delete {{what}}",
       "title": "Delete"
+    },
+    "form": {
+      "addButton": "Add transaction",
+      "addLabel": "Add a transaction",
+      "editLabel": "Change {{what}}",
+      "editButton": "Change {{what}}",
+      "editTitle": "Change",
+      "date": "Date",
+      "payee": "Payee",
+      "account": "Account",
+      "amount": "Amount",
+      "direction": "Money out or in",
+      "out": "Out",
+      "in": "In",
+      "category": "Category",
+      "note": "Note",
+      "split": "Split",
+      "partCategory": "Category of part {{n}}",
+      "partAmount": "Amount of part {{n}}",
+      "removePart": "Remove part {{n}}",
+      "removePartTitle": "Remove part",
+      "addPart": "Add part",
+      "left": "{{amount}} left to split",
+      "tooMuch": "{{amount}} too much",
+      "add": "Add",
+      "save": "Save",
+      "cancel": "Cancel",
+      "importedTip": "As in the bank file. To change it, delete the transaction and add it yourself."
     }
   },
   "accounts": {
@@ -193,7 +222,8 @@
       "startingNotEditable": "A starting balance is changed on the Accounts page.",
       "imported": "The date and amount of an imported transaction stay as the bank has them.",
       "partZero": "A part cannot be zero.",
-      "partsTotal": "The parts have to add up to the amount."
+      "partsTotal": "The parts have to add up to the amount.",
+      "partCategory": "Choose a category for each part."
     }
   },
   "import": {

@@ -13,6 +13,9 @@ const fieldLook =
 
 export const field = `${fieldLook} w-full py-2`;
 
+/** Like `field`, for a field given its own width. */
+export const sizedField = `${fieldLook} py-2`;
+
 /**
  * A dropdown styled like `field`. Safari ignores a dropdown's vertical
  * padding, which makes it lower than the text fields next to it; a fixed

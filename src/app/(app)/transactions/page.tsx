@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import {
   getCategoryOptions,
   getFilterOptions,
+  getImportAccounts,
   getSuggestions,
   getTransactionCounts,
   getTransactionSummary,
@@ -13,8 +14,10 @@ import { primaryButton } from "@/components/form";
 import { Hero, HeroFigure, HeroLead, HeroTitle } from "@/components/hero";
 import { CategoryChoicesProvider } from "@/components/transactions/category-choices";
 import { CategorySelect } from "@/components/transactions/category-select";
+import { AddTransaction } from "@/components/transactions/add-transaction";
 import { DeleteTransaction } from "@/components/transactions/delete-transaction";
 import { TransactionFilters } from "@/components/transactions/transaction-filters";
+import { EditTransaction, TransactionRow } from "@/components/transactions/transaction-row";
 import { getDateLocale, getT } from "@/i18n/server";
 import { richText } from "@/i18n/rich";
 import { getConfig } from "@/lib/config";
@@ -41,7 +44,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   const t = await getT();
   const { showAll, before, filter } = readAddress(await searchParams);
 
-  const [counts, found, groups] = await Promise.all([
+  const [counts, found, groups, openAccounts] = await Promise.all([
     getTransactionCounts(),
     // One more than a page, to know whether there is an older page.
     getTransactions({
@@ -51,6 +54,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
       limit: PAGE_SIZE + 1,
     }),
     getCategoryOptions(),
+    getImportAccounts(),
   ]);
   const rows = found.slice(0, PAGE_SIZE);
   // An older page that has emptied (its last rows were sorted or deleted)
@@ -67,6 +71,9 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
   const dates = await getDateLocale();
   const total = summary ? summary.count : counts.toSort;
   const narrowed = Object.keys(filter).length > 0;
+  // A transaction is added to the account the list is narrowed to, when it is open.
+  const addTo =
+    openAccounts.find((account) => account.id === filter.accountId) ?? openAccounts.at(0);
 
   const heading = "sticky top-0 z-10 h-[38px] border-y border-line bg-surface font-medium";
 
@@ -89,76 +96,85 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
       </Hero>
 
       <section className="flex-1 rounded-2xl border border-line bg-surface px-2.5 pt-2.5 pb-2.5">
-        <div className="flex items-center gap-1 px-1 pb-2">
-          <Link
-            href="/transactions"
-            className={tab(!showAll)}
-            aria-current={!showAll ? "page" : undefined}
-          >
-            {t("transactions.page.tabToSort")}{" "}
-            <span className="text-muted tabular-nums">{counts.toSort}</span>
-          </Link>
-          <Link
-            href="/transactions?show=all"
-            className={tab(showAll)}
-            aria-current={showAll ? "page" : undefined}
-          >
-            {t("transactions.page.tabAll")}{" "}
-            <span className="text-muted tabular-nums">{counts.all}</span>
-          </Link>
-        </div>
-
-        {filterOptions && summary && (
-          <>
-            <TransactionFilters
-              filter={filter}
-              accounts={filterOptions.accounts}
-              categories={filterOptions.categories}
-              // The month in the address is offered too, even when it has no transactions.
-              months={[
-                ...new Set([...filterOptions.months, ...(filter.month ? [filter.month] : [])]),
-              ]
-                .sort()
-                .reverse()
-                .map((month) => ({ month, label: formatMonth(month, dates) }))}
-            />
-            <p className="px-1 pb-2.5 text-[14.5px] text-muted">
-              {richText(
-                t,
-                narrowed ? "transactions.summary.narrowed" : "transactions.summary.all",
-                {
-                  count: summary.count,
-                  in: formatMoney(summary.moneyIn, currency, locale),
-                  out: formatMoney(Math.abs(summary.moneyOut), currency, locale),
-                },
-                {
-                  n: (chunks) => <span className="tabular-nums">{chunks}</span>,
-                  b: (chunks) => (
-                    <span className="font-medium text-ink tabular-nums">{chunks}</span>
-                  ),
-                },
-              )}
-            </p>
-          </>
-        )}
-
-        {rows.length === 0 ? (
-          <div className="px-3.5 py-6 text-muted">
-            {counts.all === 0 ? (
-              <>
-                <p>{t("transactions.page.emptyNone")}</p>
-                <Link href="/import" className={`${primaryButton} mt-4 inline-block px-3.5 py-2`}>
-                  {t("transactions.page.emptyImport")}
-                </Link>
-              </>
-            ) : showAll ? (
-              <p>{t("transactions.page.emptyNoMatch")}</p>
-            ) : (
-              <p>{t("transactions.page.emptySorted")}</p>
+        <CategoryChoicesProvider groups={groups}>
+          <div className="flex flex-wrap items-center gap-1 px-1 pb-2">
+            <Link
+              href="/transactions"
+              className={tab(!showAll)}
+              aria-current={!showAll ? "page" : undefined}
+            >
+              {t("transactions.page.tabToSort")}{" "}
+              <span className="text-muted tabular-nums">{counts.toSort}</span>
+            </Link>
+            <Link
+              href="/transactions?show=all"
+              className={tab(showAll)}
+              aria-current={showAll ? "page" : undefined}
+            >
+              {t("transactions.page.tabAll")}{" "}
+              <span className="text-muted tabular-nums">{counts.all}</span>
+            </Link>
+            {addTo && (
+              <AddTransaction
+                accounts={openAccounts.map(({ id, name }) => ({ id, name }))}
+                accountId={addTo.id}
+                showAll={showAll}
+                currency={currency}
+                locale={locale}
+              />
             )}
           </div>
-        ) : (
-          <CategoryChoicesProvider groups={groups}>
+
+          {filterOptions && summary && (
+            <>
+              <TransactionFilters
+                filter={filter}
+                accounts={filterOptions.accounts}
+                categories={filterOptions.categories}
+                // The month in the address is offered too, even when it has no transactions.
+                months={[
+                  ...new Set([...filterOptions.months, ...(filter.month ? [filter.month] : [])]),
+                ]
+                  .sort()
+                  .reverse()
+                  .map((month) => ({ month, label: formatMonth(month, dates) }))}
+              />
+              <p className="px-1 pb-2.5 text-[14.5px] text-muted">
+                {richText(
+                  t,
+                  narrowed ? "transactions.summary.narrowed" : "transactions.summary.all",
+                  {
+                    count: summary.count,
+                    in: formatMoney(summary.moneyIn, currency, locale),
+                    out: formatMoney(Math.abs(summary.moneyOut), currency, locale),
+                  },
+                  {
+                    n: (chunks) => <span className="tabular-nums">{chunks}</span>,
+                    b: (chunks) => (
+                      <span className="font-medium text-ink tabular-nums">{chunks}</span>
+                    ),
+                  },
+                )}
+              </p>
+            </>
+          )}
+
+          {rows.length === 0 ? (
+            <div className="px-3.5 py-6 text-muted">
+              {counts.all === 0 ? (
+                <>
+                  <p>{t("transactions.page.emptyNone")}</p>
+                  <Link href="/import" className={`${primaryButton} mt-4 inline-block px-3.5 py-2`}>
+                    {t("transactions.page.emptyImport")}
+                  </Link>
+                </>
+              ) : showAll ? (
+                <p>{t("transactions.page.emptyNoMatch")}</p>
+              ) : (
+                <p>{t("transactions.page.emptySorted")}</p>
+              )}
+            </div>
+          ) : (
             <table className="w-full border-separate border-spacing-0">
               <thead>
                 <tr className="text-[12.5px] text-muted">
@@ -177,7 +193,7 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
                   <th scope="col" className={`${heading} w-28 text-right`}>
                     {t("transactions.page.headingAmount")}
                   </th>
-                  <th scope="col" className={`${heading} w-14 pr-2.5`}>
+                  <th scope="col" className={`${heading} w-20 pr-2.5`}>
                     <span className="sr-only">{t("transactions.page.headingActions")}</span>
                   </th>
                 </tr>
@@ -191,7 +207,12 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
                     : t("transactions.page.describedAsNoPayee", { date });
                   const amount = formatAmount(row.amount, currency, locale);
                   return (
-                    <tr key={row.id} className="data-row group/row">
+                    <TransactionRow
+                      key={row.id}
+                      transaction={row}
+                      currency={currency}
+                      locale={locale}
+                    >
                       <td className="h-[50px] pl-3.5 whitespace-nowrap text-muted tabular-nums">
                         {date}
                       </td>
@@ -207,6 +228,8 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
                           <span className="text-muted">
                             {t("transactions.page.startingBalance")}
                           </span>
+                        ) : row.parts.length > 0 ? (
+                          <span className="pl-2.5 font-medium">{t("transactions.page.split")}</span>
                         ) : (
                           <CategorySelect
                             transactionId={row.id}
@@ -226,58 +249,61 @@ export default async function TransactionsPage({ searchParams }: PageProps<"/tra
                       </td>
                       <td className="pr-2.5">
                         {!row.starting && (
-                          <DeleteTransaction
-                            transactionId={row.id}
-                            describedAs={describedAs}
-                            question={
-                              payee
-                                ? t("transactions.page.deleteQuestion", {
-                                    payee,
-                                    amount: formatMoney(row.amount, currency, locale),
-                                    date,
-                                  })
-                                : t("transactions.page.deleteQuestionNoPayee", {
-                                    amount: formatMoney(row.amount, currency, locale),
-                                    date,
-                                  })
-                            }
-                          />
+                          <span className="flex items-center justify-end">
+                            <EditTransaction describedAs={describedAs} />
+                            <DeleteTransaction
+                              transactionId={row.id}
+                              describedAs={describedAs}
+                              question={
+                                payee
+                                  ? t("transactions.page.deleteQuestion", {
+                                      payee,
+                                      amount: formatMoney(row.amount, currency, locale),
+                                      date,
+                                    })
+                                  : t("transactions.page.deleteQuestionNoPayee", {
+                                      amount: formatMoney(row.amount, currency, locale),
+                                      date,
+                                    })
+                              }
+                            />
+                          </span>
                         )}
                       </td>
-                    </tr>
+                    </TransactionRow>
                   );
                 })}
               </tbody>
             </table>
-          </CategoryChoicesProvider>
-        )}
+          )}
 
-        {(hasOlder || before) && (
-          <p className="px-3.5 pt-4 text-muted">
-            {t("transactions.page.showing", { shown: rows.length, total })}{" "}
-            {before && (
-              <Link
-                href={transactionsHref({ showAll, filter })}
-                className="font-medium text-brand underline"
-              >
-                {t("transactions.page.newest")}
-              </Link>
-            )}
-            {before && hasOlder && " "}
-            {last && hasOlder && (
-              <Link
-                href={transactionsHref({
-                  showAll,
-                  filter,
-                  before: { date: last.date, id: last.id },
-                })}
-                className="font-medium text-brand underline"
-              >
-                {t("transactions.page.older")}
-              </Link>
-            )}
-          </p>
-        )}
+          {(hasOlder || before) && (
+            <p className="px-3.5 pt-4 text-muted">
+              {t("transactions.page.showing", { shown: rows.length, total })}{" "}
+              {before && (
+                <Link
+                  href={transactionsHref({ showAll, filter })}
+                  className="font-medium text-brand underline"
+                >
+                  {t("transactions.page.newest")}
+                </Link>
+              )}
+              {before && hasOlder && " "}
+              {last && hasOlder && (
+                <Link
+                  href={transactionsHref({
+                    showAll,
+                    filter,
+                    before: { date: last.date, id: last.id },
+                  })}
+                  className="font-medium text-brand underline"
+                >
+                  {t("transactions.page.older")}
+                </Link>
+              )}
+            </p>
+          )}
+        </CategoryChoicesProvider>
       </section>
     </>
   );
