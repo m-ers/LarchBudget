@@ -216,8 +216,9 @@ first.
   one in cash: the date, payee, account, amount, category and a note. Choose
   **Out** for money you paid and **In** for money you received.
 - The pencil that shows when you point at a row changes a transaction. For
-  an imported one, the date and amount stay as the bank has them, so your
-  account keeps matching the bank; the payee, note and category can change.
+  an imported one, the date, amount and account stay as the bank has them,
+  so your account keeps matching the bank; the payee, note and category can
+  change.
   To correct an imported amount, delete the transaction and add it yourself.
   Importing the same file again leaves your changes as they are.
 - **Split** divides one payment over several categories, such as a
