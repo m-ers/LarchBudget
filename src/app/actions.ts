@@ -10,6 +10,7 @@ import * as budget from "@/db/budget";
 import * as transactions from "@/db/transactions";
 import { accountTypes } from "@/lib/account-types";
 import { isCategoryIcon, type CategoryIcon } from "@/lib/category-icons";
+import { isGroupColorSlot } from "@/lib/group-colors";
 import { getConfig } from "@/lib/config";
 import { addMonths, isMonth, today, type IsoDate } from "@/lib/dates";
 import { delimiters, parseCsv } from "@/lib/import/csv";
@@ -296,6 +297,16 @@ export async function renameGroupAction(groupId: number, input: string): Promise
   if (!parsed.success) return firstProblem(t, parsed.error);
 
   return budget.renameGroup(db, groupId, parsed.data) ? done() : groupNameTaken(t, parsed.data);
+}
+
+/** Gives a group one of the six colours of the palette, by its slot. */
+export async function setGroupColorAction(groupId: number, slot: number): Promise<ActionResult> {
+  const t = await getT();
+  const db = await database();
+  if (!db) return loggedOut(t);
+  if (!id.safeParse(groupId).success || !isGroupColorSlot(slot)) return unexpected(t);
+
+  return budget.setGroupColor(db, groupId, slot) ? done() : groupGone(t);
 }
 
 export async function moveGroupAction(

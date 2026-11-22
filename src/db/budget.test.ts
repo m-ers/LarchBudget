@@ -19,6 +19,7 @@ import {
   setAssigned,
   setNextMonth,
   setCategoryIcon,
+  setGroupColor,
 } from "./budget";
 import { openDb, type Db } from "./index";
 import { assignments, categories, transactions } from "./schema";
@@ -313,6 +314,23 @@ describe("groups", () => {
     for (const name of ["B", "C", "D", "E", "F", "G"]) createGroup(db, name);
     const last = getBudgetMonth(db, "2026-10").groups.at(-1);
     expect(last).toMatchObject({ name: "G", colorSlot: null });
+  });
+
+  it("can be given another colour of the palette, also by a grey one", () => {
+    for (const name of ["B", "C", "D", "E", "F", "G"]) createGroup(db, name);
+    const slots = () => getBudgetMonth(db, "2026-10").groups.map((g) => g.colorSlot);
+    expect(slots()).toEqual([0, 1, 2, 3, 4, 5, null]);
+
+    expect(setGroupColor(db, group, 3)).toBe(true);
+    const grey = getBudgetMonth(db, "2026-10").groups.at(-1)!.id!;
+    expect(setGroupColor(db, grey, 3)).toBe(true);
+    expect(slots()).toEqual([3, 1, 2, 3, 4, 5, 3]);
+  });
+
+  it("refuse a colour outside the palette, or a group that is not there", () => {
+    for (const slot of [-1, 6, 1.5, Number.NaN]) expect(setGroupColor(db, group, slot)).toBe(false);
+    expect(setGroupColor(db, 9999, 2)).toBe(false);
+    expect(getBudgetMonth(db, "2026-10").groups[0].colorSlot).toBe(0);
   });
 
   it("archive their categories when deleted, giving the money back and keeping the history", () => {

@@ -380,6 +380,7 @@
       "moveMoney": "Geld verplaatsen…",
       "coverOverspending": "Tekort aanvullen…",
       "archive": "Archiveren",
+      "groupColor": "Kleur van de groep",
       "deleteGroup": "Groep verwijderen"
     },
     "archiveConfirm": {
@@ -446,6 +447,14 @@
       "cancel": "Annuleren",
       "categoryHolds": "{{name}} heeft {{amount}}; verplaats je meer, dan ontstaat er een tekort.",
       "onlyReady": "Er is maar {{amount}} nog toe te wijzen; verplaats je meer, dan wijs je meer toe dan je hebt."
+    },
+    "colors": {
+      "blue": "Blauw",
+      "orange": "Oranje",
+      "aqua": "Zeegroen",
+      "yellow": "Geel",
+      "magenta": "Roze",
+      "violet": "Paars"
     },
     "icons": {
       "choose": "Kies een icoon voor {{name}}",

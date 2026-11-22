@@ -17,6 +17,17 @@ export type MenuItem = {
   checked?: boolean;
 };
 
+/** The choice of a colour, shown as a row of round swatches above the items. */
+export type MenuColors = {
+  /** Accessible name of the row, e.g. "Colour of the group". */
+  label: string;
+  /** What can be chosen, in order: a name for people, and the colour itself. */
+  choices: { name: string; color: string }[];
+  /** The place of the current colour in `choices`; null when it is none of them. */
+  current: number | null;
+  onSelect: (index: number) => void;
+};
+
 /** What has focus once the menu opens. */
 type Focus = "first" | "last" | "menu";
 
@@ -98,13 +109,23 @@ export function useMenu() {
   };
 }
 
-/** The items that can be chosen, in the order they are shown. */
-const choosable = (menu: HTMLElement) =>
-  Array.from(
+const swatches = (menu: HTMLElement) =>
+  Array.from(menu.querySelectorAll<HTMLElement>("[role=menuitemradio]"));
+
+/**
+ * What the up and down arrows stop at, in the order shown. The row of
+ * swatches is one stop, at its current colour (or its first): Left and Right
+ * move within it.
+ */
+const choosable = (menu: HTMLElement) => {
+  const row = swatches(menu);
+  const stop = row.find((s) => s.getAttribute("aria-checked") === "true") ?? row[0];
+  return Array.from(
     menu.querySelectorAll<HTMLElement>(
-      ":is([role=menuitem], [role=menuitemcheckbox]):not([aria-disabled=true])",
+      ":is([role=menuitem], [role=menuitemcheckbox], [role=menuitemradio]):not([aria-disabled=true])",
     ),
-  );
+  ).filter((el) => el.getAttribute("role") !== "menuitemradio" || el === stop);
+};
 
 /**
  * A button that opens a short list of actions. It works like a menu in the
@@ -116,6 +137,7 @@ const choosable = (menu: HTMLElement) =>
 export function Menu({
   label,
   items,
+  colors,
   state,
   buttonClassName,
   children,
@@ -123,6 +145,8 @@ export function Menu({
   /** Accessible name of the button and the menu, e.g. "Actions for Groceries". */
   label: string;
   items: MenuItem[];
+  /** A row of colours to choose from, above the items. */
+  colors?: MenuColors;
   state: ReturnType<typeof useMenu>;
   /** The button's look; it is shown as long as its menu is open. */
   buttonClassName: string;
@@ -160,7 +184,21 @@ export function Menu({
 
   function moveFocus(e: React.KeyboardEvent<HTMLDivElement>) {
     const options = choosable(e.currentTarget);
-    const at = options.indexOf(document.activeElement as HTMLElement);
+    const row = swatches(e.currentTarget);
+    const inRow = row.indexOf(document.activeElement as HTMLElement);
+    if (inRow !== -1 && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      e.preventDefault();
+      row[
+        Math.max(0, Math.min(row.length - 1, inRow + (e.key === "ArrowRight" ? 1 : -1)))
+      ]?.focus();
+      return;
+    }
+    // From a swatch, the stop of the row is the one that stands for it.
+    const active =
+      inRow === -1
+        ? document.activeElement
+        : options.find((o) => swatches(e.currentTarget).includes(o));
+    const at = options.indexOf(active as HTMLElement);
     const next = {
       ArrowDown: options[(at + 1) % options.length],
       ArrowUp: options.at(at === -1 ? -1 : at - 1),
@@ -208,6 +246,37 @@ export function Menu({
     </button>
   );
 
+  const swatch = (choice: MenuColors["choices"][number], i: number) => {
+    const chosen = colors?.current === i;
+    return (
+      <button
+        key={choice.name}
+        type="button"
+        role="menuitemradio"
+        aria-checked={chosen}
+        aria-label={choice.name}
+        title={choice.name}
+        tabIndex={-1}
+        onPointerMove={(e) => {
+          if (e.movementX === 0 && e.movementY === 0) return;
+          if (document.activeElement !== e.currentTarget) e.currentTarget.focus();
+        }}
+        onClick={(e) => {
+          close(e.detail === 0);
+          if (!chosen) colors?.onSelect(i);
+        }}
+        // The current colour has a ring in the ink colour, set off from the
+        // swatch by a gap; the one with the focus has a grey background.
+        className="flex h-7 w-7 items-center justify-center rounded-full outline-none! focus:bg-hover"
+      >
+        <span
+          style={{ backgroundColor: choice.color }}
+          className="h-[18px] w-[18px] rounded-full ring-offset-2 ring-offset-surface in-aria-checked:ring-2 in-aria-checked:ring-ink"
+        />
+      </button>
+    );
+  };
+
   return (
     <span className="relative flex shrink-0">
       <button
@@ -249,6 +318,14 @@ export function Menu({
           }}
           className={`${popupCard} w-max max-w-80 min-w-44 text-left text-[15px] font-normal tracking-normal text-ink normal-case`}
         >
+          {colors && (
+            <div role="group" aria-label={colors.label} className="flex gap-0.5 px-1.5 py-1">
+              {colors.choices.map(swatch)}
+            </div>
+          )}
+          {colors && regular.length > 0 && (
+            <div role="separator" className="mx-1 my-1 border-t border-line" />
+          )}
           {regular.map(item)}
           {regular.length > 0 && destructive.length > 0 && (
             <div role="separator" className="mx-1 my-1 border-t border-line" />

@@ -380,7 +380,16 @@
       "moveMoney": "Move money…",
       "coverOverspending": "Cover overspending…",
       "archive": "Archive",
+      "groupColor": "Colour of the group",
       "deleteGroup": "Delete group"
+    },
+    "colors": {
+      "blue": "Blue",
+      "orange": "Orange",
+      "aqua": "Aqua",
+      "yellow": "Yellow",
+      "magenta": "Magenta",
+      "violet": "Violet"
     },
     "icons": {
       "choose": "Choose an icon for {{name}}",
