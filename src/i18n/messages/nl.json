@@ -108,7 +108,7 @@
       "in": "Bij",
       "category": "Categorie",
       "note": "Notitie",
-      "split": "Splitsen",
+      "split": "Splitsen over categorieën",
       "partCategory": "Categorie van deel {{n}}",
       "partAmount": "Bedrag van deel {{n}}",
       "removePart": "Deel {{n}} verwijderen",
@@ -119,7 +119,9 @@
       "add": "Toevoegen",
       "save": "Opslaan",
       "cancel": "Annuleren",
-      "importedTip": "Zoals in het bankbestand. Wil je dit wijzigen, verwijder de transactie dan en voeg hem zelf toe."
+      "importedTip": "Zoals in het bankbestand. Wil je dit wijzigen, verwijder de transactie dan en voeg hem zelf toe.",
+      "takeRest": "Neem het restant van {{amount}}",
+      "takeRestLabel": "Deel {{n}} neemt het restant van {{amount}}"
     }
   },
   "accounts": {

@@ -74,6 +74,32 @@ test("adds a split payment by hand, and counts each part in its own category", a
   await expect(available(page, "Household")).toHaveText(/12\.50$/);
 });
 
+test("a part takes the remaining amount with one press", async ({ page }) => {
+  await page.getByRole("button", { name: "Add transaction" }).click();
+  const form = addForm(page);
+  await form.getByLabel("Payee").fill("Market stall");
+  await form.getByLabel("Amount", { exact: true }).fill("64.20");
+  // The split button is an icon: its name is its tip.
+  await form.getByRole("button", { name: "Split over categories" }).click();
+  await form.getByLabel("Category of part 1").selectOption({ label: "Groceries" });
+  await form.getByLabel("Category of part 2").selectOption({ label: "Household" });
+  await form.getByLabel("Amount of part 1").fill("50");
+  await expect(form.getByText("€14.20 left to split")).toBeVisible();
+
+  // Nothing to take for a part that already has what the others leave.
+  await expect(form.getByRole("button", { name: /^Part 1 takes/ })).toBeVisible();
+  const take = form.getByRole("button", { name: "Part 2 takes the remaining €14.20" });
+  await take.click();
+  await expect(form.getByLabel("Amount of part 2")).toHaveValue("14.20");
+  await expect(form.getByLabel("Amount of part 2")).toBeFocused();
+  await expect(form.getByText("left to split")).toHaveCount(0);
+  await expect(form.getByRole("button", { name: /takes the remaining/ })).toHaveCount(0);
+
+  await form.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(form).toBeHidden();
+  await expect(page.getByRole("row").filter({ hasText: /^Household-14\.20$/ })).toBeVisible();
+});
+
 test("narrowed to a category, a split counts with its part in that category", async ({ page }) => {
   await addSplit(page);
   await page

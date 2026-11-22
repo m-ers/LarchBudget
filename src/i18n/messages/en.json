@@ -108,7 +108,7 @@
       "in": "In",
       "category": "Category",
       "note": "Note",
-      "split": "Split",
+      "split": "Split over categories",
       "partCategory": "Category of part {{n}}",
       "partAmount": "Amount of part {{n}}",
       "removePart": "Remove part {{n}}",
@@ -119,7 +119,9 @@
       "add": "Add",
       "save": "Save",
       "cancel": "Cancel",
-      "importedTip": "As in the bank file. To change it, delete the transaction and add it yourself."
+      "importedTip": "As in the bank file. To change it, delete the transaction and add it yourself.",
+      "takeRest": "Take the remaining {{amount}}",
+      "takeRestLabel": "Part {{n}} takes the remaining {{amount}}"
     }
   },
   "accounts": {

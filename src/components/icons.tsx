@@ -104,6 +104,21 @@ export const PencilIcon = (props: SVGProps<SVGSVGElement>) => (
   </Icon>
 );
 
+/** One line that forks in two, with an arrowhead on each: "divide this". */
+export const SplitIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M12 21v-7.5a3 3 0 0 0-.9-2.1L5 5.5M12 13.5a3 3 0 0 1 .9-2.1L19 5.5" />
+    <path d="M5 10.5v-5h5M19 10.5v-5h-5" />
+  </Icon>
+);
+
+/** Two level lines, =: "make it come out even". */
+export const EqualsIcon = (props: SVGProps<SVGSVGElement>) => (
+  <Icon {...props}>
+    <path d="M6 9.5h12M6 14.5h12" />
+  </Icon>
+);
+
 export const CheckIcon = (props: SVGProps<SVGSVGElement>) => (
   <Icon {...props}>
     <path d="m5 12.5 4.5 4.5L19 7.5" />

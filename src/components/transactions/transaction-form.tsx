@@ -11,7 +11,7 @@ import { useDateLocale, useT } from "@/i18n/client";
 import { formatDate, today, type IsoDate } from "@/lib/dates";
 import { formatMoney, parseMoney, toInputValue } from "@/lib/money";
 import { ErrorText, Field, field, primaryButton, selectField, sizedField } from "../form";
-import { InfoIcon, PlusIcon } from "../icons";
+import { EqualsIcon, InfoIcon, PlusIcon, SplitIcon } from "../icons";
 import { useSave } from "../use-save";
 import { AccountChoices, CategoryChoices } from "./category-choices";
 
@@ -396,42 +396,79 @@ export function TransactionForm(props: Props) {
             <>
               <span>{t("transactions.form.category")}</span>
               <ul className="flex flex-col gap-1.5">
-                {parts.map((part, i) => (
-                  <li key={part.key} className="flex items-center gap-1.5">
-                    <select
-                      aria-label={t("transactions.form.partCategory", { n: i + 1 })}
-                      value={part.category}
-                      onChange={(e) => changePart(part.key, { category: e.target.value })}
-                      className={`${sizedField} h-[38px] min-w-0 flex-1 px-2.5 ${part.category === NOT_CHOSEN ? "text-muted" : ""}`}
-                    >
-                      <option value={NOT_CHOSEN} disabled>
-                        {t("transactions.picker.choose")}
-                      </option>
-                      {options}
-                    </select>
-                    <input
-                      aria-label={t("transactions.form.partAmount", { n: i + 1 })}
-                      inputMode="decimal"
-                      autoComplete="off"
-                      value={part.amount}
-                      onChange={(e) => changePart(part.key, { amount: e.target.value })}
-                      className={`${sizedField} w-28 shrink-0 px-2.5 text-right tabular-nums`}
-                    />
-                    <button
-                      type="button"
-                      aria-label={t("transactions.form.removePart", { n: i + 1 })}
-                      title={t("transactions.form.removePartTitle")}
-                      onClick={() => removePart(part.key)}
-                      className="grid size-[30px] shrink-0 place-items-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink"
-                    >
-                      <span aria-hidden="true" className="text-lg leading-none">
-                        ×
-                      </span>
-                    </button>
-                  </li>
-                ))}
+                {parts.map((part, i) => {
+                  // What this part would be if it took everything the other parts leave.
+                  const rest =
+                    total === null
+                      ? null
+                      : total -
+                        parts.reduce(
+                          (sum, other) =>
+                            other.key === part.key ? sum : sum + (read(other.amount) ?? 0),
+                          0,
+                        );
+                  const canTakeRest =
+                    rest !== null && rest > 0 && rest !== (read(part.amount) ?? 0);
+                  return (
+                    <li key={part.key} className="flex items-center gap-1.5">
+                      <select
+                        aria-label={t("transactions.form.partCategory", { n: i + 1 })}
+                        value={part.category}
+                        onChange={(e) => changePart(part.key, { category: e.target.value })}
+                        className={`${sizedField} h-[38px] min-w-0 flex-1 px-2.5 ${part.category === NOT_CHOSEN ? "text-muted" : ""}`}
+                      >
+                        <option value={NOT_CHOSEN} disabled>
+                          {t("transactions.picker.choose")}
+                        </option>
+                        {options}
+                      </select>
+                      <input
+                        aria-label={t("transactions.form.partAmount", { n: i + 1 })}
+                        inputMode="decimal"
+                        autoComplete="off"
+                        value={part.amount}
+                        data-part-amount={part.key}
+                        onChange={(e) => changePart(part.key, { amount: e.target.value })}
+                        className={`${sizedField} w-28 shrink-0 px-2.5 text-right tabular-nums`}
+                      />
+                      {/* Hidden, not removed, when it would change nothing, so the row keeps its shape. */}
+                      <button
+                        type="button"
+                        aria-label={t("transactions.form.takeRestLabel", {
+                          n: i + 1,
+                          amount: formatMoney(rest ?? 0, currency, locale),
+                        })}
+                        title={t("transactions.form.takeRest", {
+                          amount: formatMoney(rest ?? 0, currency, locale),
+                        })}
+                        onClick={() => {
+                          if (rest === null) return;
+                          changePart(part.key, { amount: toInputValue(rest, currency, locale) });
+                          // The button goes away once it has been used: the focus stays in the row.
+                          form.current
+                            ?.querySelector<HTMLInputElement>(`[data-part-amount="${part.key}"]`)
+                            ?.focus();
+                        }}
+                        className={`grid size-[30px] shrink-0 place-items-center rounded-md text-brand transition-colors hover:bg-hover ${canTakeRest ? "" : "invisible"}`}
+                      >
+                        <EqualsIcon />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={t("transactions.form.removePart", { n: i + 1 })}
+                        title={t("transactions.form.removePartTitle")}
+                        onClick={() => removePart(part.key)}
+                        className="grid size-[30px] shrink-0 place-items-center rounded-md text-muted transition-colors hover:bg-hover hover:text-ink"
+                      >
+                        <span aria-hidden="true" className="text-lg leading-none">
+                          ×
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
-              <div className="flex items-center justify-between gap-3 pr-9 font-normal">
+              <div className="flex items-center justify-between gap-3 pr-[72px] font-normal">
                 <button
                   type="button"
                   onClick={addPart}
@@ -476,9 +513,11 @@ export function TransactionForm(props: Props) {
                 <button
                   type="button"
                   onClick={split}
-                  className="h-[38px] shrink-0 rounded-[9px] px-2.5 text-[14px] font-medium text-brand transition-colors hover:bg-hover"
+                  aria-label={t("transactions.form.split")}
+                  title={t("transactions.form.split")}
+                  className="grid size-[38px] shrink-0 place-items-center rounded-[9px] border border-line text-brand transition-colors hover:bg-hover focus-visible:border-brand focus-visible:outline-none"
                 >
-                  {t("transactions.form.split")}
+                  <SplitIcon />
                 </button>
               </div>
             </>
