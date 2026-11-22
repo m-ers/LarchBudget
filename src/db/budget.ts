@@ -489,6 +489,17 @@ export function moveMoney(
   });
 }
 
+/** Whether a category exists and is not archived, so something can be sorted into it. */
+export function categoryOpen(db: Db, id: number): boolean {
+  return (
+    db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(and(eq(categories.id, id), eq(categories.archived, false)))
+      .all().length > 0
+  );
+}
+
 /** True when a visible category other than `exceptId` already uses this name (case-insensitive). */
 function categoryNameTaken(db: Db, name: string, exceptId?: number): boolean {
   const rows = db.all<{ id: number }>(sql`

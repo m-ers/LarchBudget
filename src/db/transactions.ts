@@ -1,15 +1,18 @@
 import { createHash } from "node:crypto";
-import { and, desc, eq, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 import { addMonths, monthStart, type IsoDate, type Month } from "../lib/dates";
+import { buildMatcher } from "../lib/rules";
 import type { Cursor, TransactionFilter } from "../lib/transactions-address";
 import { byName, syncStartingBalance } from "./accounts";
-import { UNGROUPED } from "./budget";
+import { UNGROUPED, categoryOpen } from "./budget";
+import { usableRules } from "./rules";
 import type { Db } from "./index";
 import {
   accounts,
   categories,
   categoryGroups,
   deletedImports,
+  sortingRules,
   transactionSplits,
   transactions,
 } from "./schema";
@@ -46,6 +49,8 @@ function fingerprint(raw: string, occurrence: number): string {
 
 export type ImportOutcome = {
   imported: number;
+  /** How many of the imported rows a sorting rule sorted at once; the others are still to sort. */
+  byRules: number;
   duplicates: number;
   /**
    * How many of the imported rows are dated on or before the account's
@@ -61,7 +66,8 @@ export type ImportOutcome = {
 /**
  * Adds a bank file's rows to an account. Rows that were imported before are
  * skipped, and so are rows that were deleted by hand, so files may overlap.
- * New rows are marked "to sort". Returns null,
+ * New rows are sorted by the first sorting rule that fits them, and the rest
+ * are marked "to sort". Returns null,
  * and changes nothing, when the account does not exist or is archived.
  */
 export function importTransactions(
@@ -88,7 +94,10 @@ export function importTransactions(
         amount: sql.placeholder("amount"),
         payee: sql.placeholder("payee"),
         note: sql.placeholder("note"),
-        toSort: true,
+        categoryId: sql.placeholder("categoryId"),
+        // 1 or 0: a placeholder is handed to SQLite as it is, and it takes no boolean.
+        toSort: sql.placeholder("toSort"),
+        ruleId: sql.placeholder("ruleId"),
         importId: sql.placeholder("importId"),
         importBatch: batch,
       })
@@ -105,27 +114,35 @@ export function importTransactions(
         .map((entry) => entry.importId),
     );
 
+    const findRule = buildMatcher(usableRules(tx));
     const seen = new Map<string, number>();
     let imported = 0;
+    let byRules = 0;
     let beforeBalance = 0;
     for (const row of rows) {
       const occurrence = (seen.get(row.raw) ?? 0) + 1;
       seen.set(row.raw, occurrence);
       const importId = fingerprint(row.raw, occurrence);
       if (deleted.has(importId)) continue;
+      const rule = findRule(row.payee, row.note);
       const added = insert.run({
         date: row.date,
         amount: row.amount,
         payee: row.payee,
         note: row.note,
+        categoryId: rule?.categoryId ?? null,
+        toSort: rule ? 0 : 1,
+        ruleId: rule?.id ?? null,
         importId,
       }).changes;
       imported += added;
+      if (rule) byRules += added;
       if (added > 0 && balanceDate !== null && row.date <= balanceDate) beforeBalance += 1;
     }
     syncStartingBalance(tx, accountId);
     return {
       imported,
+      byRules,
       duplicates: rows.length - imported,
       beforeBalance,
       startingBalance,
@@ -137,7 +154,8 @@ export function importTransactions(
 /**
  * Removes everything one import added, as long as none of it has been sorted
  * yet. Once work has gone into those transactions, `sorted` says how many and
- * nothing is removed. Nothing is removed from an account that was closed
+ * nothing is removed. What a sorting rule sorted is no work of anyone's, so
+ * it does not stop the import from being undone. Nothing is removed from an account that was closed
  * since, either (`closed`).
  */
 export function undoImport(
@@ -148,7 +166,13 @@ export function undoImport(
     const sorted = tx
       .select({ id: transactions.id })
       .from(transactions)
-      .where(and(eq(transactions.importBatch, batch), eq(transactions.toSort, false)))
+      .where(
+        and(
+          eq(transactions.importBatch, batch),
+          eq(transactions.toSort, false),
+          isNull(transactions.ruleId),
+        ),
+      )
       .all().length;
     if (sorted > 0) return { removed: 0, sorted, closed: false };
 
@@ -189,6 +213,9 @@ export type TransactionRow = {
   category: string | null;
   categoryArchived: boolean;
   toSort: boolean;
+  /** The sorting rule that put it where it is, and that rule's text; null when nobody's rule did. */
+  ruleId: number | null;
+  rule: string | null;
   /** The account's "Starting balance" row, which is not sorted into a category. */
   starting: boolean;
   /** Came from a bank file: its date and amount stay as the bank has them. */
@@ -272,6 +299,8 @@ export function listTransactions(
       category: categories.name,
       categoryArchived: sql<boolean>`coalesce(${categories.archived}, 0)`.mapWith(Boolean),
       toSort: transactions.toSort,
+      ruleId: transactions.ruleId,
+      rule: sortingRules.text,
       starting: transactions.starting,
       imported: sql<boolean>`${transactions.importId} IS NOT NULL`.mapWith(Boolean),
       split: transactions.split,
@@ -279,6 +308,7 @@ export function listTransactions(
     .from(transactions)
     .innerJoin(accounts, eq(accounts.id, transactions.accountId))
     .leftJoin(categories, eq(categories.id, transactions.categoryId))
+    .leftJoin(sortingRules, eq(sortingRules.id, transactions.ruleId))
     .where(and(...conditions))
     .orderBy(desc(transactions.date), desc(transactions.id))
     .limit(options.limit)
@@ -420,29 +450,21 @@ export function sortTransaction(db: Db, id: number, target: SortTarget): SortRes
   });
 }
 
-/** Whether a category exists and is not archived, so something can be sorted into it. */
-function categoryOpen(db: Db, id: number): boolean {
-  return (
-    db
-      .select({ id: categories.id })
-      .from(categories)
-      .where(and(eq(categories.id, id), eq(categories.archived, false)))
-      .all().length > 0
-  );
-}
-
 /** Where a transaction goes: one place, or parts. Checked by the caller. */
 type Place = SortTarget | NewPart[];
 
 /** A part of a split as it is entered. Null for no category. */
 export type NewPart = { categoryId: number | null; amount: number };
 
-/** Puts a transaction in one place, or splits it into parts, replacing any parts it had. */
+/**
+ * Puts a transaction in one place, or splits it into parts, replacing any
+ * parts it had. It is then someone's choice, no longer a rule's.
+ */
 function writePlace(db: Db, id: number, place: Place): void {
   db.delete(transactionSplits).where(eq(transactionSplits.transactionId, id)).run();
   if (Array.isArray(place)) {
     db.update(transactions)
-      .set({ categoryId: null, toSort: false, split: true })
+      .set({ categoryId: null, toSort: false, split: true, ruleId: null })
       .where(eq(transactions.id, id))
       .run();
     db.insert(transactionSplits)
@@ -454,6 +476,7 @@ function writePlace(db: Db, id: number, place: Place): void {
         categoryId: typeof place === "number" ? place : null,
         toSort: place === "unsorted",
         split: false,
+        ruleId: null,
       })
       .where(eq(transactions.id, id))
       .run();
